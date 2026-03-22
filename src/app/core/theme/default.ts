@@ -8,6 +8,7 @@ import { tag } from "./tag";
 import { datatable } from "./datatable";
 import { multiselect } from "./multiselect";
 import { button } from "./button";
+import { menu } from "./menu";
 
 export const defaultTheme = definePreset(Aura, {
     primitive: {
@@ -348,9 +349,9 @@ export const defaultTheme = definePreset(Aura, {
             paddingX: "0.75rem",
             paddingY: "0.5rem",
             sm: {
-                fontSize: "0.75rem",
+                fontSize: "0.625rem",
                 paddingX: "0.75rem",
-                paddingY: "0.375rem"
+                paddingY: "0.25rem"
             },
             lg: {
                 fontSize: "1.125rem",
@@ -741,6 +742,7 @@ export const defaultTheme = definePreset(Aura, {
         divider,
         datatable,
         multiselect,
-        button
+        button,
+        menu
     }
 });

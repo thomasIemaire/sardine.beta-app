@@ -55,15 +55,14 @@ export interface Facet {
       .header-page-titles {
         display: flex;
         flex-direction: column;
-        gap: 0.25rem;
         
         .header-page-title {
-          font-size: 1.25rem;
+          font-size: 1.125rem;
           font-weight: 600;
         }
         
         .header-page-subtitle {
-          font-size: .875rem;
+          font-size: .75rem;
           color: var(--p-text-muted-color);
         }
       }
@@ -72,6 +71,10 @@ export interface Facet {
         display: flex;
         gap: 0.5rem;
       }
+    }
+
+    .header-page-actions {
+      margin-top: .5rem;
     }
   }`,
 })
