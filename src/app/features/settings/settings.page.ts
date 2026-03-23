@@ -1,10 +1,18 @@
 import { Component } from '@angular/core';
+import { ButtonModule } from 'primeng/button';
 import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
+import { ToolbarComponent } from '../../shared/components/toolbar/toolbar.component';
+
+interface FacetConfig {
+  searchPlaceholder: string;
+  actionLabel: string;
+  actionIcon: string;
+}
 
 @Component({
   selector: 'app-settings',
-  imports: [PageComponent, HeaderPageComponent],
+  imports: [ButtonModule, PageComponent, HeaderPageComponent, ToolbarComponent],
   template: `
     <app-page>
       <app-header-page
@@ -15,7 +23,17 @@ import { HeaderPageComponent, Facet } from '../../shared/components/header-page/
         (facetChange)="onFacetChange($event)"
       >
       </app-header-page>
+      <div class="settings-toolbar">
+        <app-toolbar [searchPlaceholder]="currentConfig.searchPlaceholder">
+          <p-button [label]="currentConfig.actionLabel" [icon]="currentConfig.actionIcon" rounded size="small" />
+        </app-toolbar>
+      </div>
     </app-page>
+  `,
+  styles: `
+    .settings-toolbar {
+      padding: 1rem;
+    }
   `,
 })
 export class SettingsPage {
@@ -25,7 +43,15 @@ export class SettingsPage {
     { id: 'services', label: 'Services' },
   ];
 
+  facetConfigs: Record<string, FacetConfig> = {
+    members: { searchPlaceholder: 'Rechercher un membre...', actionLabel: 'Ajouter un membre', actionIcon: 'fa-regular fa-user-plus' },
+    teams: { searchPlaceholder: 'Rechercher une équipe...', actionLabel: 'Ajouter une équipe', actionIcon: 'fa-regular fa-users-medical' },
+    services: { searchPlaceholder: 'Rechercher un service...', actionLabel: 'Ajouter un service', actionIcon: 'fa-regular fa-plus' },
+  };
+
+  currentConfig: FacetConfig = this.facetConfigs['members'];
+
   onFacetChange(facet: Facet): void {
-    console.log('Facet active:', facet.id);
+    this.currentConfig = this.facetConfigs[facet.id];
   }
 }

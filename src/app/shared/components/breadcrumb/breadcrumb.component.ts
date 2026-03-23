@@ -17,7 +17,7 @@ export interface BreadcrumbItem {
         <span class="breadcrumb-current">{{ item.label }}</span>
       }
       @if (!last) {
-        <span class="breadcrumb-separator">›</span>
+        <span class="breadcrumb-separator">{{ separator() }}</span>
       }
     }
   `,
@@ -36,6 +36,7 @@ export interface BreadcrumbItem {
     }
 
     .breadcrumb-separator {
+      font-size: .625rem;
       color: var(--p-text-muted-color);
     }
 
@@ -47,4 +48,5 @@ export interface BreadcrumbItem {
 })
 export class BreadcrumbComponent {
   items = input.required<BreadcrumbItem[]>();
+  separator = input<string>('>');
 }

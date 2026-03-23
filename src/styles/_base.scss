@@ -36,6 +36,14 @@ app-root {
   isolation: isolate;
 }
 
+.p-tooltip-text {
+  font-size: 0.6875rem !important;
+}
+
+.p-inputtext {
+  border-radius: .625rem !important;
+}
+
 p-breadcrumb .p-breadcrumb {
   background: transparent !important;
   padding: 0 !important;

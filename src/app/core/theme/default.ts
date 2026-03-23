@@ -9,6 +9,7 @@ import { datatable } from "./datatable";
 import { multiselect } from "./multiselect";
 import { button } from "./button";
 import { menu } from "./menu";
+import { tooltip } from "./tooltip";
 
 export const defaultTheme = definePreset(Aura, {
     primitive: {
@@ -743,6 +744,7 @@ export const defaultTheme = definePreset(Aura, {
         datatable,
         multiselect,
         button,
-        menu
+        menu,
+        tooltip
     }
 });

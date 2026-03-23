@@ -38,6 +38,7 @@ import { SidebarMenuItem } from './sidebar.models';
       display: flex;
       flex-direction: column;
       gap: 0.125rem;
+      cursor: pointer;
     }
   `,
 })

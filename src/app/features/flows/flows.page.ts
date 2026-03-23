@@ -2,10 +2,11 @@ import { Component } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
 import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
+import { ToolbarComponent } from '../../shared/components/toolbar/toolbar.component';
 
 @Component({
   selector: 'app-flows',
-  imports: [ButtonModule, PageComponent, HeaderPageComponent],
+  imports: [ButtonModule, PageComponent, HeaderPageComponent, ToolbarComponent],
   template: `
     <app-page>
       <app-header-page
@@ -17,7 +18,17 @@ import { HeaderPageComponent, Facet } from '../../shared/components/header-page/
       >
         <button pButton icon="fa-solid fa-book-blank" label="Documentation" severity="secondary" size="small" rounded action></button>
       </app-header-page>
+      <div class="flows-toolbar">
+        <app-toolbar searchPlaceholder="Rechercher un flow...">
+          <p-button label="Ajouter un flow" icon="fa-regular fa-plus" rounded size="small" [disabled]="isSharedFacet" />
+        </app-toolbar>
+      </div>
     </app-page>
+  `,
+  styles: `
+    .flows-toolbar {
+      padding: 1rem;
+    }
   `,
 })
 export class FlowsPage {
@@ -26,7 +37,9 @@ export class FlowsPage {
     { id: 'shared', label: 'Partagés avec moi' },
   ];
 
+  isSharedFacet = false;
+
   onFacetChange(facet: Facet): void {
-    console.log('Facet active:', facet.id);
+    this.isSharedFacet = facet.id === 'shared';
   }
 }

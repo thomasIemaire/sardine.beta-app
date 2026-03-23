@@ -4,13 +4,27 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map, startWith } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { BreadcrumbComponent, BreadcrumbItem } from '../../../shared/components/breadcrumb/breadcrumb.component';
+import { SidebarService } from '../sidebar/sidebar.service';
+import { Divider } from "primeng/divider";
 
 @Component({
   selector: 'app-header',
-  imports: [ButtonModule, BreadcrumbComponent],
+  imports: [ButtonModule, BreadcrumbComponent, Divider],
   template: `
     <header class="header">
-      <app-breadcrumb [items]="breadcrumb()" />
+      <div class="header-left">
+        <p-button
+          [icon]="sidebar.collapsed() ? 'fa-jelly-fill fa-regular fa-sidebar' : 'fa-jelly fa-regular fa-sidebar'"
+          severity="secondary"
+          [text]="true"
+          rounded
+          size="small"
+          aria-label="Toggle sidebar"
+          (onClick)="sidebar.toggle()"
+        />
+        <p-divider layout="vertical" />
+        <app-breadcrumb [items]="breadcrumb()" />
+      </div>
       <div class="header-user">
         <span class="header-notification-wrapper">
           <p-button icon="fa-jelly-fill fa-regular fa-bell" severity="secondary" [text]="true" rounded size="small" aria-label="Notifications" />
@@ -29,8 +43,18 @@ import { BreadcrumbComponent, BreadcrumbItem } from '../../../shared/components/
       align-items: center;
       justify-content: space-between;
       height: 48px;
-      padding-inline: 1rem;
+      padding-inline: .5rem 1rem;
       border-bottom: 1px solid var(--surface-border);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+
+      app-breadcrumb {
+        margin-top: .125rem;
+      }
     }
 
     .header-brand {
@@ -78,7 +102,10 @@ import { BreadcrumbComponent, BreadcrumbItem } from '../../../shared/components/
   `,
 })
 export class HeaderComponent {
+  sidebar = inject(SidebarService);
   private router = inject(Router);
+
+  private readonly organizationName = 'Mon Organisation';
 
   private readonly routeLabels: Record<string, string> = {
     '': 'Accueil',
@@ -96,7 +123,7 @@ export class HeaderComponent {
       startWith(null),
       map(() => {
         const segments = this.router.url.split('/').filter(Boolean);
-        const items: BreadcrumbItem[] = [{ label: 'Accueil', link: '/' }];
+        const items: BreadcrumbItem[] = [{ label: this.organizationName, link: '/' }];
         let path = '';
         for (const segment of segments) {
           path += '/' + segment;
@@ -113,6 +140,6 @@ export class HeaderComponent {
         return items;
       }),
     ),
-    { initialValue: [{ label: 'Accueil' }] as BreadcrumbItem[] },
+    { initialValue: [{ label: this.organizationName }] as BreadcrumbItem[] },
   );
 }

@@ -16,7 +16,7 @@ import { ToolbarComponent } from '../../shared/components/toolbar/toolbar.compon
       >
       </app-header-page>
       <div class="documents-breadcrumb">
-        <app-breadcrumb [items]="breadcrumb" />
+        <app-breadcrumb [items]="breadcrumb" separator="/" />
       </div>
       <div class="documents-toolbar">
         <app-toolbar searchPlaceholder="Rechercher dans les documents...">
@@ -28,8 +28,8 @@ import { ToolbarComponent } from '../../shared/components/toolbar/toolbar.compon
   `,
   styles: `
     .documents-breadcrumb {
-      padding: 0.625rem 2rem;
-      border-bottom: 1px solid var(--surface-border);
+      padding: 1rem;
+      padding-bottom: 0 !important;
     }
 
     .documents-toolbar {

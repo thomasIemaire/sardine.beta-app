@@ -65,7 +65,7 @@ export type ViewMode = 'list' | 'grid';
 
     :host ::ng-deep p-iconfield {
       .p-inputicon {
-        margin-top: -.4rem;
+        margin-top: -.35rem;
         font-size: 0.625rem;
       }
 
