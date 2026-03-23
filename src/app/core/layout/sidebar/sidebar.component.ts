@@ -55,10 +55,12 @@ import { SidebarService } from './sidebar.service';
 
         .sidebar-inner {
           visibility: hidden;
+          transition: visibility 0s 0.2s;
         }
 
         &:hover:has(.sidebar:hover) .sidebar-inner {
           visibility: visible;
+          transition: visibility 0s 0s;
         }
       }
     }
