@@ -4,10 +4,11 @@ import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent } from '../../shared/components/header-page/header-page.component';
 import { BreadcrumbComponent, BreadcrumbItem } from '../../shared/components/breadcrumb/breadcrumb.component';
 import { ToolbarComponent } from '../../shared/components/toolbar/toolbar.component';
+import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 
 @Component({
   selector: 'app-documents',
-  imports: [ButtonModule, PageComponent, HeaderPageComponent, BreadcrumbComponent, ToolbarComponent],
+  imports: [ButtonModule, PageComponent, HeaderPageComponent, BreadcrumbComponent, ToolbarComponent, EmptyStateComponent],
   template: `
     <app-page>
       <app-header-page
@@ -24,6 +25,11 @@ import { ToolbarComponent } from '../../shared/components/toolbar/toolbar.compon
         <p-button label="Importer un fichier" icon="fa-regular fa-cloud-arrow-up" rounded size="small" />
       </app-toolbar>
       </div>
+      <app-empty-state
+        icon="fa-jelly fa-regular fa-folder"
+        title="Aucun document"
+        subtitle="Importez votre premier fichier pour commencer."
+      />
     </app-page>
   `,
   styles: `

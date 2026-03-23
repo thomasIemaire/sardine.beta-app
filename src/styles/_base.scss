@@ -7,6 +7,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  font-family: "Poppins", sans-serif;
 
   ::after,
   ::before {
@@ -42,6 +43,42 @@ app-root {
 
 .p-inputtext {
   border-radius: .625rem !important;
+}
+
+.p-select,
+.p-multiselect,
+.p-select-option,
+.p-multiselect-option {
+  font-size: 0.75rem !important;
+}
+
+.p-datepicker,
+.p-datepicker-panel,
+p-datepicker {
+  font-size: 0.75rem !important;
+
+  * {
+    font-size: inherit !important;
+  }
+
+  .p-datepicker-day-cell {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  .p-datepicker-day {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  .p-datepicker-header {
+    padding: 0.25rem !important;
+
+    .p-icon {
+      width: 0.625rem !important;
+      height: 0.625rem !important;
+    }
+  }
 }
 
 p-breadcrumb .p-breadcrumb {

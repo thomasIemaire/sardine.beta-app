@@ -3,10 +3,11 @@ import { ButtonModule } from 'primeng/button';
 import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
 import { ToolbarComponent } from '../../shared/components/toolbar/toolbar.component';
+import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 
 @Component({
   selector: 'app-flows',
-  imports: [ButtonModule, PageComponent, HeaderPageComponent, ToolbarComponent],
+  imports: [ButtonModule, PageComponent, HeaderPageComponent, ToolbarComponent, EmptyStateComponent],
   template: `
     <app-page>
       <app-header-page
@@ -23,6 +24,11 @@ import { ToolbarComponent } from '../../shared/components/toolbar/toolbar.compon
           <p-button label="Ajouter un flow" icon="fa-regular fa-plus" rounded size="small" [disabled]="isSharedFacet" />
         </app-toolbar>
       </div>
+      <app-empty-state
+        icon="fa-light fa-chart-diagram"
+        title="Aucun flow disponible"
+        subtitle="Créez votre premier flow pour commencer."
+      />
     </app-page>
   `,
   styles: `

@@ -9,6 +9,7 @@ export interface Agent {
   percentage: number;
   createdAt: Date;
   creator: {
+    id: string;
     name: string;
     initials: string;
   };
