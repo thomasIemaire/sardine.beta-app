@@ -1,0 +1,67 @@
+.brand__container {
+    .brand__wrapper {
+        /* échelle par défaut */
+        --brand-scale: 1;
+
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: calc(.25rem * var(--brand-scale));
+
+        font-size: calc(20px * var(--brand-scale));
+        font-weight: 600;
+        text-transform: lowercase;
+        /* (optionnel) corrige font-style */
+        user-select: none;
+
+        .brand__left-part {
+            color: var(--p-primary-500);
+        }
+
+        .brand__right-part {
+            color: #fff;
+            letter-spacing: calc(-2px * var(--brand-scale));
+            padding: calc(.1rem * var(--brand-scale)) calc(.75rem * var(--brand-scale)) calc(.1rem * var(--brand-scale)) calc(.5rem * var(--brand-scale));
+            background-color: var(--p-primary-500);
+            border-radius: calc(2px * var(--brand-scale)) 0 calc(2px * var(--brand-scale)) calc(2px * var(--brand-scale));
+            position: relative;
+
+            --brand-corner-size: calc(.75rem * var(--brand-scale));
+
+            &::after,
+            &::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 0;
+                height: 0;
+            }
+
+            &::after {
+                border-radius: 0 0 0 calc(2px * var(--brand-scale));
+                border-bottom: var(--brand-corner-size) solid var(--brand-corner);
+                border-right: var(--brand-corner-size) solid transparent;
+            }
+
+            &::before {
+                border-top: var(--brand-corner-size) solid var(--background-color-50);
+                border-left: var(--brand-corner-size) solid transparent;
+            }
+        }
+
+        &.large {
+            --brand-scale: 1.5;
+        }
+    }
+}
+
+::ng-deep {
+    :root {
+        --brand-corner: #7dc6f1;
+    }
+
+    .dark-mode:root {
+        --brand-corner: #dc51d5;
+    }
+}

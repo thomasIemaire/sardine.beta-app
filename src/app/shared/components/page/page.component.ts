@@ -17,6 +17,9 @@ import { HeaderPageComponent } from '../header-page/header-page.component';
 
     .page {
       height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
   `,
 })

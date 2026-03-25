@@ -103,5 +103,8 @@
         "test": {}
       }
     }
+  },
+  "cli": {
+    "analytics": false
   }
 }

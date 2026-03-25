@@ -1,13 +1,14 @@
-import { Component, input, computed } from '@angular/core';
+import { Component, input } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
-import { ElementSizeDirective } from '../../directives/element-size.directive';
 
-export interface Agent {
+export type FlowStatus = 'success' | 'warn' | 'danger';
+
+export interface Flow {
   name: string;
   description: string;
-  percentage: number;
+  status: FlowStatus;
   createdAt: Date;
   creator: {
     id: string;
@@ -17,42 +18,40 @@ export interface Agent {
 }
 
 @Component({
-  selector: 'app-agent-card',
-  imports: [DatePipe, ButtonModule, TooltipModule, ElementSizeDirective],
+  selector: 'app-flow-card',
+  imports: [DatePipe, ButtonModule, TooltipModule],
   template: `
     @if (layout() === 'grid') {
       <div class="card">
         <div class="card-header">
           <div class="card-name-group">
-            <span class="card-name">{{ agent().name }}</span>
-            <span class="card-percentage" [attr.data-severity]="percentageSeverity()" pTooltip="Réussite d'extraction" tooltipPosition="right">{{ agent().percentage }}%</span>
+            <span class="card-status-dot" [attr.data-severity]="flow().status" [pTooltip]="statusLabel()" tooltipPosition="right"></span>
+            <span class="card-name">{{ flow().name }}</span>
           </div>
           <p-button icon="fa-regular fa-ellipsis-vertical" severity="secondary" [text]="true" rounded size="small" (onClick)="$event.stopPropagation()" />
         </div>
-        <p class="card-description">{{ agent().description }}</p>
+        <p class="card-description">{{ flow().description }}</p>
         <div class="card-footer">
           <div class="card-creator">
-            <span class="card-avatar">{{ agent().creator.initials }}</span>
-            <span class="card-creator-name">{{ agent().creator.name }}</span>
+            <span class="card-avatar">{{ flow().creator.initials }}</span>
+            <span class="card-creator-name">{{ flow().creator.name }}</span>
           </div>
-          <span class="card-date">Créé le {{ agent().createdAt | date: 'dd/MM/yyyy' }}</span>
+          <span class="card-date">Créé le {{ flow().createdAt | date: 'dd/MM/yyyy' }}</span>
         </div>
       </div>
     } @else {
-      <div class="row" [appElementSize]="{ compact: 550 }">
+      <div class="row">
+        <span class="card-status-dot" [attr.data-severity]="flow().status" [pTooltip]="statusLabel()" tooltipPosition="right"></span>
         <div class="row-main">
-          <div class="row-name-group">
-            <span class="card-name">{{ agent().name }}</span>
-            <span class="card-percentage" [attr.data-severity]="percentageSeverity()" pTooltip="Réussite d'extraction" tooltipPosition="right">{{ agent().percentage }}%</span>
-          </div>
-          <span class="row-description">{{ agent().description }}</span>
+          <span class="card-name">{{ flow().name }}</span>
+          <span class="row-description">{{ flow().description }}</span>
         </div>
         <div class="row-meta">
           <div class="card-creator">
-            <span class="card-avatar">{{ agent().creator.initials }}</span>
-            <span class="card-creator-name">{{ agent().creator.name }}</span>
+            <span class="card-avatar">{{ flow().creator.initials }}</span>
+            <span class="card-creator-name">{{ flow().creator.name }}</span>
           </div>
-          <span class="card-date">{{ agent().createdAt | date: 'dd/MM/yyyy' }}</span>
+          <span class="card-date">{{ flow().createdAt | date: 'dd/MM/yyyy' }}</span>
           <p-button icon="fa-regular fa-ellipsis-vertical" severity="secondary" [text]="true" rounded size="small" (onClick)="$event.stopPropagation()" />
         </div>
       </div>
@@ -89,6 +88,32 @@ export interface Agent {
       min-width: 0;
     }
 
+    @keyframes ripple {
+      0% { transform: scale(1); opacity: 0.6; }
+      100% { transform: scale(3); opacity: 0; }
+    }
+
+    .card-status-dot {
+      position: relative;
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 100%;
+      flex-shrink: 0;
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background-color: var(--pulsing-color);
+        animation: ripple 2s ease-out infinite;
+      }
+
+      &[data-severity='success'] { background: var(--green-color-500); --pulsing-color: var(--green-color-500); }
+      &[data-severity='warn']    { background: var(--yellow-color-500); --pulsing-color: var(--yellow-color-500); }
+      &[data-severity='danger']  { background: var(--red-color-500);   --pulsing-color: var(--red-color-500); }
+    }
+
     .card-name {
       font-size: 0.875rem;
       font-weight: 600;
@@ -96,33 +121,6 @@ export interface Agent {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-
-    .card-percentage {
-      font-size: 0.625rem;
-      font-weight: 600;
-      padding: 0.125rem 0.5rem;
-      border-radius: 2rem;
-      white-space: nowrap;
-      flex-shrink: 0;
-
-      &[data-severity='success'] {
-        background: var(--green-color-200);
-        border: 1px solid var(--green-color-300);
-        color: var(--green-color-700);
-      }
-
-      &[data-severity='warn'] {
-        background: var(--yellow-color-200);
-        border: 1px solid var(--yellow-color-300);
-        color: var(--yellow-color-700);
-      }
-
-      &[data-severity='danger'] {
-        background: var(--red-color-200);
-        border: 1px solid var(--red-color-300);
-        color: var(--red-color-700);
-      }
     }
 
     .card-description {
@@ -194,12 +192,6 @@ export interface Agent {
       min-width: 0;
     }
 
-    .row-name-group {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
     .row-description {
       font-size: 0.75rem;
       color: var(--p-text-muted-color);
@@ -214,18 +206,17 @@ export interface Agent {
       gap: 1rem;
       flex-shrink: 0;
     }
-
-    .row.compact .card-creator-name { display: none; }
   `,
 })
-export class AgentCardComponent {
-  agent = input.required<Agent>();
+export class FlowCardComponent {
+  flow = input.required<Flow>();
   layout = input<'grid' | 'list'>('grid');
 
-  percentageSeverity = computed(() => {
-    const p = this.agent().percentage;
-    if (p >= 70) return 'success';
-    if (p >= 40) return 'warn';
-    return 'danger';
-  });
+  statusLabel(): string {
+    switch (this.flow().status) {
+      case 'success': return 'Opérationnel';
+      case 'warn': return 'Dégradé';
+      case 'danger': return 'En erreur';
+    }
+  }
 }

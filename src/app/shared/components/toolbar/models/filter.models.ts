@@ -18,3 +18,16 @@ export interface ActiveFilter {
   label: string;
   value: any;
 }
+
+export type SortDirection = 'asc' | 'desc';
+
+export interface SortDefinition {
+  id: string;
+  label: string;
+}
+
+export interface ActiveSort {
+  definitionId: string;
+  label: string;
+  direction: SortDirection;
+}

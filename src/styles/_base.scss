@@ -41,7 +41,9 @@ app-root {
   font-size: 0.6875rem !important;
 }
 
-.p-inputtext {
+.p-inputtext,
+.p-select,
+.p-select-option {
   border-radius: .625rem !important;
 }
 
@@ -77,6 +79,34 @@ p-datepicker {
     .p-icon {
       width: 0.625rem !important;
       height: 0.625rem !important;
+    }
+  }
+}
+
+.p-paginator {
+  justify-content: flex-end !important;
+  .p-paginator-page,
+  .p-paginator-first,
+  .p-paginator-prev,
+  .p-paginator-next,
+  .p-paginator-last {
+    min-width: 1.75rem !important;
+    height: 1.75rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .p-select {
+    height: 1.75rem !important;
+
+    .p-select-label {
+      padding-top: 0.25rem !important;
+      padding-bottom: 0.25rem !important;
+      line-height: 1.25rem !important;
+      font-size: 0.75rem !important;
+    }
+
+    .p-select-dropdown {
+      width: 2rem !important;
     }
   }
 }

@@ -1,6 +1,7 @@
 import { Component, effect, inject, input, model, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { ElementSizeDirective } from '../../directives/element-size.directive';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { IconFieldModule } from 'primeng/iconfield';
@@ -8,27 +9,27 @@ import { InputIconModule } from 'primeng/inputicon';
 import { DividerModule } from 'primeng/divider';
 import { Chip } from 'primeng/chip';
 import { Popover } from 'primeng/popover';
-import { FilterDefinition, ActiveFilter } from './models/filter.models';
+import { TooltipModule } from 'primeng/tooltip';
+import { FilterDefinition, ActiveFilter, SortDefinition, ActiveSort } from './models/filter.models';
 import { ToolbarFilterPopoverComponent } from './components/toolbar-filter-popover/toolbar-filter-popover.component';
+import { ToolbarSortPopoverComponent } from './components/toolbar-sort-popover/toolbar-sort-popover.component';
 
 export type ViewMode = 'list' | 'grid';
 
-export type { FilterDefinition, ActiveFilter } from './models/filter.models';
+export type { FilterDefinition, ActiveFilter, SortDefinition, ActiveSort } from './models/filter.models';
 
 @Component({
   selector: 'app-toolbar',
-  imports: [FormsModule, ButtonModule, InputTextModule, IconFieldModule, InputIconModule, DividerModule, Chip, Popover, ToolbarFilterPopoverComponent],
+  imports: [FormsModule, ButtonModule, InputTextModule, IconFieldModule, InputIconModule, DividerModule, Chip, Popover, TooltipModule, ToolbarFilterPopoverComponent, ToolbarSortPopoverComponent, ElementSizeDirective],
   template: `
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <p-iconfield>
-          <p-inputicon class="fa-regular fa-magnifying-glass"/>
-          <input pInputText pSize="small" type="text" [placeholder]="searchPlaceholder()" [ngModel]="search()" (ngModelChange)="onSearchChange($event)" />
-        </p-iconfield>
+    <div class="toolbar" [appElementSize]="{ compact: 700 }">
+      <p-iconfield class="toolbar-search">
+        <p-inputicon class="fa-regular fa-magnifying-glass"/>
+        <input pInputText pSize="small" type="text" [placeholder]="searchPlaceholder()" [ngModel]="search()" (ngModelChange)="onSearchChange($event)" />
+      </p-iconfield>
 
+      <div class="toolbar-controls">
         @if (filterDefinitions().length > 0) {
-          <p-divider layout="vertical" />
-
           <p-button
             icon="fa-regular fa-filter"
             label="Filtrer"
@@ -40,11 +41,24 @@ export type { FilterDefinition, ActiveFilter } from './models/filter.models';
           />
         }
 
+        @if (sortDefinitions().length > 0) {
+          <p-button
+            icon="fa-regular fa-arrow-down-a-z"
+            label="Trier"
+            severity="secondary"
+            [text]="true"
+            size="small"
+            rounded
+            (onClick)="sortPopover.toggle($event)"
+          />
+        }
+
         <p-divider layout="vertical" />
 
         <p-button
           [icon]="viewMode() === 'list' ? 'fa-regular fa-grid-2' : 'fa-regular fa-list'"
-          [label]="viewMode() === 'list' ? 'Vue en carte' : 'Vue en liste'"
+          [pTooltip]="viewMode() === 'list' ? 'Vue en carte' : 'Vue en liste'"
+          tooltipPosition="right"
           severity="secondary"
           [text]="true"
           size="small"
@@ -53,32 +67,44 @@ export type { FilterDefinition, ActiveFilter } from './models/filter.models';
         />
       </div>
 
-      <p-popover #filterPopover appendTo="body">
-        <app-toolbar-filter-popover
-          [definitions]="filterDefinitions()"
-          [activeFilters]="filters()"
-          (filterConfirmed)="addFilter($event); filterPopover.hide()"
-        />
-      </p-popover>
-
       <div class="toolbar-right">
         <ng-content />
       </div>
     </div>
 
-    @if (filters().length > 0) {
+    <!-- Popovers hors du flex/grid container pour ne pas perturber le layout -->
+    <p-popover #filterPopover appendTo="body">
+      <app-toolbar-filter-popover
+        [definitions]="filterDefinitions()"
+        [activeFilters]="filters()"
+        (filterConfirmed)="addFilter($event); filterPopover.hide()"
+      />
+    </p-popover>
+
+    <p-popover #sortPopover appendTo="body">
+      <app-toolbar-sort-popover
+        [definitions]="sortDefinitions()"
+        [activeSorts]="sorts()"
+        (sortConfirmed)="addSort($event); sortPopover.hide()"
+      />
+    </p-popover>
+
+    @if (filters().length > 0 || sorts().length > 0) {
       <div class="toolbar-filters">
+        @for (sort of sorts(); track sort.definitionId) {
+          <p-chip [label]="sort.label" [removable]="true" (onRemove)="removeSort(sort)" />
+        }
         @for (filter of filters(); track filter.definitionId) {
           <p-chip [label]="filter.label" [removable]="true" (onRemove)="removeFilter(filter)" />
         }
-        @if (filters().length > 2) {
+        @if (filters().length + sorts().length > 2) {
           <p-button
-            label="Supprimer tous les filtres"
+            label="Tout effacer"
             icon="fa-regular fa-xmark"
             severity="danger"
             [text]="true"
             size="small"
-            (onClick)="clearFilters()"
+            (onClick)="clearAll()"
           />
         }
       </div>
@@ -88,26 +114,44 @@ export type { FilterDefinition, ActiveFilter } from './models/filter.models';
     .toolbar {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
-
-    .toolbar-left {
-      display: flex;
-      align-items: center;
       gap: 0.75rem;
     }
 
-    .toolbar-separator {
-      width: 1px;
-      height: 1.25rem;
-      background: var(--surface-border);
+    .toolbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
     }
 
     .toolbar-right {
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      margin-left: auto;
+    }
+
+    /* ── Mode compact : grid 2 lignes, alignement pixel-perfect ── */
+    .toolbar.compact {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
+      gap: 0.5rem;
+    }
+
+    .toolbar.compact .toolbar-search {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .toolbar.compact .toolbar-right {
+      grid-column: 2;
+      grid-row: 1;
+      margin-left: 0;
+    }
+
+    .toolbar.compact .toolbar-controls {
+      grid-column: 1 / -1;
+      grid-row: 2;
     }
 
     .toolbar-filters {
@@ -119,6 +163,9 @@ export type { FilterDefinition, ActiveFilter } from './models/filter.models';
     }
 
     :host ::ng-deep p-iconfield {
+      flex-shrink: 1;
+      min-width: 6rem;
+
       .p-inputicon {
         margin-top: -.35rem;
         font-size: 0.625rem;
@@ -126,6 +173,7 @@ export type { FilterDefinition, ActiveFilter } from './models/filter.models';
 
       .p-inputtext {
         width: 18rem;
+        max-width: 100%;
       }
     }
 
@@ -146,15 +194,18 @@ export class ToolbarComponent implements OnInit {
   viewMode = model<ViewMode>('list');
   filters = model<ActiveFilter[]>([]);
   filterDefinitions = input<FilterDefinition[]>([]);
+  sorts = model<ActiveSort[]>([]);
+  sortDefinitions = input<SortDefinition[]>([]);
 
   private skipUrlUpdate = false;
 
   constructor() {
     effect(() => {
       const filters = this.filters();
+      const sorts = this.sorts();
       const search = this.search();
       if (!this.skipUrlUpdate) {
-        this.syncToUrl(filters, search);
+        this.syncToUrl(filters, sorts, search);
       }
     });
   }
@@ -180,25 +231,35 @@ export class ToolbarComponent implements OnInit {
     this.filters.set(this.filters().filter((f) => f.definitionId !== filter.definitionId));
   }
 
-  clearFilters(): void {
-    this.filters.set([]);
+  addSort(sort: ActiveSort): void {
+    const existing = this.sorts().filter((s) => s.definitionId !== sort.definitionId);
+    this.sorts.set([...existing, sort]);
   }
 
-  private syncToUrl(filters: ActiveFilter[], search: string): void {
+  removeSort(sort: ActiveSort): void {
+    this.sorts.set(this.sorts().filter((s) => s.definitionId !== sort.definitionId));
+  }
+
+  clearAll(): void {
+    this.filters.set([]);
+    this.sorts.set([]);
+  }
+
+  private syncToUrl(filters: ActiveFilter[], sorts: ActiveSort[], search: string): void {
     const queryParams: Record<string, string | null> = {};
 
-    // Search
     queryParams['q'] = search || null;
 
-    // Clear all filter params first
     for (const def of this.filterDefinitions()) {
       queryParams[`f_${def.id}`] = null;
     }
-
-    // Set active filter params
     for (const filter of filters) {
       queryParams[`f_${filter.definitionId}`] = this.serializeValue(filter);
     }
+
+    queryParams['sort'] = sorts.length
+      ? sorts.map((s) => `${s.definitionId}:${s.direction}`).join(',')
+      : null;
 
     this.router.navigate([], {
       relativeTo: this.route,
@@ -210,30 +271,45 @@ export class ToolbarComponent implements OnInit {
 
   private restoreFromUrl(): void {
     const params = this.route.snapshot.queryParams;
-    const definitions = this.filterDefinitions();
 
-    // Restore search
     if (params['q']) {
       this.skipUrlUpdate = true;
       this.search.set(params['q']);
     }
 
-    // Restore filters
     const restored: ActiveFilter[] = [];
-    for (const def of definitions) {
+    for (const def of this.filterDefinitions()) {
       const raw = params[`f_${def.id}`];
       if (raw != null) {
         const filter = this.deserializeFilter(def, raw);
         if (filter) restored.push(filter);
       }
     }
-
     if (restored.length > 0) {
       this.skipUrlUpdate = true;
       this.filters.set(restored);
     }
 
-    // Re-enable URL sync on next tick
+    const sortParam = params['sort'];
+    if (sortParam) {
+      const restoredSorts: ActiveSort[] = [];
+      for (const part of sortParam.split(',')) {
+        const [id, dir] = part.split(':');
+        const def = this.sortDefinitions().find((d) => d.id === id);
+        if (def && (dir === 'asc' || dir === 'desc')) {
+          restoredSorts.push({
+            definitionId: id,
+            label: `${def.label} ${dir === 'asc' ? '↑' : '↓'}`,
+            direction: dir,
+          });
+        }
+      }
+      if (restoredSorts.length > 0) {
+        this.skipUrlUpdate = true;
+        this.sorts.set(restoredSorts);
+      }
+    }
+
     setTimeout(() => this.skipUrlUpdate = false);
   }
 

@@ -2,15 +2,16 @@ import { Component, inject } from '@angular/core';
 import { SidebarMenuComponent } from './sidebar-menu.component';
 import { SidebarMenu } from './sidebar.models';
 import { SidebarService } from './sidebar.service';
+import { BrandComponent } from '../.././../shared/components/brand/brand.component';
 
 @Component({
   selector: 'app-sidebar',
-  imports: [SidebarMenuComponent],
+  imports: [SidebarMenuComponent, BrandComponent],
   template: `
     <div class="sidebar-outer" [class.collapsed]="sidebarService.collapsed()">
       <aside class="sidebar">
         <div class="sidebar-inner">
-          <div class="sidebar-brand">Sardine Beta</div>
+          <div class="sidebar-brand"><app-brand /></div>
 
           <div class="sidebar-nav">
             @for (menu of menus; track menu.title) {
@@ -86,11 +87,13 @@ import { SidebarService } from './sidebar.service';
     .sidebar-brand {
       display: flex;
       align-items: center;
+      justify-content: center;
       height: 48px;
       padding-inline: 1rem;
       font-weight: 700;
       font-size: 0.9375rem;
       white-space: nowrap;
+      margin-top: 2rem;
     }
 
     .sidebar-nav {
