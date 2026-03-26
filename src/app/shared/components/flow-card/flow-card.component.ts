@@ -1,5 +1,6 @@
-import { Component, input } from '@angular/core';
+import { Component, inject, input } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 
@@ -22,7 +23,7 @@ export interface Flow {
   imports: [DatePipe, ButtonModule, TooltipModule],
   template: `
     @if (layout() === 'grid') {
-      <div class="card">
+      <div class="card" (click)="navigate()">
         <div class="card-header">
           <div class="card-name-group">
             <span class="card-status-dot" [attr.data-severity]="flow().status" [pTooltip]="statusLabel()" tooltipPosition="right"></span>
@@ -40,7 +41,7 @@ export interface Flow {
         </div>
       </div>
     } @else {
-      <div class="row">
+      <div class="row" (click)="navigate()">
         <span class="card-status-dot" [attr.data-severity]="flow().status" [pTooltip]="statusLabel()" tooltipPosition="right"></span>
         <div class="row-main">
           <span class="card-name">{{ flow().name }}</span>
@@ -60,18 +61,38 @@ export interface Flow {
   styles: `
     /* ── Card (grid) ── */
     .card {
+      position: relative;
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
       padding: 0.5rem 1rem .875rem 1rem;
       border-radius: var(--radius-l);
       background: var(--background-color-50);
-      transition: border-color 0.15s ease;
       cursor: pointer;
+      transition: transform .1s ease-in-out;
 
-      &:hover {
-        border-color: var(--p-primary-color);
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: var(--radius-l);
+        background: var(--background-color-100);
+        z-index: -1;
+        transition: background .75s cubic-bezier(0.075, 0.82, 0.165, 1);
       }
+
+      &:hover::before {
+        background: var(--background-color-200);
+        animation: pulse 1.5s infinite;
+      }
+
+      &:active { transform: scale(0.98); }
+    }
+
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 var(--background-color-200); }
+      70%  { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
     }
 
     .card-header {
@@ -172,16 +193,29 @@ export interface Flow {
 
     /* ── Row (list) ── */
     .row {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 1rem;
       padding: 0.625rem 1rem;
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: transform .1s ease-in-out;
 
-      &:hover {
-        background: var(--background-color-100);
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: transparent;
+        z-index: -1;
+        transition: background .75s cubic-bezier(0.075, 0.82, 0.165, 1);
       }
+
+      &:hover::before {
+        background: var(--background-color-100);
+        animation: pulse 1.5s infinite;
+      }
+
+      &:active { transform: scale(0.98); }
     }
 
     .row-main {
@@ -209,8 +243,15 @@ export interface Flow {
   `,
 })
 export class FlowCardComponent {
+  private router = inject(Router);
+
   flow = input.required<Flow>();
   layout = input<'grid' | 'list'>('grid');
+
+  navigate(): void {
+    const id = this.flow().name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    this.router.navigate(['/flows', id]);
+  }
 
   statusLabel(): string {
     switch (this.flow().status) {

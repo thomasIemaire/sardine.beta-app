@@ -17,18 +17,20 @@ interface FacetConfig {
   template: `
     <app-page>
       <app-header-page
-        title="Paramètres"
+        title="Administration"
         subtitle="Gérez votre organisation"
         [facets]="facets"
         defaultFacetId="members"
         (facetChange)="onFacetChange($event)"
       >
       </app-header-page>
+      @if (currentConfig) {
       <div class="settings-toolbar">
         <app-toolbar [searchPlaceholder]="currentConfig.searchPlaceholder">
           <p-button [label]="currentConfig.actionLabel" [icon]="currentConfig.actionIcon" rounded size="small" />
         </app-toolbar>
       </div>
+      }
       <app-empty-state
         icon="fa-jelly fa-regular fa-gear"
         title="Aucun élément"
@@ -46,18 +48,19 @@ export class SettingsPage {
   facets: Facet[] = [
     { id: 'members', label: 'Membres' },
     { id: 'teams', label: 'Équipes' },
-    { id: 'services', label: 'Services' },
+    { id: 'organizations', label: 'Organisations' },
+    { id: 'settings', label: 'Paramètres' },
   ];
 
   facetConfigs: Record<string, FacetConfig> = {
     members: { searchPlaceholder: 'Rechercher un membre...', actionLabel: 'Ajouter un membre', actionIcon: 'fa-regular fa-user-plus' },
     teams: { searchPlaceholder: 'Rechercher une équipe...', actionLabel: 'Ajouter une équipe', actionIcon: 'fa-regular fa-users-medical' },
-    services: { searchPlaceholder: 'Rechercher un service...', actionLabel: 'Ajouter un service', actionIcon: 'fa-regular fa-plus' },
+    organizations: { searchPlaceholder: 'Rechercher une organisation...', actionLabel: 'Ajouter une organisation', actionIcon: 'fa-regular fa-plus' },
   };
 
-  currentConfig: FacetConfig = this.facetConfigs['members'];
+  currentConfig: FacetConfig | null = this.facetConfigs['members'];
 
   onFacetChange(facet: Facet): void {
-    this.currentConfig = this.facetConfigs[facet.id];
+    this.currentConfig = this.facetConfigs[facet.id] ?? null;
   }
 }

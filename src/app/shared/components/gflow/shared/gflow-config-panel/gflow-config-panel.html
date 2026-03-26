@@ -1,0 +1,39 @@
+@if (node) {
+@if (node.configComponent) {
+<app-config-base [title]="node.name || ''" [component]="node.configComponent" [componentInputs]="componentInputs"
+    [canDelete]="node.type !== 'start'" [docFragment]="node.type" (cancel)="cancel.emit()" (save)="save.emit()"
+    (delete)="delete.emit()" (configChange)="configChange.emit($event)" (docNavigate)="docNavigate.emit($event)">
+    <app-node-data-preview slot="before" [inputMap]="inputMap" />
+</app-config-base>
+} @else {
+<div class="config-panel__empty">
+    <em>Aucun panneau de configuration pour ce noeud.</em>
+    @if (node.type !== 'start') {
+    <p style="margin-top: 1rem;">
+        <p-button label="Supprimer le noeud" severity="danger" text size="small" icon="fa-jelly-fill fa-solid fa-trash"
+            (onClick)="delete.emit()" />
+    </p>
+    }
+</div>
+}
+} @else if (link) {
+<app-config-base title="Inspecter le lien" [component]="null" (cancel)="cancel.emit()" (save)="save.emit()"
+    (delete)="delete.emit()">
+    <div style="padding: 0.5rem;">
+        <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">Données
+            transportées
+            (Map)</label>
+        <div
+            style="background: var(--surface-100); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--surface-300); overflow: auto; max-height: 300px;">
+            <pre style="margin: 0; font-size: 0.75rem; font-family: monospace;">{{ link.map | json }}</pre>
+        </div>
+        <p style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted-color);">
+            Ce lien relie le noeud <strong>{{link.src.nodeId}}</strong> au noeud <strong>{{link.dst.nodeId}}</strong>.
+        </p>
+    </div>
+</app-config-base>
+} @else {
+<div class="config-panel__empty">
+    <em>Sélectionnez un élément pour afficher sa configuration.</em>
+</div>
+}

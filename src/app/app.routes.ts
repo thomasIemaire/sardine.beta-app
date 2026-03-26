@@ -20,7 +20,7 @@ export const routes: Routes = [
         loadChildren: () => import('./features/agents/agents.routes').then((m) => m.AGENTS_ROUTES),
       },
       {
-        path: 'taches',
+        path: 'tasks',
         loadChildren: () => import('./features/taches/taches.routes').then((m) => m.TACHES_ROUTES),
       },
       {
@@ -28,14 +28,18 @@ export const routes: Routes = [
         loadChildren: () => import('./features/documents/documents.routes').then((m) => m.DOCUMENTS_ROUTES),
       },
       {
-        path: 'corbeille',
+        path: 'trash',
         loadChildren: () => import('./features/corbeille/corbeille.routes').then((m) => m.CORBEILLE_ROUTES),
       },
       {
-        path: 'settings',
+        path: 'administration',
         loadChildren: () => import('./features/settings/settings.routes').then((m) => m.SETTINGS_ROUTES),
       },
     ],
+  },
+  {
+    path: 'flows/:id',
+    loadComponent: () => import('./features/flows/flow-editor.page').then((m) => m.FlowEditorPage),
   },
   {
     path: 'auth',

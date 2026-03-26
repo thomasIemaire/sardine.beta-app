@@ -1,0 +1,231 @@
+@if (view() === 'list') {
+<!-- ===== VUE LISTE ===== -->
+<div class="exec-panel__header">
+    <span class="exec-panel__header__title">Exécutions</span>
+    <p-button icon="fa-solid fa-xmark" severity="secondary" text rounded size="small" (onClick)="close.emit()" />
+</div>
+
+<div class="exec-panel__body">
+    @if (loading()) {
+    <div class="exec-list">
+        @for (i of [1,2,3,4]; track i) {
+        <div class="exec-item exec-item--skeleton">
+            <div class="exec-item__sk exec-item__sk--dot"></div>
+            <div class="exec-item__sk-lines">
+                <div class="exec-item__sk exec-item__sk--line"></div>
+                <div class="exec-item__sk exec-item__sk--sm"></div>
+            </div>
+        </div>
+        }
+    </div>
+    } @else if (!executions().length) {
+    <div class="exec-panel__empty">
+        <i class="fa-regular fa-clock"></i>
+        <span>Aucune exécution</span>
+    </div>
+    } @else {
+    <div class="exec-list">
+        @for (exec of executions(); track exec.id) {
+        <div class="exec-item" [class]="'exec-item--' + exec.status" (click)="selectExecution(exec)">
+            <div class="exec-item__status">
+                <i [class]="exec.status | execStatusIcon"></i>
+            </div>
+            <div class="exec-item__content">
+                <div class="exec-item__top">
+                    <span class="exec-item__label">{{ exec.status | execStatusLabel }}</span>
+                    <span class="exec-item__date">{{ formatDate(exec.created_at) }}</span>
+                </div>
+                <div class="exec-item__meta">
+                    <span class="exec-item__tag" [class.exec-item__tag--subflow]="exec.trigger_type === 'subflow'">
+                        <i [class]="exec.trigger_type === 'subflow' ? 'fa-solid fa-diagram-successor' : 'fa-solid fa-bolt'"></i>
+                        {{ getTriggerLabel(exec.trigger_type) }}
+                    </span>
+                    @if (getDuration(exec); as dur) {
+                    <span class="exec-item__tag">
+                        <i class="fa-regular fa-clock"></i>
+                        {{ dur }}
+                    </span>
+                    }
+                    @if (exec.triggered_by) {
+                    <span class="exec-item__tag">
+                        <i class="fa-solid fa-user"></i>
+                        {{ exec.triggered_by.first_name }}
+                    </span>
+                    }
+                </div>
+                @if (exec.error) {
+                <div class="exec-item__error">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    {{ exec.error }}
+                </div>
+                }
+            </div>
+        </div>
+        }
+    </div>
+    }
+</div>
+
+} @else {
+<!-- ===== VUE DÉTAIL ===== -->
+<div class="exec-panel__header">
+    <p-button icon="fa-solid fa-angle-left" severity="secondary" text rounded size="small" (onClick)="backToList()" />
+    <span class="exec-panel__header__title">
+        @if (selectedExec(); as exec) {
+            <i [class]="exec.status | execStatusIcon" style="margin-right: .25rem"></i>
+            {{ exec.status | execStatusLabel }}
+        }
+    </span>
+    <div class="exec-panel__header__actions">
+        @if (isRunning(selectedExec())) {
+        <p-button icon="fa-solid fa-stop" severity="danger" text rounded size="small"
+            pTooltip="Forcer l'arrêt" tooltipPosition="bottom"
+            [loading]="stoppingExecution()" [disabled]="stoppingExecution()"
+            (onClick)="stopExecution()" />
+        }
+        @if (nodeLogs().length) {
+        <p-button icon="fa-solid fa-download" severity="secondary" text rounded size="small"
+            pTooltip="Exporter les logs" tooltipPosition="bottom"
+            (onClick)="exportMenu.toggle($event)" />
+        <p-menu #exportMenu [model]="exportMenuItems" [popup]="true" appendTo="body" />
+        }
+        <p-button icon="fa-solid fa-xmark" severity="secondary" text rounded size="small" (onClick)="close.emit()" />
+    </div>
+</div>
+
+<div class="exec-panel__body">
+    @if (selectedExec(); as exec) {
+    <div class="exec-detail__summary">
+        <span class="exec-item__tag" [class.exec-item__tag--subflow]="exec.trigger_type === 'subflow'">
+            <i [class]="exec.trigger_type === 'subflow' ? 'fa-solid fa-diagram-successor' : 'fa-solid fa-bolt'"></i>
+            {{ getTriggerLabel(exec.trigger_type) }}
+        </span>
+        @if (getDuration(exec); as dur) {
+        <span class="exec-item__tag">
+            <i class="fa-regular fa-clock"></i>
+            {{ dur }}
+        </span>
+        }
+        @if (exec.triggered_by) {
+        <span class="exec-item__tag">
+            <i class="fa-solid fa-user"></i>
+            {{ exec.triggered_by.first_name }} {{ exec.triggered_by.last_name }}
+        </span>
+        }
+        <span class="exec-item__tag">
+            <i class="fa-regular fa-calendar"></i>
+            {{ formatDate(exec.created_at) }}
+        </span>
+    </div>
+    @if (exec.parent_execution_id) {
+    <button class="exec-detail__parent-link" (click)="openParentExecution()">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+        Voir l'exécution parente
+    </button>
+    }
+    }
+
+    @if (!loadingDetail() && nodeLogs().length) {
+    <div class="exec-search">
+        <i class="fa-solid fa-magnifying-glass exec-search__icon"></i>
+        <input type="text" class="exec-search__input" placeholder="Rechercher dans les logs..."
+            [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+        @if (searchQuery()) {
+        <button class="exec-search__clear" (click)="searchQuery.set('')">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        }
+    </div>
+    }
+
+    @if (loadingDetail()) {
+    <div class="exec-list">
+        @for (i of [1,2,3]; track i) {
+        <div class="exec-item exec-item--skeleton">
+            <div class="exec-item__sk exec-item__sk--dot"></div>
+            <div class="exec-item__sk-lines">
+                <div class="exec-item__sk exec-item__sk--line"></div>
+                <div class="exec-item__sk exec-item__sk--sm"></div>
+            </div>
+        </div>
+        }
+    </div>
+    } @else if (!nodeLogs().length) {
+    <div class="exec-panel__empty">
+        <i class="fa-solid fa-diagram-project"></i>
+        <span>Aucun détail disponible</span>
+    </div>
+    } @else {
+    <div class="exec-detail__timeline">
+        @for (log of filteredNodeLogs(); track log.id) {
+        <div class="node-log">
+            <div class="node-log__icon" [class]="'node-log__icon--' + log.status">
+                <i [class]="getNodeIcon(log.node_type)"></i>
+            </div>
+            <div class="node-log__content">
+                <div class="node-log__header">
+                    <span class="node-log__name">{{ getNodeName(log) }}</span>
+                    @if (log.duration_ms != null) {
+                    <span class="node-log__duration">{{ formatDuration(log.duration_ms) }}</span>
+                    }
+                </div>
+                <div class="node-log__status">
+                    <i [class]="log.status | execStatusIcon"></i>
+                    {{ log.status | execStatusLabel }}
+                </div>
+                @if (log.error) {
+                <div class="node-log__error">{{ log.error }}</div>
+                }
+                @if (hasChildExecution(log)) {
+                <button class="node-log__subflow-link" (click)="openChildExecution(log)">
+                    <i class="fa-solid fa-diagram-successor"></i>
+                    <span>{{ getChildFlowName(log) }}</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                </button>
+                }
+                @if (hasRangerFile(log)) {
+                <button class="node-log__subflow-link" (click)="openRangerFile(log)">
+                    <i class="fa-solid fa-file"></i>
+                    <span>Voir le fichier</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                </button>
+                }
+                @if (log.node_type === 'approval' && log.metadata) {
+                    @if (log.status === 'waiting' && log.metadata['approval_task_id']) {
+                    <div class="node-log__actions">
+                        <p-button label="Rejeter" size="small" severity="secondary" outlined
+                            [disabled]="processingApproval() === log.id"
+                            [loading]="processingApproval() === log.id"
+                            (onClick)="onReject(log)" />
+                        <p-button label="Approuver" size="small"
+                            [disabled]="processingApproval() === log.id"
+                            [loading]="processingApproval() === log.id"
+                            (onClick)="onApprove(log)" />
+                    </div>
+                    } @else if (log.metadata['responded_by']) {
+                    <div class="node-log__meta">
+                        Répondu par {{ log.metadata['responded_by'] }}
+                        @if (log.metadata['option_value']) {
+                        — {{ log.metadata['option_value'] }}
+                        }
+                    </div>
+                    }
+                }
+                @if (log.output_data && hasKeys(log.output_data)) {
+                <div class="node-log__data">
+                    <button class="node-log__data-toggle" (click)="toggleData(log.id, 'output')">
+                        <i class="fa-solid fa-chevron-right" [class.rotated]="isDataOpen(log.id, 'output')"></i>
+                        <span>Données du noeud</span>
+                    </button>
+                    @if (isDataOpen(log.id, 'output')) {
+                    <pre class="node-log__data-content">{{ log.output_data | json }}</pre>
+                    }
+                </div>
+                }
+            </div>
+        </div>
+        }
+    </div>
+    }
+</div>
+}

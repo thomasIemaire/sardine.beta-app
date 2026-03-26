@@ -26,45 +26,49 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
 
       <div class="agents-layout">
         <div class="agents-main">
-          <div class="agents-toolbar">
-            <app-toolbar searchPlaceholder="Rechercher un agent..." [(filters)]="filters" [(search)]="search" [filterDefinitions]="filterDefinitions" [(sorts)]="sorts" [sortDefinitions]="sortDefinitions" [(viewMode)]="viewMode">
-              <p-button label="Ajouter un agent" icon="fa-regular fa-plus" rounded size="small" [disabled]="isSharedFacet" />
-            </app-toolbar>
-          </div>
+          <div class="agents-body">
+            <div class="agents-toolbar">
+              <app-toolbar searchPlaceholder="Rechercher un agent..." [(filters)]="filters" [(search)]="search" [filterDefinitions]="filterDefinitions" [(sorts)]="sorts" [sortDefinitions]="sortDefinitions" [(viewMode)]="viewMode">
+                <p-button label="Ajouter un agent" icon="fa-regular fa-plus" rounded size="small" [disabled]="isSharedFacet" />
+              </app-toolbar>
+            </div>
 
-          <div class="agents-content" [class.list-mode]="viewMode === 'list'">
-            @if (filteredAgents.length > 0) {
-              @if (viewMode === 'grid') {
-                <div class="agents-grid">
-                  @for (agent of paginatedAgents; track agent.name) {
-                    <app-agent-card [agent]="agent" layout="grid" [class.selected]="selectedAgent === agent" (click)="selectAgent(agent)" />
-                  }
-                </div>
+            <div class="agents-content" [class.list-mode]="viewMode === 'list'">
+              @if (filteredAgents.length > 0) {
+                @if (viewMode === 'grid') {
+                  <div class="agents-grid">
+                    @for (agent of paginatedAgents; track agent.name) {
+                      <app-agent-card [agent]="agent" layout="grid" [class.selected]="selectedAgent === agent" (click)="selectAgent(agent)" />
+                    }
+                  </div>
+                } @else {
+                  <div class="agents-list">
+                    @for (agent of paginatedAgents; track agent.name) {
+                      <app-agent-card [agent]="agent" layout="list" [class.selected]="selectedAgent === agent" (click)="selectAgent(agent)" />
+                    }
+                  </div>
+                }
               } @else {
-                <div class="agents-list">
-                  @for (agent of paginatedAgents; track agent.name) {
-                    <app-agent-card [agent]="agent" layout="list" [class.selected]="selectedAgent === agent" (click)="selectAgent(agent)" />
-                  }
-                </div>
+                <app-empty-state
+                  icon="fa-regular fa-microchip-ai"
+                  title="Aucun agent disponible"
+                  subtitle="Créez votre premier agent pour commencer."
+                />
               }
-            } @else {
-              <app-empty-state
-                icon="fa-regular fa-microchip-ai"
-                title="Aucun agent disponible"
-                subtitle="Créez votre premier agent pour commencer."
-              />
+            </div>
+
+            @if (filteredAgents.length > 0) {
+              <div class="agents-paginator">
+                <p-paginator
+                  [first]="first"
+                  [rows]="pageSize"
+                  [totalRecords]="filteredAgents.length"
+                  [rowsPerPageOptions]="[6, 12, 24, 48]"
+                  (onPageChange)="onPageChange($event)"
+                />
+              </div>
             }
           </div>
-
-          @if (filteredAgents.length > 0) {
-            <p-paginator
-              [first]="first"
-              [rows]="pageSize"
-              [totalRecords]="filteredAgents.length"
-              [rowsPerPageOptions]="[6, 12, 24, 48]"
-              (onPageChange)="onPageChange($event)"
-            />
-          }
         </div>
 
         @if (selectedAgent) {
@@ -134,16 +138,20 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
       to   { transform: translateX(0);    opacity: 1; }
     }
 
+    .agents-body {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
     .agents-toolbar {
       flex-shrink: 0;
       padding: 1rem;
     }
 
     .agents-content {
-      flex: 1;
-      overflow-y: auto;
-      min-height: 0;
-
       &.list-mode {
         border-top: 1px solid var(--surface-border);
       }
@@ -175,10 +183,17 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
       background: var(--primary-color-50);
     }
 
+    .agents-paginator {
+      position: sticky;
+      bottom: 0;
+      margin-top: auto;
+      background: var(--background-color-0);
+      border-top: 1px solid var(--surface-border);
+    }
+
     :host ::ng-deep .p-paginator {
       background: transparent;
       border: none;
-      border-top: 1px solid var(--surface-border);
       border-radius: 0;
       padding: 0.375rem 1rem;
     }

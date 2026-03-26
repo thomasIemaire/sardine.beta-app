@@ -1,12 +1,15 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { SidebarMenuComponent } from './sidebar-menu.component';
+import { SidebarOrgSelectComponent } from './sidebar-org-select.component';
+import { DropZoneComponent } from '../../../shared/components/drop-zone/drop-zone.component';
 import { SidebarMenu } from './sidebar.models';
 import { SidebarService } from './sidebar.service';
 import { BrandComponent } from '../.././../shared/components/brand/brand.component';
+import { DividerModule } from 'primeng/divider';
 
 @Component({
   selector: 'app-sidebar',
-  imports: [SidebarMenuComponent, BrandComponent],
+  imports: [SidebarMenuComponent, SidebarOrgSelectComponent, DropZoneComponent, BrandComponent, DividerModule],
   template: `
     <div class="sidebar-outer" [class.collapsed]="sidebarService.collapsed()">
       <aside class="sidebar">
@@ -17,6 +20,20 @@ import { BrandComponent } from '../.././../shared/components/brand/brand.compone
             @for (menu of menus; track menu.title) {
               <app-sidebar-menu [title]="menu.title" [items]="menu.items" />
             }
+          </div>
+
+          @if (!orgSelectOpen()) {
+          <div class="sidebar-drop-zone">
+            <app-drop-zone (filesDropped)="onFilesDropped($event)" />
+          </div>
+
+          <div class="sidebar-divider">
+            <p-divider />
+          </div>
+          }
+
+          <div class="sidebar-organization-select">
+            <app-sidebar-org-select (openChange)="orgSelectOpen.set($event)" />
           </div>
         </div>
       </aside>
@@ -78,6 +95,10 @@ import { BrandComponent } from '../.././../shared/components/brand/brand.compone
       z-index: 1;
     }
 
+    .sidebar-divider {
+      padding: 0 .5rem;
+    }
+
     .sidebar-inner {
       display: flex;
       flex-direction: column;
@@ -104,18 +125,40 @@ import { BrandComponent } from '../.././../shared/components/brand/brand.compone
       overflow-y: auto;
       flex: 1;
     }
+
+    .sidebar-drop-zone {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0 0.5rem;
+      animation: fade-in 0.05s ease both;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .sidebar-organization-select {
+
+    }
   `,
 })
 export class SidebarComponent {
   sidebarService = inject(SidebarService);
+  orgSelectOpen = signal(false);
+
+  onFilesDropped(files: File[]): void {
+    console.log('Fichiers déposés :', files);
+  }
 
   readonly menus: SidebarMenu[] = [
     {
       items: [
         { label: 'Accueil', icon: 'fa-jelly fa-regular fa-house', link: '/', exact: true },
-        { label: 'Tâches', icon: 'fa-jelly fa-regular fa-clipboard', link: '/taches', badge: 4 },
+        { label: 'Tâches', icon: 'fa-jelly fa-regular fa-clipboard', link: '/tasks', badge: 4 },
         { label: 'Documents', icon: 'fa-jelly fa-regular fa-folder', link: '/documents' },
-        { label: 'Corbeille', icon: 'fa-jelly fa-regular fa-trash', link: '/corbeille' },
+        { label: 'Corbeille', icon: 'fa-jelly fa-regular fa-trash', link: '/trash' },
       ],
     },
     {
@@ -123,7 +166,7 @@ export class SidebarComponent {
       items: [
         { label: 'Agents', icon: 'fa-regular fa-microchip-ai', link: '/agents' },
         { label: 'Flows', icon: 'fa-light fa-chart-diagram', link: '/flows' },
-        { label: 'Paramètres', icon: 'fa-jelly fa-regular fa-gear', link: '/settings' },
+        { label: 'Administration', icon: 'fa-jelly fa-regular fa-gear', link: '/administration' },
       ],
     },
   ];

@@ -1,0 +1,16 @@
+@if (users().length > 0) {
+<div class="presence-bar">
+    @for (user of visibleUsers(); track user.id) {
+    <div class="presence-bar__avatar" [pTooltip]="user.name" tooltipPosition="bottom">
+        @if (user.avatarUrl) {
+        <img class="avatar avatar--sm" [src]="user.avatarUrl" [alt]="user.name" />
+        } @else {
+        <div class="avatar avatar--sm avatar--initials">{{ getInitials(user.name) }}</div>
+        }
+    </div>
+    }
+    @if (overflowCount() > 0) {
+    <div class="presence-bar__overflow">+{{ overflowCount() }}</div>
+    }
+</div>
+}

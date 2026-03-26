@@ -35,6 +35,9 @@ body {
 #__next,
 app-root {
   isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .p-tooltip-text {

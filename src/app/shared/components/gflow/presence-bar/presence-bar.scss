@@ -1,0 +1,49 @@
+.presence-bar {
+    display: flex;
+    align-items: center;
+    gap: -.25rem;
+
+    &__avatar {
+        position: relative;
+        border: 2px solid var(--background-color-50);
+        border-radius: 50%;
+        margin-left: -.35rem;
+
+        &:first-child { margin-left: 0; }
+    }
+
+    &__overflow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background-color: var(--background-color-200);
+        color: var(--p-text-muted-color);
+        font-size: .6rem;
+        font-weight: 600;
+        margin-left: -.35rem;
+        border: 2px solid var(--background-color-50);
+    }
+}
+
+.avatar {
+    border-radius: 50%;
+    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+
+    &--sm {
+        width: 26px;
+        height: 26px;
+        font-size: .6rem;
+    }
+
+    &--initials {
+        background-color: var(--p-primary-color);
+        color: white;
+    }
+}

@@ -1,0 +1,195 @@
+@if (isZoneNode()) {
+
+<div class="node__container node__container--zone"
+     [class.zone--drop-target]="zoneDropTarget()"
+     [style.width.px]="item().zoneWidth ?? 400"
+     [style.height.px]="item().zoneHeight ?? 300">
+
+    <div class="zone__header">
+        <div class="zone__icon" [style.backgroundColor]="item().color">
+            <span [class]="item().icon.icon"></span>
+        </div>
+        <div class="zone__info">
+            <div class="zone__title-row">
+                <span class="zone__title">{{ item().name }}</span>
+                <span class="zone__tag">{{ zoneTypeLabel() }}</span>
+            </div>
+            <span class="zone__subtitle">{{ zoneDescription() }}</span>
+        </div>
+    </div>
+
+    @if (zoneChildCount() === 0) {
+    <div class="zone__empty">
+        <span class="fa-solid fa-arrow-pointer"></span>
+        <span>Glissez des noeuds ici</span>
+    </div>
+    }
+
+    <div class="ports-wrapper inputs-centered">
+        @for (inp of item().inputs; track $index) {
+        <div class="port input-port"
+             [attr.data-index]="$index"
+             [class.port-connected]="isPortConnected('in', $index)">
+        </div>
+        }
+    </div>
+
+    <div class="ports-wrapper outputs-centered">
+        @for (out of item().outputs; track $index) {
+        <div class="port output-port"
+             [attr.data-index]="$index"
+             [class.port-connected]="isPortConnected('out', $index)">
+        </div>
+        }
+    </div>
+
+    <div class="zone__resize" (mousedown)="onResizeHandleDown($event)"></div>
+</div>
+
+} @else if (isTextNode()) {
+
+<div class="node__container node__container--text" [style.width.px]="textWidth()" (dblclick)="onTextDblClick($event)">
+    @if (item().selected && !editing()) {
+    <button class="node__text-delete" (mousedown)="$event.stopPropagation()" (click)="onDeleteClick($event)">
+        <span class="fa-solid fa-xmark"></span>
+    </button>
+    }
+    @if (editing()) {
+    <textarea class="node__text-edit unanimated" [value]="textContent()" (blur)="onTextBlur($event)"
+        (keydown)="onTextKeydown($event)" (mousedown)="$event.stopPropagation()"></textarea>
+    } @else if (textContent()) {
+    <div class="node__text-display" [innerHTML]="textHtml()"></div>
+    } @else {
+    <span class="node__text-placeholder">Double-cliquer pour écrire...</span>
+    }
+    <div class="node__text-resize" (mousedown)="onResizeHandleDown($event)"></div>
+</div>
+
+} @else {
+
+<div class="node__container">
+
+    <div class="node__wrapper"
+         [class.focused]="isFocusedOrSelected()"
+         [class.new]="isNewNode()"
+         [class.has-body]="hasBody()"
+         [class.container]="isContainerNode()">
+
+        @if (!isContainerNode()) {
+        <div class="node__header">
+            <div class="node__icon" [style.backgroundColor]="item().color">
+                <span [class]="item().icon.icon" [style.rotate.deg]="item().icon.rotate"></span>
+            </div>
+            <div class="node__name">
+                <span>{{ item().name }}</span>
+                @if (isAgentNode()) {
+                <div class="node__subname">
+                    <span>{{ agentName() }}</span>
+                    @if (agentVersion()) {
+                    <span class="node__tag">{{ agentVersion() }}</span>
+                    }
+                </div>
+                }
+                @if (isEndNode()) {
+                <div class="node__subname">
+                    <span>{{ endStatus() }}</span>
+                </div>
+                }
+                @if (isFlowNode() && flowName()) {
+                <div class="node__subname">
+                    <span>{{ flowName() }}</span>
+                    @if (flowVersion()) {
+                    <span class="node__tag">{{ flowVersion() }}</span>
+                    }
+                </div>
+                }
+                @if (isRangerNode() && rangerPath()) {
+                <div class="node__subname">
+                    <span>{{ rangerPath() }}</span>
+                </div>
+                }
+            </div>
+        </div>
+        }
+
+        @if (hasNamedOutputs()) {
+        <div class="node__body">
+            @for (out of item().outputs; track $index) {
+            <div class="node__row">
+                <div class="node__label">{{ out.name }}</div>
+                <div class="port output-port"
+                     [attr.data-index]="$index"
+                     [class.port-connected]="isPortConnected('out', $index)">
+                </div>
+            </div>
+            }
+        </div>
+        }
+
+        @if (isContainerNode()) {
+            @for (agent of containerAgents(); track $index) {
+            <div class="node__agent-card">
+                <div class="node__agent-icon">
+                    <span class="fa-solid fa-robot"></span>
+                </div>
+                <span class="agent-slot__name">{{ agent.agentName }}</span>
+                <span class="agent-slot__version">{{ agent.version }}</span>
+            </div>
+            }
+            <button class="node__add-btn" (mousedown)="$event.stopPropagation()" (click)="onAddAgentClick($event)">
+                <span class="fa-solid fa-plus"></span>
+            </button>
+        }
+    </div>
+
+    @if (showAddButton()) {
+    <button class="node__add-btn node__add-btn--below" (mousedown)="$event.stopPropagation()" (click)="onAddAgentClick($event)">
+        <span class="fa-solid fa-plus"></span>
+    </button>
+    }
+
+    <div class="ports-wrapper inputs-centered">
+        @for (inp of item().inputs; track $index) {
+        <div class="port input-port"
+             [attr.data-index]="$index"
+             [class.port-connected]="isPortConnected('in', $index)">
+        </div>
+        }
+    </div>
+
+    @if (!hasNamedOutputs()) {
+    <div class="ports-wrapper outputs-centered">
+        @for (out of item().outputs; track $index) {
+        <div class="port output-port"
+             [attr.data-index]="$index"
+             [class.port-connected]="isPortConnected('out', $index)">
+        </div>
+        }
+    </div>
+    }
+
+    @if (hasEntries()) {
+    <div class="ports-wrapper entries-centered">
+        @for (e of item().entries; track $index) {
+        <div class="port entry-port"
+             [attr.data-index]="$index"
+             [class.port-connected]="isPortConnected('entry', $index)">
+        </div>
+        }
+    </div>
+    }
+
+    @if (hasExits()) {
+    <div class="ports-wrapper exits-centered">
+        @for (e of item().exits; track $index) {
+        <div class="port exit-port"
+             [attr.data-index]="$index"
+             [class.port-connected]="isPortConnected('exit', $index)">
+        </div>
+        }
+    </div>
+    }
+
+</div>
+
+}

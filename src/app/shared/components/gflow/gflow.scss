@@ -1,0 +1,495 @@
+:host {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    --toolbar-h: 64px;
+    --palette-w: 198px;
+    --config-h: 320px;
+    --z-wire: 0;
+    --z-node: 1;
+    --z-ui: 100;
+
+    @media (max-width: 767px) {
+        --toolbar-h: 48px;
+        --palette-w: 160px;
+        --config-h: 260px;
+    }
+}
+
+.flow__container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--background-color-50);
+    position: relative;
+    user-select: none;
+}
+
+.toolbar {
+    position: absolute;
+    z-index: var(--z-ui);
+    height: var(--toolbar-h);
+    width: 100%;
+    background: linear-gradient(var(--background-color-200), transparent);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+
+    .toolbar--left {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+
+        .title-input {
+            font-family: "Poppins", sans-serif;
+            font-size: 1rem;
+            font-weight: var(--p-button-label-font-weight);
+            color: var(--p-button-text-secondary-color);
+            padding: var(--p-button-padding-y) calc(var(--p-button-padding-x) + 1px);
+            background-color: transparent;
+            border: none;
+            outline: none;
+            width: 900px;
+            max-width: 100%;
+        }
+    }
+
+    &--flowname {
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        border-radius: 1rem;
+        line-height: 1;
+        cursor: pointer;
+        user-select: none;
+        transition: background-color 0.2s;
+
+        &__text {
+            font-family: "Poppins", sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        &:hover {
+            background-color: var(--background-color-300);
+        }
+    }
+}
+
+.ide {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+
+    .ide__content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+    }
+}
+
+.viewport__container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+}
+
+.canvas {
+    position: absolute;
+    inset: 0;
+    background-color: var(--background-color-200);
+}
+
+.dot__background {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.world {
+    position: absolute;
+    inset: 0;
+    transform-origin: 0 0;
+    cursor: grab;
+    user-select: none;
+
+    &.is-dragging {
+        cursor: grabbing;
+    }
+
+    &.tool--select {
+        cursor: default;
+
+        &.is-dragging {
+            cursor: default;
+        }
+    }
+}
+
+.wires {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: var(--z-wire);
+
+    .wire {
+        fill: none;
+        stroke: var(--background-color-300);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+
+        &.wire--dashed {
+            stroke-dasharray: 6 6;
+        }
+
+        &.wire--preview {
+            opacity: 0.6;
+            stroke-width: 1.5;
+        }
+    }
+
+    .arrow {
+        fill: var(--background-color-500);
+        stroke: none;
+    }
+
+    .wire-hit {
+        fill: none;
+        stroke: transparent;
+        stroke-width: 16;
+        vector-effect: non-scaling-stroke;
+        pointer-events: stroke;
+    }
+
+    .wire-group.exec-path .wire {
+        stroke: var(--exec-color, #22c55e);
+        stroke-width: 2.5;
+    }
+
+    .wire-group.exec-path .pass-badge {
+        fill: var(--exec-color, #22c55e);
+    }
+
+    .wire-group.exec-path .pass-badge__text {
+        fill: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        text-anchor: middle;
+        dominant-baseline: central;
+        pointer-events: none;
+    }
+
+    .wire-group.is-insert-target .wire {
+        stroke: var(--p-primary-color);
+        stroke-width: 3;
+        filter: drop-shadow(0 0 4px var(--p-primary-color));
+    }
+}
+
+.node {
+    cursor: pointer;
+    position: absolute;
+    z-index: 2;
+
+    &.is-focused {
+        z-index: 10;
+    }
+}
+
+.palette-floating {
+    position: absolute;
+    top: var(--toolbar-h);
+    left: 1rem;
+    width: var(--palette-w);
+    max-height: calc(100% - 32px);
+    background: var(--background-color-50);
+    border-radius: 1rem;
+    display: flex;
+    flex-direction: column;
+    z-index: var(--z-ui);
+
+    .palette__content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+    }
+
+    .palette__group {
+        margin-bottom: 12px;
+
+        .palette__title {
+            display: block;
+            padding-left: .5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--p-text-muted-color);
+            text-transform: uppercase;
+        }
+    }
+
+    .palette__items {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .palette__item {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        padding: 8px;
+        width: 100%;
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        cursor: grab;
+        text-align: left;
+        transition: background 0.1s, transform 0.2s;
+
+        &:hover {
+            background: var(--background-color-200);
+        }
+
+        &:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+
+        .palette__item-icon {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .75rem;
+            color: var(--p-surface-800);
+        }
+
+        .palette__item-label {
+            font-family: "Poppins", sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--p-text-color);
+        }
+    }
+}
+
+.config-sidebar {
+    position: absolute;
+    top: var(--toolbar-h);
+    right: 1rem;
+    width: calc(var(--palette-w) * 2);
+    background: var(--background-color-50);
+    border-radius: 1rem;
+    display: flex;
+    flex-direction: column;
+    z-index: var(--z-ui);
+    overflow: hidden;
+    animation: slideInTop 0.2s ease-out;
+
+    @media (max-width: 767px) {
+        left: 1rem;
+        width: auto;
+    }
+}
+
+.config-sidebar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--background-color-200);
+    background-color: var(--background-color-50);
+
+    span {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .close-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: var(--p-text-muted-color);
+        padding: 4px;
+        border-radius: 4px;
+        display: grid;
+        place-items: center;
+
+        &:hover {
+            background-color: var(--background-color-200);
+            color: var(--p-text-color);
+        }
+
+        i {
+            font-size: 14px;
+        }
+    }
+}
+
+.toolbar--actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.floating-actions-toolbar {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--background-color-50);
+    border-radius: 32px;
+    z-index: var(--z-ui);
+    pointer-events: auto;
+
+    @media (max-width: 767px) {
+        bottom: 16px;
+    }
+
+    .action-btn {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: var(--p-text-color);
+
+        &:hover:not(:disabled) {
+            background: var(--background-color-200);
+        }
+
+        &.active {
+            background: var(--background-color-200);
+        }
+
+        &:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        i {
+            font-size: 1rem;
+        }
+    }
+
+    .separator {
+        width: 1px;
+        height: 24px;
+        background: var(--background-color-200);
+        margin: 0 .25rem;
+    }
+}
+
+.config-sidebar__content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.exec-sidebar {
+    position: absolute;
+    top: var(--toolbar-h);
+    right: 1rem;
+    width: calc(var(--palette-w) * 2);
+    max-height: calc(100% - var(--toolbar-h) - 1rem);
+    background: var(--background-color-50);
+    border-radius: 1rem;
+    display: flex;
+    flex-direction: column;
+    z-index: var(--z-ui);
+    overflow: hidden;
+    animation: slideInTop 0.2s ease-out;
+
+    app-exec-panel {
+        flex: 1;
+        min-height: 0;
+    }
+
+    @media (max-width: 767px) {
+        left: 1rem;
+        width: auto;
+    }
+}
+
+.selection-rect {
+    position: absolute;
+    border: 2px solid var(--p-primary-color);
+    border-radius: .5rem;
+    pointer-events: none;
+    z-index: 100;
+
+    &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: inherit;
+        background-color: var(--p-primary-color);
+        opacity: 0.08;
+        pointer-events: none;
+    }
+
+    &.is-fading {
+        animation: selection-fade-out 500ms ease-out forwards;
+
+        &::after {
+            animation: selection-fill-fade-out 500ms ease-out forwards;
+        }
+    }
+}
+
+@keyframes selection-fade-out {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@keyframes selection-fill-fade-out {
+    0% { opacity: 0.08; }
+    100% { opacity: 0; }
+}
+
+@keyframes slideInTop {
+    from {
+        transform: translateY(-1rem);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+
+// Context menu — danger item
+:global(.menu-item--danger > .p-contextmenu-item-link) {
+    color: var(--p-red-500) !important;
+
+    .p-contextmenu-item-icon {
+        color: var(--p-red-500) !important;
+    }
+}

@@ -1,0 +1,38 @@
+<div class="version-panel__header">
+    <span class="version-panel__header__title">Historique des versions</span>
+    <p-button icon="fa-solid fa-xmark" severity="secondary" text rounded size="small" (onClick)="close.emit()" />
+</div>
+
+<div class="version-panel__body">
+    @if (loading()) {
+    <div class="version-panel__loading">
+        <i class="fa-solid fa-spinner fa-spin"></i>
+    </div>
+    } @else if (!versions().length) {
+    <div class="version-panel__empty">
+        <i class="fa-regular fa-clock-rotate-left"></i>
+        <span>Aucune version disponible</span>
+    </div>
+    } @else {
+    <div class="version-panel__list">
+        @for (version of versions(); track version.id) {
+        <div class="version-item">
+            <div class="version-item__header">
+                <span class="version-item__version">{{ version.version }}</span>
+                <span class="version-item__date">{{ formatDate(version.created_at) }}</span>
+            </div>
+            <div class="version-item__meta">
+                <span>{{ getAuthorName(version) }}</span>
+                @if (version.description) {
+                <span class="version-item__desc">{{ version.description }}</span>
+                }
+            </div>
+            <div class="version-item__actions">
+                <p-button label="Restaurer" size="small" severity="secondary" outlined
+                    (onClick)="onRestore(version.id)" />
+            </div>
+        </div>
+        }
+    </div>
+    }
+</div>

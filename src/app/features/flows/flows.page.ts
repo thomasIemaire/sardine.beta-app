@@ -23,58 +23,66 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
         <button pButton icon="fa-solid fa-book-blank" label="Documentation" severity="secondary" size="small" rounded action></button>
       </app-header-page>
 
-      <div class="flows-toolbar">
-        <app-toolbar searchPlaceholder="Rechercher un flow..." [(filters)]="filters" [(search)]="search" [filterDefinitions]="filterDefinitions" [(sorts)]="sorts" [sortDefinitions]="sortDefinitions" [(viewMode)]="viewMode">
-          <p-button label="Ajouter un flow" icon="fa-regular fa-plus" rounded size="small" [disabled]="isSharedFacet" />
-        </app-toolbar>
-      </div>
+      <div class="flows-body">
+        <div class="flows-toolbar">
+          <app-toolbar searchPlaceholder="Rechercher un flow..." [(filters)]="filters" [(search)]="search" [filterDefinitions]="filterDefinitions" [(sorts)]="sorts" [sortDefinitions]="sortDefinitions" [(viewMode)]="viewMode">
+            <p-button label="Ajouter un flow" icon="fa-regular fa-plus" rounded size="small" [disabled]="isSharedFacet" />
+          </app-toolbar>
+        </div>
 
-      <div class="flows-content" [class.list-mode]="viewMode === 'list'">
-        @if (filteredFlows.length > 0) {
-          @if (viewMode === 'grid') {
-            <div class="flows-grid">
-              @for (flow of paginatedFlows; track flow.name) {
-                <app-flow-card [flow]="flow" layout="grid" />
-              }
-            </div>
+        <div class="flows-content" [class.list-mode]="viewMode === 'list'">
+          @if (filteredFlows.length > 0) {
+            @if (viewMode === 'grid') {
+              <div class="flows-grid">
+                @for (flow of paginatedFlows; track flow.name) {
+                  <app-flow-card [flow]="flow" layout="grid" />
+                }
+              </div>
+            } @else {
+              <div class="flows-list">
+                @for (flow of paginatedFlows; track flow.name) {
+                  <app-flow-card [flow]="flow" layout="list" />
+                }
+              </div>
+            }
           } @else {
-            <div class="flows-list">
-              @for (flow of paginatedFlows; track flow.name) {
-                <app-flow-card [flow]="flow" layout="list" />
-              }
-            </div>
+            <app-empty-state
+              icon="fa-light fa-chart-diagram"
+              title="Aucun flow disponible"
+              subtitle="Créez votre premier flow pour commencer."
+            />
           }
-        } @else {
-          <app-empty-state
-            icon="fa-light fa-chart-diagram"
-            title="Aucun flow disponible"
-            subtitle="Créez votre premier flow pour commencer."
-          />
+        </div>
+
+        @if (filteredFlows.length > 0) {
+          <div class="flows-paginator">
+            <p-paginator
+              [first]="first"
+              [rows]="pageSize"
+              [totalRecords]="filteredFlows.length"
+              [rowsPerPageOptions]="[6, 12, 24, 48]"
+              (onPageChange)="onPageChange($event)"
+            />
+          </div>
         }
       </div>
-
-      @if (filteredFlows.length > 0) {
-        <p-paginator
-          [first]="first"
-          [rows]="pageSize"
-          [totalRecords]="filteredFlows.length"
-          [rowsPerPageOptions]="[6, 12, 24, 48]"
-          (onPageChange)="onPageChange($event)"
-        />
-      }
     </app-page>
   `,
   styles: `
+    .flows-body {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
     .flows-toolbar {
       flex-shrink: 0;
       padding: 1rem;
     }
 
     .flows-content {
-      flex: 1;
-      overflow-y: auto;
-      min-height: 0;
-
       &.list-mode {
         border-top: 1px solid var(--surface-border);
       }
@@ -98,10 +106,17 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
       }
     }
 
+    .flows-paginator {
+      position: sticky;
+      bottom: 0;
+      margin-top: auto;
+      background: var(--background-color-0);
+      border-top: 1px solid var(--surface-border);
+    }
+
     :host ::ng-deep .p-paginator {
       background: transparent;
       border: none;
-      border-top: 1px solid var(--surface-border);
       border-radius: 0;
       padding: 0.375rem 1rem;
     }
