@@ -7,10 +7,11 @@ import { ToolbarComponent, ViewMode } from '../../shared/components/toolbar/tool
 import type { ActiveFilter, FilterDefinition, ActiveSort, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
 import { FlowCardComponent, Flow } from '../../shared/components/flow-card/flow-card.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ElementSizeDirective } from '../../shared/directives/element-size.directive';
 
 @Component({
   selector: 'app-flows',
-  imports: [ButtonModule, Paginator, PageComponent, HeaderPageComponent, ToolbarComponent, FlowCardComponent, EmptyStateComponent],
+  imports: [ButtonModule, Paginator, PageComponent, HeaderPageComponent, ToolbarComponent, FlowCardComponent, EmptyStateComponent, ElementSizeDirective],
   template: `
     <app-page>
       <app-header-page
@@ -39,10 +40,19 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
                 }
               </div>
             } @else {
-              <div class="flows-list">
-                @for (flow of paginatedFlows; track flow.name) {
-                  <app-flow-card [flow]="flow" layout="list" />
-                }
+              <div class="flows-list-container" [appElementSize]="{ compact: 700 }">
+                <div class="flows-list-header">
+                  <span class="flh-dot"></span>
+                  <span class="flh-col flh-name">Nom</span>
+                  <span class="flh-col flh-creator">Créateur</span>
+                  <span class="flh-col flh-date">Créé le</span>
+                  <span class="flh-col flh-actions"></span>
+                </div>
+                <div class="flows-list">
+                  @for (flow of paginatedFlows; track flow.name) {
+                    <app-flow-card [flow]="flow" layout="list" />
+                  }
+                </div>
               </div>
             }
           } @else {
@@ -88,11 +98,46 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
       }
     }
 
+    .flows-list-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.5rem 1rem;
+      background: var(--background-color-50);
+      border-bottom: 1px solid var(--surface-border);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .flh-dot { width: 0.5rem; flex-shrink: 0; }
+
+    .flh-col {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--p-text-muted-color);
+
+      &.flh-name    { flex: 1; }
+      &.flh-creator { width: 9rem; flex-shrink: 0; }
+      &.flh-date    { width: 5.5rem; flex-shrink: 0; }
+      &.flh-actions { width: 2rem; flex-shrink: 0; }
+    }
+
     .flows-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
       gap: 1rem;
       padding: 0 1rem 1rem;
+    }
+
+    .flows-list-container {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .flows-list-container.compact {
+      .flh-creator { width: 2rem; overflow: hidden; font-size: 0; }
+      .flh-date    { display: none; }
     }
 
     .flows-list {
@@ -118,7 +163,8 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
       background: transparent;
       border: none;
       border-radius: 0;
-      padding: 0.375rem 1rem;
+      padding: 0.75rem 1rem;
+      background-color: var(--background-color-50);
     }
   `,
 })

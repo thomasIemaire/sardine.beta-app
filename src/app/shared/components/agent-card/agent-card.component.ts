@@ -39,7 +39,7 @@ export interface Agent {
         </div>
       </div>
     } @else {
-      <div class="row" [appElementSize]="{ compact: 550 }">
+      <div class="row" [appElementSize]="{ compact: 680 }">
         <div class="row-main">
           <div class="row-name-group">
             <span class="card-name">{{ agent().name }}</span>
@@ -110,7 +110,7 @@ export interface Agent {
     }
 
     .card-name {
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       font-weight: 600;
       color: var(--p-text-color);
       white-space: nowrap;
@@ -234,7 +234,7 @@ export interface Agent {
     }
 
     .row-description {
-      font-size: 0.75rem;
+      font-size: 0.6875rem;
       color: var(--p-text-muted-color);
       white-space: nowrap;
       overflow: hidden;
@@ -246,9 +246,16 @@ export interface Agent {
       align-items: center;
       gap: 1rem;
       flex-shrink: 0;
+
+      .card-creator { width: 9rem; flex-shrink: 0; }
+      .card-date    { width: 5.5rem; flex-shrink: 0; }
     }
 
     .row.compact .card-creator-name { display: none; }
+    .row.compact .row-meta {
+      .card-creator { width: 2rem; }
+      .card-date    { display: none; }
+    }
   `,
 })
 export class AgentCardComponent {

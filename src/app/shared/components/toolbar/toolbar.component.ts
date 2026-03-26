@@ -26,6 +26,9 @@ export type { FilterDefinition, ActiveFilter, SortDefinition, ActiveSort } from 
       <p-iconfield class="toolbar-search">
         <p-inputicon class="fa-regular fa-magnifying-glass"/>
         <input pInputText pSize="small" type="text" [placeholder]="searchPlaceholder()" [ngModel]="search()" (ngModelChange)="onSearchChange($event)" />
+        @if (search()) {
+          <p-inputicon class="fa-regular fa-xmark toolbar-search-clear" (click)="onSearchChange('')" />
+        }
       </p-iconfield>
 
       <div class="toolbar-controls">
@@ -55,16 +58,18 @@ export type { FilterDefinition, ActiveFilter, SortDefinition, ActiveSort } from 
 
         <p-divider layout="vertical" />
 
-        <p-button
-          [icon]="viewMode() === 'list' ? 'fa-regular fa-grid-2' : 'fa-regular fa-list'"
-          [pTooltip]="viewMode() === 'list' ? 'Vue en carte' : 'Vue en liste'"
-          tooltipPosition="right"
-          severity="secondary"
-          [text]="true"
-          size="small"
-          (onClick)="toggleViewMode()"
-          rounded
-        />
+        @if (showViewMode()) {
+          <p-button
+            [icon]="viewMode() === 'list' ? 'fa-regular fa-grid-2' : 'fa-regular fa-list'"
+            [pTooltip]="viewMode() === 'list' ? 'Vue en carte' : 'Vue en liste'"
+            tooltipPosition="right"
+            severity="secondary"
+            [text]="true"
+            size="small"
+            (onClick)="toggleViewMode()"
+            rounded
+          />
+        }
       </div>
 
       <div class="toolbar-right">
@@ -175,6 +180,13 @@ export type { FilterDefinition, ActiveFilter, SortDefinition, ActiveSort } from 
         width: 18rem;
         max-width: 100%;
       }
+
+      .toolbar-search-clear {
+        cursor: pointer;
+        color: var(--p-text-muted-color);
+        transition: color 0.15s;
+        &:hover { color: var(--p-text-color); }
+      }
     }
 
     :host ::ng-deep .p-chip {
@@ -190,6 +202,7 @@ export class ToolbarComponent implements OnInit {
   private route = inject(ActivatedRoute);
 
   searchPlaceholder = input('Rechercher...');
+  showViewMode = input(true);
   search = model('');
   viewMode = model<ViewMode>('list');
   filters = model<ActiveFilter[]>([]);

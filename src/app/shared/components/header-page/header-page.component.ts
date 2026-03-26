@@ -98,6 +98,7 @@ export class HeaderPageComponent implements OnInit {
       .subscribe((params) => {
         const facetParam = params.get('facet');
         const id = facetParam ?? this.defaultFacetId() ?? this.facets()[0]?.id;
+        if (id === this.currentFacetId()) return;
         this.currentFacetId.set(id);
 
         const facet = this.facets().find((f) => f.id === id);

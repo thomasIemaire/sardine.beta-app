@@ -139,7 +139,7 @@ import { DividerModule } from 'primeng/divider';
       to   { opacity: 1; }
     }
 
-    .sidebar-organization-select {
+.sidebar-organization-select {
 
     }
   `,

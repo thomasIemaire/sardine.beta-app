@@ -6,12 +6,13 @@ import { ToolbarComponent, ViewMode } from '../../shared/components/toolbar/tool
 import type { ActiveFilter, FilterDefinition, ActiveSort, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
 import { AgentCardComponent, Agent } from '../../shared/components/agent-card/agent-card.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ElementSizeDirective } from '../../shared/directives/element-size.directive';
 import { AgentConfigPanelComponent } from './agent-config-panel.component';
 import { AgentVersionPanelComponent } from './agent-version-panel.component';
 
 @Component({
   selector: 'app-agents',
-  imports: [ButtonModule, Paginator, HeaderPageComponent, ToolbarComponent, AgentCardComponent, EmptyStateComponent, AgentConfigPanelComponent, AgentVersionPanelComponent],
+  imports: [ButtonModule, Paginator, HeaderPageComponent, ToolbarComponent, AgentCardComponent, EmptyStateComponent, AgentConfigPanelComponent, AgentVersionPanelComponent, ElementSizeDirective],
   template: `
     <div class="agents-wrapper">
       <app-header-page
@@ -42,10 +43,18 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
                     }
                   </div>
                 } @else {
-                  <div class="agents-list">
-                    @for (agent of paginatedAgents; track agent.name) {
-                      <app-agent-card [agent]="agent" layout="list" [class.selected]="selectedAgent === agent" (click)="selectAgent(agent)" />
-                    }
+                  <div class="agents-list-container" [appElementSize]="{ compact: 700 }">
+                    <div class="agents-list-header">
+                      <span class="alh-col alh-name">Nom</span>
+                      <span class="alh-col alh-creator">Créateur</span>
+                      <span class="alh-col alh-date">Créé le</span>
+                      <span class="alh-col alh-actions"></span>
+                    </div>
+                    <div class="agents-list">
+                      @for (agent of paginatedAgents; track agent.name) {
+                        <app-agent-card [agent]="agent" layout="list" [class.selected]="selectedAgent === agent" (click)="selectAgent(agent)" />
+                      }
+                    </div>
                   </div>
                 }
               } @else {
@@ -157,6 +166,39 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
       }
     }
 
+    .agents-list-container {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .agents-list-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.5rem 1rem;
+      background: var(--background-color-50);
+      border-bottom: 1px solid var(--surface-border);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .alh-col {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--p-text-muted-color);
+
+      &.alh-name    { flex: 1; }
+      &.alh-creator { width: 9rem; flex-shrink: 0; }
+      &.alh-date    { width: 5.5rem; flex-shrink: 0; }
+      &.alh-actions { width: 2rem; flex-shrink: 0; }
+    }
+
+    .agents-list-container.compact {
+      .alh-creator { width: 2rem; overflow: hidden; font-size: 0; }
+      .alh-date    { display: none; }
+    }
+
     .agents-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
@@ -195,7 +237,8 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
       background: transparent;
       border: none;
       border-radius: 0;
-      padding: 0.375rem 1rem;
+      padding: 0.75rem 1rem;
+      background-color: var(--background-color-50);
     }
   `,
 })

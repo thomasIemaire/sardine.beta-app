@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
+import { ElementSizeDirective } from '../../directives/element-size.directive';
 
 export type FlowStatus = 'success' | 'warn' | 'danger';
 
@@ -20,7 +21,7 @@ export interface Flow {
 
 @Component({
   selector: 'app-flow-card',
-  imports: [DatePipe, ButtonModule, TooltipModule],
+  imports: [DatePipe, ButtonModule, TooltipModule, ElementSizeDirective],
   template: `
     @if (layout() === 'grid') {
       <div class="card" (click)="navigate()">
@@ -41,7 +42,7 @@ export interface Flow {
         </div>
       </div>
     } @else {
-      <div class="row" (click)="navigate()">
+      <div class="row" [appElementSize]="{ compact: 700 }" (click)="navigate()">
         <span class="card-status-dot" [attr.data-severity]="flow().status" [pTooltip]="statusLabel()" tooltipPosition="right"></span>
         <div class="row-main">
           <span class="card-name">{{ flow().name }}</span>
@@ -136,7 +137,7 @@ export interface Flow {
     }
 
     .card-name {
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       font-weight: 600;
       color: var(--p-text-color);
       white-space: nowrap;
@@ -227,7 +228,7 @@ export interface Flow {
     }
 
     .row-description {
-      font-size: 0.75rem;
+      font-size: 0.6875rem;
       color: var(--p-text-muted-color);
       white-space: nowrap;
       overflow: hidden;
@@ -239,6 +240,15 @@ export interface Flow {
       align-items: center;
       gap: 1rem;
       flex-shrink: 0;
+
+      .card-creator { width: 9rem; flex-shrink: 0; }
+      .card-date    { width: 5.5rem; flex-shrink: 0; }
+    }
+
+    .row.compact .row-meta {
+      .card-creator-name { display: none; }
+      .card-creator      { width: 2rem; }
+      .card-date         { display: none; }
     }
   `,
 })
