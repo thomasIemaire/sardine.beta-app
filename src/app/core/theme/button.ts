@@ -1,5 +1,5 @@
 export const button = {
   root: {
-    roundedBorderRadius: '.625rem',
+    roundedBorderRadius: '.6875rem',
   },
 };

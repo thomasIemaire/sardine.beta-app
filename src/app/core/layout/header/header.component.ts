@@ -29,7 +29,7 @@ import { Divider } from "primeng/divider";
         <span class="header-notification-wrapper">
           <p-button icon="fa-jelly-fill fa-regular fa-bell" severity="secondary" [text]="true" rounded size="small" aria-label="Notifications" />
         </span>
-        <p-button severity="secondary" [text]="true" rounded size="small">
+        <p-button severity="secondary" [text]="true" rounded size="small" (onClick)="router.navigate(['/user'])">
           <span class="header-avatar">TL</span>
           <span class="header-username">Thomas Lemaire</span>
         </p-button>
@@ -103,18 +103,19 @@ import { Divider } from "primeng/divider";
 })
 export class HeaderComponent {
   sidebar = inject(SidebarService);
-  private router = inject(Router);
+  router = inject(Router);
 
   private readonly organizationName = 'Mon Organisation';
 
   private readonly routeLabels: Record<string, string> = {
     '': 'Accueil',
     'documents': 'Documents',
-    'taches': 'Tâches',
-    'corbeille': 'Corbeille',
+    'tasks': 'Tâches',
+    'trash': 'Corbeille',
     'flows': 'Flows',
     'agents': 'Agents',
-    'settings': 'Paramètres',
+    'administration': 'Administration',
+    'user': 'Mon compte',
   };
 
   breadcrumb = toSignal(

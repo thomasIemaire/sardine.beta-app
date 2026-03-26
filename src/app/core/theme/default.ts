@@ -350,9 +350,9 @@ export const defaultTheme = definePreset(Aura, {
             paddingX: "0.75rem",
             paddingY: "0.5rem",
             sm: {
-                fontSize: "0.625rem",
-                paddingX: "0.75rem",
-                paddingY: "0.25rem"
+                fontSize: "0.6875rem",
+                paddingX: "0.8125rem",
+                paddingY: "0.3125rem"
             },
             lg: {
                 fontSize: "1.125rem",

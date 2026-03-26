@@ -35,6 +35,10 @@ export const routes: Routes = [
         path: 'administration',
         loadChildren: () => import('./features/settings/settings.routes').then((m) => m.SETTINGS_ROUTES),
       },
+      {
+        path: 'user',
+        loadChildren: () => import('./features/user/user.routes').then((m) => m.USER_ROUTES),
+      },
     ],
   },
   {
