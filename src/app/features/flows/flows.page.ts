@@ -163,7 +163,7 @@ import { ElementSizeDirective } from '../../shared/directives/element-size.direc
       background: transparent;
       border: none;
       border-radius: 0;
-      padding: 0.75rem 1rem;
+      padding: 0.875rem 1rem;
       background-color: var(--background-color-50);
     }
   `,

@@ -76,7 +76,7 @@ interface Organization {
             &:hover { background: var(--background-color-50); }
             &.is-active .org-row__name { font-weight: 700; }
             &--static { cursor: default; &:hover { background: none; } }
-            &--more { justify-content: center; .org-row__name { flex: unset; font-size: 0.75rem; font-weight: 500; color: var(--p-text-muted-color); } }
+            &--more { justify-content: center; .org-row__name { flex: unset; font-size: 0.6125rem; font-weight: 500; color: var(--p-text-muted-color); } }
             &--trigger {
                 position: relative;
                 z-index: 1;
@@ -105,7 +105,7 @@ interface Organization {
 
         .org-row__name {
             flex: 1;
-            font-size: 0.8125rem;
+            font-size: .75rem;
             font-weight: 600;
             color: var(--p-text-color);
             overflow: hidden;
@@ -116,13 +116,13 @@ interface Organization {
         .org-row__info {
             display: flex;
             flex-direction: column;
-            line-height: 1.2;
+            line-height: 1.3;
             flex: 1;
             overflow: hidden;
         }
 
         .org-row__subtitle {
-            font-size: 0.6875rem;
+            font-size: 0.6125rem;
             font-weight: 400;
             color: var(--p-text-muted-color);
         }
