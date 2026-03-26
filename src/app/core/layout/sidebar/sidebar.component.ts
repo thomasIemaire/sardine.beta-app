@@ -58,6 +58,7 @@ import { DividerModule } from 'primeng/divider';
           top: 0;
           width: 2rem;
           height: 100%;
+          z-index: 2;
         }
 
         &:hover {
@@ -92,7 +93,7 @@ import { DividerModule } from 'primeng/divider';
       display: flex;
       flex-direction: column;
       position: relative;
-      z-index: 1;
+      z-index: 3;
     }
 
     .sidebar-divider {
