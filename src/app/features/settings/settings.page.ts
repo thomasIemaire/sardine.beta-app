@@ -204,24 +204,6 @@ interface FacetConfig {
             }
           </div>
 
-          <div class="org-section">
-            <h3 class="org-section-title">Préférences</h3>
-            <div class="org-pref-row">
-              <div class="org-pref-info">
-                <span class="org-pref-label">Organisation par défaut</span>
-                <span class="org-pref-hint">Si définie, le sélecteur d'organisation ne s'affiche plus au démarrage.</span>
-              </div>
-              @if (contextSwitcher.defaultOrgName(); as name) {
-                <div class="org-pref-value">
-                  <span class="org-pref-org">{{ name }}</span>
-                  <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" size="small" rounded pTooltip="Effacer" (onClick)="contextSwitcher.clearDefault()" />
-                </div>
-              } @else {
-                <span class="org-pref-empty">Aucune</span>
-              }
-            </div>
-          </div>
-
           <div class="org-actions">
             <p-button label="Enregistrer les modifications" icon="fa-regular fa-check" rounded size="small" />
           </div>

@@ -90,13 +90,6 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
                 </div>
                 <p-select size="small" [(ngModel)]="theme" [options]="themeOptions" optionLabel="label" optionValue="value" />
               </div>
-              <div class="user-pref-row">
-                <div class="user-pref-info">
-                  <span class="user-pref-label">Langue</span>
-                  <span class="user-pref-hint">Langue d'affichage de l'interface</span>
-                </div>
-                <p-select size="small" [(ngModel)]="language" [options]="languageOptions" optionLabel="label" optionValue="value" />
-              </div>
             </div>
           </div>
 
