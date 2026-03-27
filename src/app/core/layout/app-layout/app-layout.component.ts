@@ -3,10 +3,12 @@ import { ChildrenOutletContexts, RouterOutlet } from '@angular/router';
 import { trigger, transition, style, animate, query } from '@angular/animations';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
+import { ContextSwitcherComponent } from '../context-switcher/context-switcher.component';
+import { ContextSwitcherService } from '../context-switcher/context-switcher.service';
 
 @Component({
   selector: 'app-app-layout',
-  imports: [RouterOutlet, HeaderComponent, SidebarComponent],
+  imports: [RouterOutlet, HeaderComponent, SidebarComponent, ContextSwitcherComponent],
   template: `
     <div class="layout">
       <app-sidebar />
@@ -17,6 +19,9 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
         </main>
       </div>
     </div>
+    @if (contextSwitcher.visible()) {
+      <app-context-switcher />
+    }
   `,
   animations: [
     trigger('routeAnimation', [
@@ -61,6 +66,7 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
 })
 export class AppLayoutComponent {
   private contexts = inject(ChildrenOutletContexts);
+  readonly contextSwitcher = inject(ContextSwitcherService);
 
   getRouteUrl() {
     return this.contexts.getContext('primary')?.route?.url;

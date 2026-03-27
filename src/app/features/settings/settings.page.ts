@@ -1,5 +1,6 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -145,7 +146,12 @@ interface FacetConfig {
               <h3 class="org-section-title">Clés API</h3>
               <p-button label="Nouvelle clé" icon="fa-regular fa-plus" [text]="true" severity="secondary" size="small" rounded (onClick)="showGenerateForm.set(!showGenerateForm())" />
             </div>
-            <p class="org-section-hint">Utilisez ces clés pour authentifier les appels à l'API Sardine.</p>
+            <p class="org-section-hint">
+              Utilisez ces clés pour authentifier les appels à l'API Sardine.
+              <a class="org-doc-link" href="https://docs.sardine.ai/api" target="_blank" rel="noopener noreferrer">
+                <i class="fa-regular fa-arrow-up-right-from-square"></i> Documentation API
+              </a>
+            </p>
 
             @if (showGenerateForm()) {
               <div class="api-key-form">
@@ -196,6 +202,24 @@ interface FacetConfig {
             } @else {
               <p class="api-keys-empty">Aucune clé API. Créez-en une pour commencer.</p>
             }
+          </div>
+
+          <div class="org-section">
+            <h3 class="org-section-title">Préférences</h3>
+            <div class="org-pref-row">
+              <div class="org-pref-info">
+                <span class="org-pref-label">Organisation par défaut</span>
+                <span class="org-pref-hint">Si définie, le sélecteur d'organisation ne s'affiche plus au démarrage.</span>
+              </div>
+              @if (contextSwitcher.defaultOrgName(); as name) {
+                <div class="org-pref-value">
+                  <span class="org-pref-org">{{ name }}</span>
+                  <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" size="small" rounded pTooltip="Effacer" (onClick)="contextSwitcher.clearDefault()" />
+                </div>
+              } @else {
+                <span class="org-pref-empty">Aucune</span>
+              }
+            </div>
           </div>
 
           <div class="org-actions">
@@ -285,7 +309,30 @@ interface FacetConfig {
       border-bottom: 1px solid var(--surface-border);
     }
 
-    .org-section-hint { font-size: 0.75rem; color: var(--p-text-muted-color); margin: 0; }
+    .org-section-hint {
+      font-size: 0.75rem;
+      color: var(--p-text-muted-color);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .org-doc-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--p-primary-color);
+      text-decoration: none;
+      white-space: nowrap;
+
+      i { font-size: 0.5625rem; }
+
+      &:hover { text-decoration: underline; }
+    }
 
     .org-avatar-block { display: flex; align-items: center; gap: 1rem; }
 
@@ -469,6 +516,53 @@ interface FacetConfig {
       margin: 0;
     }
 
+    .org-pref-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.75rem;
+      background: var(--background-color-50);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-m);
+    }
+
+    .org-pref-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .org-pref-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--p-text-color);
+    }
+
+    .org-pref-hint {
+      font-size: 0.6875rem;
+      color: var(--p-text-muted-color);
+    }
+
+    .org-pref-value {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      flex-shrink: 0;
+    }
+
+    .org-pref-org {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--p-text-color);
+    }
+
+    .org-pref-empty {
+      font-size: 0.75rem;
+      color: var(--p-text-muted-color);
+      flex-shrink: 0;
+    }
+
     .org-actions { display: flex; justify-content: flex-end; }
 
     .settings-paginator {
@@ -511,13 +605,17 @@ export class SettingsPage {
     organizations: { searchPlaceholder: 'Rechercher une organisation...', actionLabel: 'Ajouter une organisation', actionIcon: 'fa-regular fa-plus' },
   };
 
+  readonly contextSwitcher = inject(ContextSwitcherService);
+
   currentConfig: FacetConfig | null = this.facetConfigs['members'];
   currentFacet = 'members';
   search = '';
   activeFilters: ActiveFilter[] = [];
   activeSorts: ActiveSort[] = [];
   pageFirst = 0;
-  pageSize = 10;
+  private _pageSize = parseInt(localStorage.getItem('pageSize:settings') ?? '10', 10);
+  get pageSize(): number { return this._pageSize; }
+  set pageSize(value: number) { this._pageSize = value; localStorage.setItem('pageSize:settings', String(value)); }
 
   readonly memberFilterDefs: FilterDefinition[] = [
     { id: 'role', label: 'Rôle', type: 'select', options: [
@@ -689,7 +787,7 @@ export class SettingsPage {
 
   onPageChange(event: PaginatorState): void {
     this.pageFirst = event.first ?? 0;
-    this.pageSize = event.rows ?? this.pageSize;
+    if (event.rows != null) this.pageSize = event.rows;
   }
 
 }

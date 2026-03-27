@@ -192,7 +192,9 @@ export class FlowsPage {
   filters: ActiveFilter[] = [];
   sorts: ActiveSort[] = [];
   page = 0;
-  pageSize = 12;
+  private _pageSize = parseInt(localStorage.getItem('pageSize:flows') ?? '12', 10);
+  get pageSize(): number { return this._pageSize; }
+  set pageSize(value: number) { this._pageSize = value; localStorage.setItem('pageSize:flows', String(value)); }
 
   sortDefinitions: SortDefinition[] = [
     { id: 'name', label: 'Nom' },
@@ -313,7 +315,7 @@ export class FlowsPage {
 
   onPageChange(event: PaginatorState): void {
     this.page = event.page ?? 0;
-    this.pageSize = event.rows ?? this.pageSize;
+    if (event.rows != null) this.pageSize = event.rows;
   }
 
   onFacetChange(facet: Facet): void {

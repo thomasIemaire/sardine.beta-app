@@ -1,4 +1,5 @@
-import { Component, ElementRef, HostListener, output, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, inject, output, signal } from '@angular/core';
+import { ContextSwitcherService } from '../context-switcher/context-switcher.service';
 
 interface Organization {
     id: string;
@@ -176,6 +177,8 @@ export class SidebarOrgSelectComponent {
     readonly isOpen = signal(false);
     readonly openChange = output<boolean>();
 
+    private contextSwitcher = inject(ContextSwitcherService);
+
     constructor(private el: ElementRef) {}
 
     toggle(): void {
@@ -191,7 +194,7 @@ export class SidebarOrgSelectComponent {
     }
 
     addOrg(): void { this.isOpen.set(false); this.openChange.emit(false); }
-    viewAll(): void { this.isOpen.set(false); this.openChange.emit(false); }
+    viewAll(): void { this.isOpen.set(false); this.openChange.emit(false); this.contextSwitcher.open(); }
 
     @HostListener('document:click', ['$event'])
     onOutsideClick(event: MouseEvent): void {

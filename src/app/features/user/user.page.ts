@@ -8,6 +8,7 @@ import { SelectModule } from 'primeng/select';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
+import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
 @Component({
   selector: 'app-user',
@@ -96,6 +97,35 @@ import { HeaderPageComponent, Facet } from '../../shared/components/header-page/
                 </div>
                 <p-select size="small" [(ngModel)]="language" [options]="languageOptions" optionLabel="label" optionValue="value" />
               </div>
+            </div>
+          </div>
+
+          <div class="user-section">
+            <h3 class="user-section-title">Organisation par défaut</h3>
+            <div class="user-prefs">
+              <div class="user-pref-row">
+                <div class="user-pref-info">
+                  <span class="user-pref-label">Organisation par défaut</span>
+                  <span class="user-pref-hint">Au démarrage, cette organisation sera sélectionnée automatiquement.</span>
+                </div>
+                <p-toggleswitch [ngModel]="!!contextSwitcher.defaultOrgId()" (ngModelChange)="onDefaultOrgToggle($event)" />
+              </div>
+              @if (contextSwitcher.defaultOrgId()) {
+                <div class="user-pref-row">
+                  <div class="user-pref-info">
+                    <span class="user-pref-label">Organisation</span>
+                    <span class="user-pref-hint">L'organisation qui sera chargée automatiquement.</span>
+                  </div>
+                  <p-select
+                    size="small"
+                    [ngModel]="contextSwitcher.defaultOrgId()"
+                    (ngModelChange)="onDefaultOrgChange($event)"
+                    [options]="contextSwitcher.organizations()"
+                    optionLabel="name"
+                    optionValue="id"
+                  />
+                </div>
+              }
             </div>
           </div>
 
@@ -238,6 +268,58 @@ import { HeaderPageComponent, Facet } from '../../shared/components/header-page/
       color: var(--p-text-muted-color);
     }
 
+    .user-section-hint {
+      font-size: 0.75rem;
+      color: var(--p-text-muted-color);
+      margin: -0.25rem 0 0;
+    }
+
+    .user-org-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .user-org-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+    }
+
+    .user-org-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 0.5rem;
+      background: var(--background-color-100);
+      border: 1px solid var(--surface-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--p-text-color);
+      text-transform: uppercase;
+      user-select: none;
+
+      &--none {
+        color: var(--p-text-muted-color);
+        font-size: 0.75rem;
+      }
+    }
+
+    .user-org-name {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--p-text-color);
+      max-width: 64px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      user-select: none;
+    }
+
     /* Preferences */
     .user-prefs {
       display: flex;
@@ -283,6 +365,7 @@ import { HeaderPageComponent, Facet } from '../../shared/components/header-page/
 })
 export class UserPage {
   themeService = inject(ThemeService);
+  contextSwitcher = inject(ContextSwitcherService);
   currentTab = signal('profile');
 
   facets: Facet[] = [
@@ -315,4 +398,18 @@ export class UserPage {
     { label: 'Français', value: 'fr' },
     { label: 'English', value: 'en' },
   ];
+
+  onDefaultOrgToggle(enabled: boolean): void {
+    if (enabled) {
+      const first = this.contextSwitcher.organizations()[0];
+      if (first) this.contextSwitcher.setDefault(first);
+    } else {
+      this.contextSwitcher.clearDefault();
+    }
+  }
+
+  onDefaultOrgChange(orgId: string): void {
+    const org = this.contextSwitcher.organizations().find(o => o.id === orgId);
+    if (org) this.contextSwitcher.setDefault(org);
+  }
 }
