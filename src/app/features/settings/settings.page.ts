@@ -1,4 +1,5 @@
 import { Component, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -10,23 +11,16 @@ import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
 import { ToolbarComponent, ActiveFilter, ActiveSort, FilterDefinition, SortDefinition } from '../../shared/components/toolbar/toolbar.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ElementSizeDirective } from '../../shared/directives/element-size.directive';
+import { MemberRowComponent, Member } from '../../shared/components/member-row/member-row.component';
+import { OrgRowComponent, Organization } from '../../shared/components/org-row/org-row.component';
 
-interface Member {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: 'Administrateur' | 'Éditeur' | 'Lecteur';
-  active: boolean;
-}
-
-interface Organization {
+interface ApiKey {
   id: string;
   name: string;
-  initials: string;
-  type: string;
-  membersCount: number;
-  active: boolean;
+  prefix: string;
+  createdAt: Date;
+  status: 'active' | 'revoked';
 }
 
 interface FacetConfig {
@@ -37,7 +31,7 @@ interface FacetConfig {
 
 @Component({
   selector: 'app-settings',
-  imports: [FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, Paginator, PageComponent, HeaderPageComponent, ToolbarComponent, EmptyStateComponent],
+  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, Paginator, PageComponent, HeaderPageComponent, ToolbarComponent, EmptyStateComponent, ElementSizeDirective, MemberRowComponent, OrgRowComponent],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="3000" />
@@ -69,38 +63,21 @@ interface FacetConfig {
 
       @if (currentFacet === 'members') {
         @if (filteredMembers.length > 0) {
-          <div class="admin-list">
-            <div class="admin-list__header">
-              <span class="admin-col admin-col--member">Membre</span>
-              <span class="admin-col admin-col--role">Rôle</span>
-              <span class="admin-col admin-col--status">Statut</span>
-              <span class="admin-col admin-col--actions"></span>
+          <div class="settings-list-container" [appElementSize]="{ compact: 600 }">
+            <div class="settings-list-header">
+              <span class="slh-col slh-main">Membre</span>
+              <span class="slh-col slh-role">Rôle</span>
+              <span class="slh-col slh-status">Statut</span>
+              <span class="slh-col slh-actions"></span>
             </div>
-            @for (member of paginatedMembers; track member.id) {
-              <div class="admin-list__row">
-                <div class="admin-col admin-col--member">
-                  <div class="admin-avatar">{{ member.firstName[0] }}{{ member.lastName[0] }}</div>
-                  <div class="admin-member-info">
-                    <span class="admin-member-name">{{ member.firstName }} {{ member.lastName }}</span>
-                    <span class="admin-member-email">{{ member.email }}</span>
-                  </div>
-                </div>
-                <div class="admin-col admin-col--role">
-                  <span class="admin-badge" [attr.data-role]="member.role">{{ member.role }}</span>
-                </div>
-                <div class="admin-col admin-col--status">
-                  <span class="admin-status" [class.is-active]="member.active">
-                    <span class="admin-status__dot"></span>
-                    {{ member.active ? 'Actif' : 'Inactif' }}
-                  </span>
-                </div>
-                <div class="admin-col admin-col--actions">
-                  <p-button icon="fa-regular fa-ellipsis-vertical" severity="secondary" [text]="true" rounded size="small" />
-                </div>
-              </div>
-            }
+            <div class="settings-list">
+              @for (member of paginatedMembers; track member.id) {
+                <app-member-row [member]="member" />
+              }
+            </div>
           </div>
-          <div class="admin-paginator">
+          <div class="settings-paginator">
+            <span class="paginator-count">{{ filteredMembers.length }} résultat{{ filteredMembers.length > 1 ? 's' : '' }}</span>
             <p-paginator [first]="pageFirst" [rows]="pageSize" [totalRecords]="filteredMembers.length" [rowsPerPageOptions]="[10, 25, 50]" (onPageChange)="onPageChange($event)" />
           </div>
         } @else {
@@ -110,39 +87,22 @@ interface FacetConfig {
 
       @if (currentFacet === 'organizations') {
         @if (filteredOrganizations.length > 0) {
-          <div class="admin-list">
-            <div class="admin-list__header">
-              <span class="admin-col admin-col--org">Organisation</span>
-              <span class="admin-col admin-col--type">Type</span>
-              <span class="admin-col admin-col--members">Membres</span>
-              <span class="admin-col admin-col--status">Statut</span>
-              <span class="admin-col admin-col--actions"></span>
+          <div class="settings-list-container" [appElementSize]="{ compact: 600 }">
+            <div class="settings-list-header">
+              <span class="slh-col slh-main">Organisation</span>
+              <span class="slh-col slh-type">Type</span>
+              <span class="slh-col slh-count">Membres</span>
+              <span class="slh-col slh-status">Statut</span>
+              <span class="slh-col slh-actions"></span>
             </div>
-            @for (org of paginatedOrganizations; track org.id) {
-              <div class="admin-list__row">
-                <div class="admin-col admin-col--org">
-                  <div class="admin-org-logo">{{ org.initials }}</div>
-                  <span class="admin-member-name">{{ org.name }}</span>
-                </div>
-                <div class="admin-col admin-col--type">
-                  <span class="admin-type">{{ org.type }}</span>
-                </div>
-                <div class="admin-col admin-col--members">
-                  <span class="admin-count"><i class="fa-regular fa-user"></i> {{ org.membersCount }}</span>
-                </div>
-                <div class="admin-col admin-col--status">
-                  <span class="admin-status" [class.is-active]="org.active">
-                    <span class="admin-status__dot"></span>
-                    {{ org.active ? 'Active' : 'Inactive' }}
-                  </span>
-                </div>
-                <div class="admin-col admin-col--actions">
-                  <p-button icon="fa-regular fa-ellipsis-vertical" severity="secondary" [text]="true" rounded size="small" />
-                </div>
-              </div>
-            }
+            <div class="settings-list">
+              @for (org of paginatedOrganizations; track org.id) {
+                <app-org-row [org]="org" />
+              }
+            </div>
           </div>
-          <div class="admin-paginator">
+          <div class="settings-paginator">
+            <span class="paginator-count">{{ filteredOrganizations.length }} résultat{{ filteredOrganizations.length > 1 ? 's' : '' }}</span>
             <p-paginator [first]="pageFirst" [rows]="pageSize" [totalRecords]="filteredOrganizations.length" [rowsPerPageOptions]="[10, 25, 50]" (onPageChange)="onPageChange($event)" />
           </div>
         } @else {
@@ -174,10 +134,6 @@ interface FacetConfig {
                 <input pInputText pSize="small" [(ngModel)]="orgName" placeholder="Nom" />
               </div>
               <div class="org-field org-field--full">
-                <label class="org-label">Domaine</label>
-                <input pInputText pSize="small" [(ngModel)]="orgDomain" placeholder="ex: sendoc.fr" />
-              </div>
-              <div class="org-field org-field--full">
                 <label class="org-label">Email de contact</label>
                 <input pInputText pSize="small" [(ngModel)]="orgEmail" placeholder="contact@sendoc.fr" type="email" />
               </div>
@@ -185,22 +141,61 @@ interface FacetConfig {
           </div>
 
           <div class="org-section">
-            <h3 class="org-section-title">Clé API</h3>
-            <p class="org-section-hint">Utilisez cette clé pour authentifier les appels à l'API Sardine depuis vos applications.</p>
-            <div class="org-api-row">
-              <div class="org-api-key">
-                @if (apiKeyVisible()) {
-                  <span class="org-api-key__value">{{ apiKey }}</span>
-                } @else {
-                  <span class="org-api-key__masked">••••••••••••••••••••••••••••••••</span>
+            <div class="org-section-header">
+              <h3 class="org-section-title">Clés API</h3>
+              <p-button label="Nouvelle clé" icon="fa-regular fa-plus" [text]="true" severity="secondary" size="small" rounded (onClick)="showGenerateForm.set(!showGenerateForm())" />
+            </div>
+            <p class="org-section-hint">Utilisez ces clés pour authentifier les appels à l'API Sardine.</p>
+
+            @if (showGenerateForm()) {
+              <div class="api-key-form">
+                <input pInputText pSize="small" [(ngModel)]="newKeyName" placeholder="Nom de la clé (ex : Production)" (keyup.enter)="generateKey()" />
+                <p-button label="Créer" size="small" rounded [disabled]="!newKeyName.trim()" (onClick)="generateKey()" />
+                <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" size="small" rounded (onClick)="showGenerateForm.set(false); newKeyName = ''" />
+              </div>
+            }
+
+            @if (newlyGeneratedKey()) {
+              <div class="api-key-reveal">
+                <div class="api-key-reveal__header">
+                  <i class="fa-regular fa-triangle-exclamation"></i>
+                  <span>Copiez cette clé maintenant, elle ne sera plus jamais affichée.</span>
+                </div>
+                <div class="api-key-reveal__value">
+                  <code>{{ newlyGeneratedKey()!.fullValue }}</code>
+                  <p-button icon="fa-regular fa-copy" [text]="true" size="small" rounded pTooltip="Copier" (onClick)="copyNewKey()" />
+                </div>
+                <div class="api-key-reveal__footer">
+                  <p-button label="J'ai copié la clé" icon="fa-regular fa-check" size="small" rounded (onClick)="newlyGeneratedKey.set(null)" />
+                </div>
+              </div>
+            }
+
+            @if (apiKeys().length > 0) {
+              <div class="api-keys-list">
+                @for (key of apiKeys(); track key.id) {
+                  <div class="api-keys-list__row" [class.is-revoked]="key.status === 'revoked'">
+                    <div class="akl-main">
+                      <span class="akl-name">{{ key.name }}</span>
+                      <code class="akl-prefix">{{ key.prefix }}••••••••</code>
+                    </div>
+                    <span class="akl-date">{{ key.createdAt | date: 'dd/MM/yyyy' }}</span>
+                    <span class="key-status" [class.is-active]="key.status === 'active'">
+                      <span class="key-status__dot"></span>
+                      {{ key.status === 'active' ? 'Active' : 'Révoquée' }}
+                    </span>
+                    <div class="akl-actions">
+                      @if (key.status === 'active') {
+                        <p-button icon="fa-regular fa-ban" [text]="true" size="small" rounded pTooltip="Révoquer" tooltipPosition="left" (onClick)="revokeKey(key)" />
+                      }
+                      <p-button icon="fa-regular fa-trash" severity="danger" [text]="true" size="small" rounded pTooltip="Supprimer" tooltipPosition="left" (onClick)="deleteKey(key)" />
+                    </div>
+                  </div>
                 }
               </div>
-              <div class="org-api-actions">
-                <p-button [icon]="apiKeyVisible() ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye'" severity="secondary" [text]="true" rounded size="small" [pTooltip]="apiKeyVisible() ? 'Masquer' : 'Afficher'" (onClick)="apiKeyVisible.set(!apiKeyVisible())" />
-                <p-button icon="fa-regular fa-copy" severity="secondary" [text]="true" rounded size="small" pTooltip="Copier la clé" (onClick)="copyApiKey()" />
-                <p-button icon="fa-regular fa-rotate" severity="danger" [text]="true" rounded size="small" pTooltip="Regénérer la clé" (onClick)="regenerateApiKey()" />
-              </div>
-            </div>
+            } @else {
+              <p class="api-keys-empty">Aucune clé API. Créez-en une pour commencer.</p>
+            }
           </div>
 
           <div class="org-actions">
@@ -214,7 +209,7 @@ interface FacetConfig {
     .settings-toolbar { padding: 1rem; flex-shrink: 0; }
 
     /* ── List ── */
-    .admin-list {
+    .settings-list-container {
       flex: 1;
       overflow-y: auto;
       display: flex;
@@ -222,7 +217,7 @@ interface FacetConfig {
       border-top: 1px solid var(--surface-border);
     }
 
-    .admin-list__header {
+    .settings-list-header {
       display: flex;
       align-items: center;
       gap: 1rem;
@@ -234,130 +229,36 @@ interface FacetConfig {
       z-index: 1;
     }
 
-    .admin-list__row {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.625rem 1rem;
-      border-bottom: 1px solid var(--surface-border);
-      transition: background 0.15s;
-
-      &:last-child { border-bottom: none; }
-      &:hover { background: var(--background-color-50); }
-    }
-
-    .admin-col {
-      font-size: 0.75rem;
-      color: var(--p-text-muted-color);
+    .slh-col {
+      font-size: 0.6875rem;
       font-weight: 500;
+      color: var(--p-text-muted-color);
 
-      &--member, &--org { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.75rem; }
-      &--role { width: 120px; flex-shrink: 0; }
-      &--type { width: 140px; flex-shrink: 0; color: var(--p-text-color); font-size: 0.75rem; }
-      &--members { width: 80px; flex-shrink: 0; }
-      &--status { width: 80px; flex-shrink: 0; }
-      &--actions { width: 2rem; flex-shrink: 0; }
+      &.slh-main    { flex: 1; }
+      &.slh-role    { width: 120px; flex-shrink: 0; }
+      &.slh-type    { width: 140px; flex-shrink: 0; }
+      &.slh-count   { width: 80px; flex-shrink: 0; }
+      &.slh-status  { width: 80px; flex-shrink: 0; }
+      &.slh-actions { width: 2rem; flex-shrink: 0; }
     }
 
-    /* Avatar */
-    .admin-avatar {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 1.75rem;
-      height: 1.75rem;
-      min-width: 1.75rem;
-      border-radius: 100%;
-      background: var(--primary-color-100);
-      color: var(--primary-color-700);
-      font-size: 0.5rem;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    .admin-org-logo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 1.75rem;
-      height: 1.75rem;
-      min-width: 1.75rem;
-      border-radius: 0.375rem;
-      background: var(--background-color-100);
-      border: 1px solid var(--surface-border);
-      font-size: 0.5rem;
-      font-weight: 700;
-      color: var(--p-text-color);
-      text-transform: uppercase;
-    }
-
-    .admin-member-info {
+    .settings-list {
       display: flex;
       flex-direction: column;
-      gap: 0.1rem;
-      min-width: 0;
-    }
-
-    .admin-member-name {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--p-text-color);
-      white-space: nowrap;
+      border-bottom: 1px solid var(--surface-border);
       overflow: hidden;
-      text-overflow: ellipsis;
-    }
 
-    .admin-member-email {
-      font-size: 0.6875rem;
-      color: var(--p-text-muted-color);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Badge rôle */
-    .admin-badge {
-      display: inline-flex;
-      font-size: 0.625rem;
-      font-weight: 600;
-      padding: 0.2rem 0.625rem;
-      border-radius: 2rem;
-
-      &[data-role='Administrateur'] { background: var(--primary-color-100); color: var(--primary-color-700); }
-      &[data-role='Éditeur']        { background: var(--yellow-color-200);  color: var(--yellow-color-700); }
-      &[data-role='Lecteur']        { background: var(--background-color-100); color: var(--p-text-muted-color); }
-    }
-
-    /* Status */
-    .admin-status {
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-      font-size: 0.6875rem;
-      color: var(--p-text-muted-color);
-
-      &__dot {
-        width: 0.4rem;
-        height: 0.4rem;
-        border-radius: 100%;
-        background: var(--p-text-muted-color);
-        flex-shrink: 0;
-      }
-
-      &.is-active {
-        color: var(--green-color-600);
-        .admin-status__dot { background: var(--green-color-500); }
+      app-member-row + app-member-row,
+      app-org-row + app-org-row {
+        border-top: 1px solid var(--surface-border);
       }
     }
 
-    .admin-count {
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-      font-size: 0.75rem;
-      color: var(--p-text-color);
-
-      i { font-size: 0.625rem; color: var(--p-text-muted-color); }
+    .settings-list-container.compact {
+      .slh-role   { width: 2rem; overflow: hidden; font-size: 0; padding: 0; }
+      .slh-type   { display: none; }
+      .slh-count  { display: none; }
+      .slh-status { display: none; }
     }
 
     /* ── Settings tab ── */
@@ -417,38 +318,182 @@ interface FacetConfig {
 
     .org-label { font-size: 0.75rem; font-weight: 500; color: var(--p-text-muted-color); }
 
-    .org-api-row {
+    .org-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+
+      .org-section-title { padding-bottom: 0; border-bottom: none; }
+    }
+
+    .api-key-form {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.25rem 0.75rem;
-      border: 1px solid var(--surface-border);
-      border-radius: 0.625rem;
+      padding: 0.75rem;
       background: var(--background-color-50);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-m);
+
+      input { flex: 1; }
     }
 
-    .org-api-key { flex: 1; min-width: 0; overflow: hidden; }
+    .api-key-reveal {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      padding: 0.875rem 1rem;
+      background: var(--yellow-color-50, var(--background-color-50));
+      border: 1px solid var(--yellow-color-300, var(--surface-border));
+      border-radius: var(--radius-m);
 
-    .org-api-key__value { font-size: 0.6875rem; font-family: monospace; color: var(--p-text-color); word-break: break-all; }
-    .org-api-key__masked { font-size: 0.6875rem; color: var(--p-text-muted-color); letter-spacing: 0.1em; }
+      &__header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--yellow-color-800, var(--p-text-color));
 
-    .org-api-actions { display: flex; align-items: center; gap: 0.125rem; flex-shrink: 0; }
+        i { color: var(--yellow-color-500); }
+      }
+
+      &__value {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--background-color-0);
+        border: 1px solid var(--surface-border);
+        border-radius: 0.375rem;
+        padding: 0.375rem 0.75rem;
+
+        code {
+          flex: 1;
+          font-size: 0.6875rem;
+          font-family: monospace;
+          word-break: break-all;
+          color: var(--p-text-color);
+        }
+      }
+
+      &__footer {
+        display: flex;
+        justify-content: flex-end;
+      }
+    }
+
+    .api-keys-list {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-m);
+      overflow: hidden;
+
+      &__row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.625rem 1rem;
+        border-bottom: 1px solid var(--surface-border);
+        transition: background 0.15s;
+
+        &:last-child { border-bottom: none; }
+        &:hover { background: var(--background-color-50); }
+        &.is-revoked { opacity: 0.55; }
+      }
+    }
+
+    .akl-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .akl-name {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--p-text-color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .akl-prefix {
+      font-family: monospace;
+      font-size: 0.6875rem;
+      color: var(--p-text-muted-color);
+    }
+
+    .akl-date {
+      width: 6rem;
+      flex-shrink: 0;
+      font-size: 0.625rem;
+      color: var(--p-text-muted-color);
+    }
+
+    .akl-actions {
+      width: 5rem;
+      flex-shrink: 0;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.125rem;
+    }
+
+    .key-status {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.6875rem;
+      color: var(--p-text-muted-color);
+
+      &__dot {
+        width: 0.4rem;
+        height: 0.4rem;
+        border-radius: 100%;
+        background: var(--p-text-muted-color);
+        flex-shrink: 0;
+      }
+
+      &.is-active {
+        color: var(--green-color-600);
+        .key-status__dot { background: var(--green-color-500); }
+      }
+    }
+
+    .api-keys-empty {
+      font-size: 0.75rem;
+      color: var(--p-text-muted-color);
+      margin: 0;
+    }
+
     .org-actions { display: flex; justify-content: flex-end; }
 
-    .admin-paginator {
+    .settings-paginator {
       position: sticky;
       bottom: 0;
       margin-top: auto;
-      background: var(--background-color-0);
+      background: var(--background-color-50);
       border-top: 1px solid var(--surface-border);
+      display: flex;
+      align-items: center;
     }
 
-    :host ::ng-deep .admin-paginator .p-paginator {
+    .paginator-count {
+      font-size: 0.6875rem;
+      color: var(--p-text-muted-color);
+      padding-left: 1rem;
+      white-space: nowrap;
+    }
+
+    :host ::ng-deep .settings-paginator .p-paginator {
       background: transparent;
       border: none;
       border-radius: 0;
       padding: 0.875rem 1rem;
-      background-color: var(--background-color-50);
+      flex: 1;
     }
   `,
 })
@@ -583,10 +628,55 @@ export class SettingsPage {
   orgDomain = 'sendoc.fr';
   orgEmail = 'contact@sendoc.fr';
 
-  readonly apiKey = 'srd_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
-  readonly apiKeyVisible = signal(false);
+  apiKeys = signal<ApiKey[]>([
+    { id: '1', name: 'Production', prefix: 'srd_a3f8c2e1', createdAt: new Date('2026-01-15'), status: 'active' },
+  ]);
+  newlyGeneratedKey = signal<{ key: ApiKey; fullValue: string } | null>(null);
+  showGenerateForm = signal(false);
+  newKeyName = '';
 
   constructor(private messageService: MessageService) {}
+
+  generateKey(): void {
+    if (!this.newKeyName.trim()) return;
+    const fullValue = this.buildKeyValue();
+    const prefix = fullValue.substring(0, 12);
+    const newKey: ApiKey = {
+      id: Date.now().toString(),
+      name: this.newKeyName.trim(),
+      prefix,
+      createdAt: new Date(),
+      status: 'active',
+    };
+    this.apiKeys.update(keys => [...keys, newKey]);
+    this.newlyGeneratedKey.set({ key: newKey, fullValue });
+    this.showGenerateForm.set(false);
+    this.newKeyName = '';
+  }
+
+  revokeKey(key: ApiKey): void {
+    this.apiKeys.update(keys => keys.map(k => k.id === key.id ? { ...k, status: 'revoked' } : k));
+  }
+
+  deleteKey(key: ApiKey): void {
+    this.apiKeys.update(keys => keys.filter(k => k.id !== key.id));
+    if (this.newlyGeneratedKey()?.key.id === key.id) this.newlyGeneratedKey.set(null);
+  }
+
+  copyNewKey(): void {
+    const entry = this.newlyGeneratedKey();
+    if (!entry) return;
+    navigator.clipboard.writeText(entry.fullValue).then(() => {
+      this.messageService.add({ severity: 'success', summary: 'Clé copiée', detail: 'La clé a été copiée dans le presse-papier.' });
+    });
+  }
+
+  private buildKeyValue(): string {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let result = 'srd_';
+    for (let i = 0; i < 48; i++) result += chars[Math.floor(Math.random() * chars.length)];
+    return result;
+  }
 
   onFacetChange(facet: Facet): void {
     this.currentFacet = facet.id;
@@ -602,13 +692,4 @@ export class SettingsPage {
     this.pageSize = event.rows ?? this.pageSize;
   }
 
-  copyApiKey(): void {
-    navigator.clipboard.writeText(this.apiKey).then(() => {
-      this.messageService.add({ severity: 'success', summary: 'Clé copiée', detail: 'La clé API a été copiée dans le presse-papier.' });
-    });
-  }
-
-  regenerateApiKey(): void {
-    this.messageService.add({ severity: 'warn', summary: 'Fonctionnalité à venir', detail: 'La regénération de clé sera disponible prochainement.' });
-  }
 }

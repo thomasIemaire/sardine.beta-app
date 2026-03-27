@@ -81,6 +81,7 @@ interface Organization {
                 position: relative;
                 z-index: 1;
                 background: var(--background-color-0);
+                border-top: solid 1px var(--surface-border);
             }
             &--trigger.is-open { background: var(--background-color-50); }
         }

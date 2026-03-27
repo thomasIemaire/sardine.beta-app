@@ -66,6 +66,7 @@ import { ElementSizeDirective } from '../../shared/directives/element-size.direc
 
         @if (filteredFlows.length > 0) {
           <div class="flows-paginator">
+            <span class="paginator-count">{{ filteredFlows.length }} résultat{{ filteredFlows.length > 1 ? 's' : '' }}</span>
             <p-paginator
               [first]="first"
               [rows]="pageSize"
@@ -155,8 +156,17 @@ import { ElementSizeDirective } from '../../shared/directives/element-size.direc
       position: sticky;
       bottom: 0;
       margin-top: auto;
-      background: var(--background-color-0);
+      background: var(--background-color-50);
       border-top: 1px solid var(--surface-border);
+      display: flex;
+      align-items: center;
+    }
+
+    .paginator-count {
+      font-size: 0.6875rem;
+      color: var(--p-text-muted-color);
+      padding-left: 1rem;
+      white-space: nowrap;
     }
 
     :host ::ng-deep .p-paginator {
@@ -164,7 +174,7 @@ import { ElementSizeDirective } from '../../shared/directives/element-size.direc
       border: none;
       border-radius: 0;
       padding: 0.875rem 1rem;
-      background-color: var(--background-color-50);
+      flex: 1;
     }
   `,
 })

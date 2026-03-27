@@ -68,6 +68,7 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
 
             @if (filteredAgents.length > 0) {
               <div class="agents-paginator">
+                <span class="paginator-count">{{ filteredAgents.length }} résultat{{ filteredAgents.length > 1 ? 's' : '' }}</span>
                 <p-paginator
                   [first]="first"
                   [rows]="pageSize"
@@ -229,8 +230,17 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
       position: sticky;
       bottom: 0;
       margin-top: auto;
-      background: var(--background-color-0);
+      background: var(--background-color-50);
       border-top: 1px solid var(--surface-border);
+      display: flex;
+      align-items: center;
+    }
+
+    .paginator-count {
+      font-size: 0.6875rem;
+      color: var(--p-text-muted-color);
+      padding-left: 1rem;
+      white-space: nowrap;
     }
 
     :host ::ng-deep .p-paginator {
@@ -238,7 +248,7 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
       border: none;
       border-radius: 0;
       padding: 0.875rem 1rem;
-      background-color: var(--background-color-50);
+      flex: 1;
     }
   `,
 })

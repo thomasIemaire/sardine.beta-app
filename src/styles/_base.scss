@@ -114,6 +114,30 @@ p-datepicker {
   }
 }
 
+/* ── Scrollbars ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--background-color-300) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--background-color-300);
+  border-radius: 99px;
+
+  &:hover {
+    background: var(--background-color-400);
+  }
+}
+
 p-breadcrumb .p-breadcrumb {
   background: transparent !important;
   padding: 0 !important;

@@ -26,10 +26,6 @@ import { DividerModule } from 'primeng/divider';
           <div class="sidebar-drop-zone">
             <app-drop-zone (filesDropped)="onFilesDropped($event)" />
           </div>
-
-          <div class="sidebar-divider">
-            <p-divider />
-          </div>
           }
 
           <div class="sidebar-organization-select">
@@ -131,7 +127,7 @@ import { DividerModule } from 'primeng/divider';
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
-      padding: 0 0.5rem;
+      padding: 0.5rem;
       animation: fade-in 0.05s ease both;
     }
 
