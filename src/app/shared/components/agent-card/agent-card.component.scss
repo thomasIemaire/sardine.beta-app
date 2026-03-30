@@ -1,0 +1,6 @@
+@use 'styles/mixins' as *;
+
+.card-percentage {
+  @include badge;
+  @include badge-severity;
+}

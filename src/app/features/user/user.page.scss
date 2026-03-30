@@ -1,0 +1,119 @@
+@use 'styles/mixins' as *;
+
+.user-body { @include settings-body; }
+.user-section { @include section; }
+.user-section-title { @include section-title; }
+
+/* Avatar */
+.user-avatar-block { display: flex; align-items: center; gap: 1rem; }
+.user-avatar { @include avatar(3.5rem, 0.875rem, 100%); }
+.user-avatar-info { display: flex; flex-direction: column; gap: 0.375rem; }
+.user-avatar-name { font-size: 1rem; font-weight: 600; color: var(--p-text-color); }
+
+.user-avatar-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-role-badge {
+  @include badge;
+  padding: 0.2rem 0.625rem;
+  background: var(--primary-color-100);
+  color: var(--primary-color-700);
+}
+
+/* Form grid */
+.user-form { @include form-grid; }
+.user-field { @include form-field; }
+.user-label { @include form-label; }
+
+.user-section-hint {
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+  margin: -0.25rem 0 0;
+}
+
+.user-org-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.user-org-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.user-org-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 0.5rem;
+  background: var(--background-color-100);
+  border: 1px solid var(--surface-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--p-text-color);
+  text-transform: uppercase;
+  user-select: none;
+
+  &--none {
+    color: var(--p-text-muted-color);
+    font-size: 0.75rem;
+  }
+}
+
+.user-org-name {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--p-text-color);
+  max-width: 64px;
+  @include text-truncate;
+  user-select: none;
+}
+
+/* Preferences */
+.user-prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.user-pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 0;
+  border-bottom: 1px solid var(--surface-border);
+
+  &:last-child { border-bottom: none; }
+}
+
+.user-pref-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.user-pref-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--p-text-color);
+}
+
+.user-pref-hint {
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+}
+
+.user-actions {
+  display: flex;
+  justify-content: flex-end;
+}

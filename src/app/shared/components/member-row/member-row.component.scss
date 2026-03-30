@@ -1,0 +1,70 @@
+@use 'styles/mixins' as *;
+
+.row { @include row-interactive; }
+
+.row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.row-avatar { @include avatar(1.75rem, 0.5rem); text-transform: uppercase; }
+
+.row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.row-name {
+  @include card-name;
+}
+
+.row-email {
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
+  @include text-truncate;
+}
+
+.row-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.row-role-col {
+  width: 120px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.row-role {
+  display: inline-flex;
+  @include badge;
+  padding: 0.2rem 0.625rem;
+
+  &[data-role='Administrateur'] { background: var(--primary-color-100); color: var(--primary-color-700); }
+  &[data-role='Éditeur']        { background: var(--yellow-color-200);  color: var(--yellow-color-700); }
+  &[data-role='Lecteur']        { background: var(--background-color-100); color: var(--p-text-muted-color); }
+}
+
+.row-status {
+  @include status-indicator;
+
+  &.is-active {
+    color: var(--green-color-600);
+    .row-status__dot { background: var(--green-color-500); }
+  }
+}
+
+.row.compact {
+  .row-email    { display: none; }
+  .row-role-col { width: 2rem; overflow: hidden; }
+  .row-role     { font-size: 0; padding: 0; }
+  .row-status   { width: auto; &__label { display: none; } }
+}

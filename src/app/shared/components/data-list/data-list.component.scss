@@ -1,0 +1,65 @@
+@use 'styles/mixins' as *;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.data-list-toolbar {
+  flex-shrink: 0;
+  padding: 1rem;
+}
+
+.data-list-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+
+  &.list-mode {
+    border-top: 1px solid var(--surface-border);
+  }
+}
+
+.data-list-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.data-list-header { @include list-header; }
+
+.dlh-col {
+  @include list-header-col;
+
+  // Common column width patterns — pages override via CSS classes
+  &.col-flex    { flex: 1; }
+  &.col-creator { width: 9rem; flex-shrink: 0; }
+  &.col-date    { width: 5.5rem; flex-shrink: 0; }
+  &.col-actions { width: 2rem; flex-shrink: 0; }
+  &.col-dot     { width: 0.5rem; flex-shrink: 0; }
+  &.col-role    { width: 120px; flex-shrink: 0; }
+  &.col-type    { width: 140px; flex-shrink: 0; }
+  &.col-count   { width: 80px; flex-shrink: 0; }
+  &.col-status  { width: 80px; flex-shrink: 0; }
+}
+
+.data-list-container.compact {
+  .col-creator { width: 2rem; overflow: hidden; font-size: 0; }
+  .col-date    { display: none; }
+  .col-role    { width: 2rem; overflow: hidden; font-size: 0; padding: 0; }
+  .col-type    { display: none; }
+  .col-count   { display: none; }
+  .col-status  { display: none; }
+}
+
+.data-list-items {
+  @include list-container;
+
+  ::ng-deep > * + * {
+    border-top: 1px solid var(--surface-border);
+  }
+}
+
+.data-list-grid { @include grid-container; }

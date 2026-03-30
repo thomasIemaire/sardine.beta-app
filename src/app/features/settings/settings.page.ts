@@ -6,13 +6,13 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
-import { Paginator, PaginatorState } from 'primeng/paginator';
+import { PaginatorState } from 'primeng/paginator';
 import { MessageService } from 'primeng/api';
 import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
-import { ToolbarComponent, ActiveFilter, ActiveSort, FilterDefinition, SortDefinition } from '../../shared/components/toolbar/toolbar.component';
+import { DataListComponent, ListColumn } from '../../shared/components/data-list/data-list.component';
+import type { ActiveFilter, ActiveSort, FilterDefinition, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
-import { ElementSizeDirective } from '../../shared/directives/element-size.directive';
 import { MemberRowComponent, Member } from '../../shared/components/member-row/member-row.component';
 import { OrgRowComponent, Organization } from '../../shared/components/org-row/org-row.component';
 
@@ -32,7 +32,7 @@ interface FacetConfig {
 
 @Component({
   selector: 'app-settings',
-  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, Paginator, PageComponent, HeaderPageComponent, ToolbarComponent, EmptyStateComponent, ElementSizeDirective, MemberRowComponent, OrgRowComponent],
+  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, PageComponent, HeaderPageComponent, DataListComponent, EmptyStateComponent, MemberRowComponent, OrgRowComponent],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="3000" />
@@ -46,69 +46,68 @@ interface FacetConfig {
         (facetChange)="onFacetChange($event)"
       />
 
-      @if (currentConfig) {
-        <div class="settings-toolbar">
-          <app-toolbar
-            [searchPlaceholder]="currentConfig.searchPlaceholder"
-            [showViewMode]="false"
-            [(search)]="search"
-            [(filters)]="activeFilters"
-            [filterDefinitions]="currentFilterDefs"
-            [(sorts)]="activeSorts"
-            [sortDefinitions]="currentSortDefs"
-          >
-            <p-button [label]="currentConfig.actionLabel" [icon]="currentConfig.actionIcon" rounded size="small" />
-          </app-toolbar>
-        </div>
-      }
-
       @if (currentFacet === 'members') {
-        @if (filteredMembers.length > 0) {
-          <div class="settings-list-container" [appElementSize]="{ compact: 600 }">
-            <div class="settings-list-header">
-              <span class="slh-col slh-main">Membre</span>
-              <span class="slh-col slh-role">Rôle</span>
-              <span class="slh-col slh-status">Statut</span>
-              <span class="slh-col slh-actions"></span>
-            </div>
-            <div class="settings-list">
-              @for (member of paginatedMembers; track member.id) {
-                <app-member-row [member]="member" />
-              }
-            </div>
-          </div>
-          <div class="settings-paginator">
-            <span class="paginator-count">{{ filteredMembers.length }} résultat{{ filteredMembers.length > 1 ? 's' : '' }}</span>
-            <p-paginator [first]="pageFirst" [rows]="pageSize" [totalRecords]="filteredMembers.length" [rowsPerPageOptions]="[10, 25, 50]" (onPageChange)="onPageChange($event)" />
-          </div>
-        } @else {
-          <app-empty-state icon="fa-regular fa-users" title="Aucun membre" subtitle="Aucun résultat pour cette recherche." />
-        }
+        <app-data-list
+          [searchPlaceholder]="currentConfig!.searchPlaceholder"
+          [showViewMode]="false"
+          [(search)]="search"
+          [(filters)]="activeFilters"
+          [filterDefinitions]="memberFilterDefs"
+          [(sorts)]="activeSorts"
+          [sortDefinitions]="memberSortDefs"
+          [columns]="memberColumns"
+          [listCompactBreakpoint]="600"
+          [listTemplate]="memberListTpl"
+          emptyIcon="fa-regular fa-users"
+          emptyTitle="Aucun membre"
+          emptySubtitle="Aucun résultat pour cette recherche."
+          [totalRecords]="filteredMembers.length"
+          [paginatorFirst]="pageFirst"
+          [paginatorRows]="pageSize"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          (pageChange)="onPageChange($event)"
+          viewMode="list"
+        >
+          <p-button [label]="currentConfig!.actionLabel" [icon]="currentConfig!.actionIcon" rounded size="small" toolbar-actions />
+        </app-data-list>
+
+        <ng-template #memberListTpl>
+          @for (member of paginatedMembers; track member.id) {
+            <app-member-row [member]="member" />
+          }
+        </ng-template>
       }
 
       @if (currentFacet === 'organizations') {
-        @if (filteredOrganizations.length > 0) {
-          <div class="settings-list-container" [appElementSize]="{ compact: 600 }">
-            <div class="settings-list-header">
-              <span class="slh-col slh-main">Organisation</span>
-              <span class="slh-col slh-type">Type</span>
-              <span class="slh-col slh-count">Membres</span>
-              <span class="slh-col slh-status">Statut</span>
-              <span class="slh-col slh-actions"></span>
-            </div>
-            <div class="settings-list">
-              @for (org of paginatedOrganizations; track org.id) {
-                <app-org-row [org]="org" />
-              }
-            </div>
-          </div>
-          <div class="settings-paginator">
-            <span class="paginator-count">{{ filteredOrganizations.length }} résultat{{ filteredOrganizations.length > 1 ? 's' : '' }}</span>
-            <p-paginator [first]="pageFirst" [rows]="pageSize" [totalRecords]="filteredOrganizations.length" [rowsPerPageOptions]="[10, 25, 50]" (onPageChange)="onPageChange($event)" />
-          </div>
-        } @else {
-          <app-empty-state icon="fa-regular fa-building" title="Aucune organisation" subtitle="Aucun résultat pour cette recherche." />
-        }
+        <app-data-list
+          [searchPlaceholder]="currentConfig!.searchPlaceholder"
+          [showViewMode]="false"
+          [(search)]="search"
+          [(filters)]="activeFilters"
+          [filterDefinitions]="orgFilterDefs"
+          [(sorts)]="activeSorts"
+          [sortDefinitions]="orgSortDefs"
+          [columns]="orgColumns"
+          [listCompactBreakpoint]="600"
+          [listTemplate]="orgListTpl"
+          emptyIcon="fa-regular fa-building"
+          emptyTitle="Aucune organisation"
+          emptySubtitle="Aucun résultat pour cette recherche."
+          [totalRecords]="filteredOrganizations.length"
+          [paginatorFirst]="pageFirst"
+          [paginatorRows]="pageSize"
+          [rowsPerPageOptions]="[10, 25, 50]"
+          (pageChange)="onPageChange($event)"
+          viewMode="list"
+        >
+          <p-button [label]="currentConfig!.actionLabel" [icon]="currentConfig!.actionIcon" rounded size="small" toolbar-actions />
+        </app-data-list>
+
+        <ng-template #orgListTpl>
+          @for (org of paginatedOrganizations; track org.id) {
+            <app-org-row [org]="org" />
+          }
+        </ng-template>
       }
 
       @if (currentFacet === 'teams') {
@@ -211,367 +210,7 @@ interface FacetConfig {
       }
     </app-page>
   `,
-  styles: `
-    .settings-toolbar { padding: 1rem; flex-shrink: 0; }
-
-    /* ── List ── */
-    .settings-list-container {
-      flex: 1;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      border-top: 1px solid var(--surface-border);
-    }
-
-    .settings-list-header {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.5rem 1rem;
-      background: var(--background-color-50);
-      border-bottom: 1px solid var(--surface-border);
-      position: sticky;
-      top: 0;
-      z-index: 1;
-    }
-
-    .slh-col {
-      font-size: 0.6875rem;
-      font-weight: 500;
-      color: var(--p-text-muted-color);
-
-      &.slh-main    { flex: 1; }
-      &.slh-role    { width: 120px; flex-shrink: 0; }
-      &.slh-type    { width: 140px; flex-shrink: 0; }
-      &.slh-count   { width: 80px; flex-shrink: 0; }
-      &.slh-status  { width: 80px; flex-shrink: 0; }
-      &.slh-actions { width: 2rem; flex-shrink: 0; }
-    }
-
-    .settings-list {
-      display: flex;
-      flex-direction: column;
-      border-bottom: 1px solid var(--surface-border);
-      overflow: hidden;
-
-      app-member-row + app-member-row,
-      app-org-row + app-org-row {
-        border-top: 1px solid var(--surface-border);
-      }
-    }
-
-    .settings-list-container.compact {
-      .slh-role   { width: 2rem; overflow: hidden; font-size: 0; padding: 0; }
-      .slh-type   { display: none; }
-      .slh-count  { display: none; }
-      .slh-status { display: none; }
-    }
-
-    /* ── Settings tab ── */
-    .org-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 2rem;
-      max-width: 640px;
-      width: 100%;
-      margin-inline: auto;
-    }
-
-    .org-section { display: flex; flex-direction: column; gap: 1rem; }
-
-    .org-section-title {
-      margin: 0;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--p-text-color);
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid var(--surface-border);
-    }
-
-    .org-section-hint {
-      font-size: 0.75rem;
-      color: var(--p-text-muted-color);
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    .org-doc-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3rem;
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: var(--p-primary-color);
-      text-decoration: none;
-      white-space: nowrap;
-
-      i { font-size: 0.5625rem; }
-
-      &:hover { text-decoration: underline; }
-    }
-
-    .org-avatar-block { display: flex; align-items: center; gap: 1rem; }
-
-    .org-avatar {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 3.5rem;
-      height: 3.5rem;
-      border-radius: 0.625rem;
-      background: var(--primary-color-100);
-      color: var(--primary-color-700);
-      font-size: 0.875rem;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-
-    .org-avatar-info { display: flex; flex-direction: column; gap: 0.375rem; }
-    .org-avatar-name { font-size: 1rem; font-weight: 600; color: var(--p-text-color); }
-
-    .org-form { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-
-    .org-field {
-      display: flex;
-      flex-direction: column;
-      gap: 0.375rem;
-      &--full { grid-column: 1 / -1; }
-      input { width: 100%; }
-    }
-
-    .org-label { font-size: 0.75rem; font-weight: 500; color: var(--p-text-muted-color); }
-
-    .org-section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-
-      .org-section-title { padding-bottom: 0; border-bottom: none; }
-    }
-
-    .api-key-form {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem;
-      background: var(--background-color-50);
-      border: 1px solid var(--surface-border);
-      border-radius: var(--radius-m);
-
-      input { flex: 1; }
-    }
-
-    .api-key-reveal {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      padding: 0.875rem 1rem;
-      background: var(--yellow-color-50, var(--background-color-50));
-      border: 1px solid var(--yellow-color-300, var(--surface-border));
-      border-radius: var(--radius-m);
-
-      &__header {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.8125rem;
-        font-weight: 600;
-        color: var(--yellow-color-800, var(--p-text-color));
-
-        i { color: var(--yellow-color-500); }
-      }
-
-      &__value {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: var(--background-color-0);
-        border: 1px solid var(--surface-border);
-        border-radius: 0.375rem;
-        padding: 0.375rem 0.75rem;
-
-        code {
-          flex: 1;
-          font-size: 0.6875rem;
-          font-family: monospace;
-          word-break: break-all;
-          color: var(--p-text-color);
-        }
-      }
-
-      &__footer {
-        display: flex;
-        justify-content: flex-end;
-      }
-    }
-
-    .api-keys-list {
-      display: flex;
-      flex-direction: column;
-      border: 1px solid var(--surface-border);
-      border-radius: var(--radius-m);
-      overflow: hidden;
-
-      &__row {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 0.625rem 1rem;
-        border-bottom: 1px solid var(--surface-border);
-        transition: background 0.15s;
-
-        &:last-child { border-bottom: none; }
-        &:hover { background: var(--background-color-50); }
-        &.is-revoked { opacity: 0.55; }
-      }
-    }
-
-    .akl-main {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 0.125rem;
-    }
-
-    .akl-name {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--p-text-color);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .akl-prefix {
-      font-family: monospace;
-      font-size: 0.6875rem;
-      color: var(--p-text-muted-color);
-    }
-
-    .akl-date {
-      width: 6rem;
-      flex-shrink: 0;
-      font-size: 0.625rem;
-      color: var(--p-text-muted-color);
-    }
-
-    .akl-actions {
-      width: 5rem;
-      flex-shrink: 0;
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.125rem;
-    }
-
-    .key-status {
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-      font-size: 0.6875rem;
-      color: var(--p-text-muted-color);
-
-      &__dot {
-        width: 0.4rem;
-        height: 0.4rem;
-        border-radius: 100%;
-        background: var(--p-text-muted-color);
-        flex-shrink: 0;
-      }
-
-      &.is-active {
-        color: var(--green-color-600);
-        .key-status__dot { background: var(--green-color-500); }
-      }
-    }
-
-    .api-keys-empty {
-      font-size: 0.75rem;
-      color: var(--p-text-muted-color);
-      margin: 0;
-    }
-
-    .org-pref-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0.75rem;
-      background: var(--background-color-50);
-      border: 1px solid var(--surface-border);
-      border-radius: var(--radius-m);
-    }
-
-    .org-pref-info {
-      display: flex;
-      flex-direction: column;
-      gap: 0.2rem;
-    }
-
-    .org-pref-label {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--p-text-color);
-    }
-
-    .org-pref-hint {
-      font-size: 0.6875rem;
-      color: var(--p-text-muted-color);
-    }
-
-    .org-pref-value {
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-      flex-shrink: 0;
-    }
-
-    .org-pref-org {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--p-text-color);
-    }
-
-    .org-pref-empty {
-      font-size: 0.75rem;
-      color: var(--p-text-muted-color);
-      flex-shrink: 0;
-    }
-
-    .org-actions { display: flex; justify-content: flex-end; }
-
-    .settings-paginator {
-      position: sticky;
-      bottom: 0;
-      margin-top: auto;
-      background: var(--background-color-50);
-      border-top: 1px solid var(--surface-border);
-      display: flex;
-      align-items: center;
-    }
-
-    .paginator-count {
-      font-size: 0.6875rem;
-      color: var(--p-text-muted-color);
-      padding-left: 1rem;
-      white-space: nowrap;
-    }
-
-    :host ::ng-deep .settings-paginator .p-paginator {
-      background: transparent;
-      border: none;
-      border-radius: 0;
-      padding: 0.875rem 1rem;
-      flex: 1;
-    }
-  `,
+  styleUrl: './settings.page.scss',
 })
 export class SettingsPage {
   facets: Facet[] = [
@@ -598,6 +237,21 @@ export class SettingsPage {
   private _pageSize = parseInt(localStorage.getItem('pageSize:settings') ?? '10', 10);
   get pageSize(): number { return this._pageSize; }
   set pageSize(value: number) { this._pageSize = value; localStorage.setItem('pageSize:settings', String(value)); }
+
+  memberColumns: ListColumn[] = [
+    { label: 'Membre', cssClass: 'col-flex' },
+    { label: 'Rôle', cssClass: 'col-role' },
+    { label: 'Statut', cssClass: 'col-status' },
+    { label: '', cssClass: 'col-actions' },
+  ];
+
+  orgColumns: ListColumn[] = [
+    { label: 'Organisation', cssClass: 'col-flex' },
+    { label: 'Type', cssClass: 'col-type' },
+    { label: 'Membres', cssClass: 'col-count' },
+    { label: 'Statut', cssClass: 'col-status' },
+    { label: '', cssClass: 'col-actions' },
+  ];
 
   readonly memberFilterDefs: FilterDefinition[] = [
     { id: 'role', label: 'Rôle', type: 'select', options: [
@@ -632,14 +286,6 @@ export class SettingsPage {
     { id: 'name', label: 'Nom' },
     { id: 'members', label: 'Membres' },
   ];
-
-  get currentFilterDefs(): FilterDefinition[] {
-    return this.currentFacet === 'members' ? this.memberFilterDefs : this.orgFilterDefs;
-  }
-
-  get currentSortDefs(): SortDefinition[] {
-    return this.currentFacet === 'members' ? this.memberSortDefs : this.orgSortDefs;
-  }
 
   readonly members: Member[] = [
     { id: '1', firstName: 'Thomas',  lastName: 'Lemaire', email: 'thomas.lemaire@sendoc.fr',  role: 'Administrateur', active: true },
@@ -771,5 +417,4 @@ export class SettingsPage {
     this.pageFirst = event.first ?? 0;
     if (event.rows != null) this.pageSize = event.rows;
   }
-
 }

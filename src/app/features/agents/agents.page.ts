@@ -1,18 +1,17 @@
 import { Component } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
-import { Paginator, PaginatorState } from 'primeng/paginator';
+import { PaginatorState } from 'primeng/paginator';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
-import { ToolbarComponent, ViewMode } from '../../shared/components/toolbar/toolbar.component';
+import { DataListComponent, ListColumn } from '../../shared/components/data-list/data-list.component';
+import type { ViewMode } from '../../shared/components/toolbar/toolbar.component';
 import type { ActiveFilter, FilterDefinition, ActiveSort, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
 import { AgentCardComponent, Agent } from '../../shared/components/agent-card/agent-card.component';
-import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
-import { ElementSizeDirective } from '../../shared/directives/element-size.directive';
 import { AgentConfigPanelComponent } from './agent-config-panel.component';
 import { AgentVersionPanelComponent } from './agent-version-panel.component';
 
 @Component({
   selector: 'app-agents',
-  imports: [ButtonModule, Paginator, HeaderPageComponent, ToolbarComponent, AgentCardComponent, EmptyStateComponent, AgentConfigPanelComponent, AgentVersionPanelComponent, ElementSizeDirective],
+  imports: [ButtonModule, HeaderPageComponent, DataListComponent, AgentCardComponent, AgentConfigPanelComponent, AgentVersionPanelComponent],
   template: `
     <div class="agents-wrapper">
       <app-header-page
@@ -28,56 +27,39 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
       <div class="agents-layout">
         <div class="agents-main">
           <div class="agents-body">
-            <div class="agents-toolbar">
-              <app-toolbar searchPlaceholder="Rechercher un agent..." [(filters)]="filters" [(search)]="search" [filterDefinitions]="filterDefinitions" [(sorts)]="sorts" [sortDefinitions]="sortDefinitions" [(viewMode)]="viewMode">
-                <p-button label="Ajouter un agent" icon="fa-regular fa-plus" rounded size="small" [disabled]="isSharedFacet" />
-              </app-toolbar>
-            </div>
+            <app-data-list
+              searchPlaceholder="Rechercher un agent..."
+              [(filters)]="filters"
+              [(search)]="search"
+              [filterDefinitions]="filterDefinitions"
+              [(sorts)]="sorts"
+              [sortDefinitions]="sortDefinitions"
+              [(viewMode)]="viewMode"
+              [columns]="listColumns"
+              [gridTemplate]="gridTpl"
+              [listTemplate]="listTpl"
+              emptyIcon="fa-regular fa-microchip-ai"
+              emptyTitle="Aucun agent disponible"
+              emptySubtitle="Créez votre premier agent pour commencer."
+              [totalRecords]="filteredAgents.length"
+              [paginatorFirst]="first"
+              [paginatorRows]="pageSize"
+              (pageChange)="onPageChange($event)"
+            >
+              <p-button label="Ajouter un agent" icon="fa-regular fa-plus" rounded size="small" [disabled]="isSharedFacet" toolbar-actions />
+            </app-data-list>
 
-            <div class="agents-content" [class.list-mode]="viewMode === 'list'">
-              @if (filteredAgents.length > 0) {
-                @if (viewMode === 'grid') {
-                  <div class="agents-grid">
-                    @for (agent of paginatedAgents; track agent.name) {
-                      <app-agent-card [agent]="agent" layout="grid" [class.selected]="selectedAgent === agent" (click)="selectAgent(agent)" />
-                    }
-                  </div>
-                } @else {
-                  <div class="agents-list-container" [appElementSize]="{ compact: 700 }">
-                    <div class="agents-list-header">
-                      <span class="alh-col alh-name">Nom</span>
-                      <span class="alh-col alh-creator">Créateur</span>
-                      <span class="alh-col alh-date">Créé le</span>
-                      <span class="alh-col alh-actions"></span>
-                    </div>
-                    <div class="agents-list">
-                      @for (agent of paginatedAgents; track agent.name) {
-                        <app-agent-card [agent]="agent" layout="list" [class.selected]="selectedAgent === agent" (click)="selectAgent(agent)" />
-                      }
-                    </div>
-                  </div>
-                }
-              } @else {
-                <app-empty-state
-                  icon="fa-regular fa-microchip-ai"
-                  title="Aucun agent disponible"
-                  subtitle="Créez votre premier agent pour commencer."
-                />
+            <ng-template #gridTpl>
+              @for (agent of paginatedAgents; track agent.name) {
+                <app-agent-card [agent]="agent" layout="grid" [class.selected]="selectedAgent === agent" (click)="selectAgent(agent)" />
               }
-            </div>
+            </ng-template>
 
-            @if (filteredAgents.length > 0) {
-              <div class="agents-paginator">
-                <span class="paginator-count">{{ filteredAgents.length }} résultat{{ filteredAgents.length > 1 ? 's' : '' }}</span>
-                <p-paginator
-                  [first]="first"
-                  [rows]="pageSize"
-                  [totalRecords]="filteredAgents.length"
-                  [rowsPerPageOptions]="[6, 12, 24, 48]"
-                  (onPageChange)="onPageChange($event)"
-                />
-              </div>
-            }
+            <ng-template #listTpl>
+              @for (agent of paginatedAgents; track agent.name) {
+                <app-agent-card [agent]="agent" layout="list" [class.selected]="selectedAgent === agent" (click)="selectAgent(agent)" />
+              }
+            </ng-template>
           </div>
         </div>
 
@@ -94,168 +76,19 @@ import { AgentVersionPanelComponent } from './agent-version-panel.component';
       </div>
     </div>
   `,
-  styles: `
-    :host {
-      display: block;
-      height: 100%;
-      overflow: hidden;
-    }
-
-    .agents-wrapper {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      overflow: hidden;
-    }
-
-    .agents-layout {
-      display: flex;
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    .agents-main {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .agents-panel {
-      width: 50%;
-      flex-shrink: 0;
-      border-left: 1px solid var(--surface-border);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      animation: slideIn 0.2s ease;
-    }
-
-    .agents-version-panel {
-      width: 280px;
-      flex-shrink: 0;
-      border-left: 1px solid var(--surface-border);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      animation: slideIn 0.2s ease;
-    }
-
-    @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to   { transform: translateX(0);    opacity: 1; }
-    }
-
-    .agents-body {
-      flex: 1;
-      overflow-y: auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .agents-toolbar {
-      flex-shrink: 0;
-      padding: 1rem;
-    }
-
-    .agents-content {
-      &.list-mode {
-        border-top: 1px solid var(--surface-border);
-      }
-    }
-
-    .agents-list-container {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .agents-list-header {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.5rem 1rem;
-      background: var(--background-color-50);
-      border-bottom: 1px solid var(--surface-border);
-      position: sticky;
-      top: 0;
-      z-index: 1;
-    }
-
-    .alh-col {
-      font-size: 0.6875rem;
-      font-weight: 500;
-      color: var(--p-text-muted-color);
-
-      &.alh-name    { flex: 1; }
-      &.alh-creator { width: 9rem; flex-shrink: 0; }
-      &.alh-date    { width: 5.5rem; flex-shrink: 0; }
-      &.alh-actions { width: 2rem; flex-shrink: 0; }
-    }
-
-    .agents-list-container.compact {
-      .alh-creator { width: 2rem; overflow: hidden; font-size: 0; }
-      .alh-date    { display: none; }
-    }
-
-    .agents-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-      gap: 1rem;
-      padding: 0 1rem 1rem;
-    }
-
-    .agents-list {
-      display: flex;
-      flex-direction: column;
-      border-bottom: 1px solid var(--surface-border);
-      overflow: hidden;
-
-      app-agent-card + app-agent-card {
-        border-top: 1px solid var(--surface-border);
-      }
-    }
-
-    .agents-grid app-agent-card.selected ::ng-deep .card {
-      background: var(--primary-color-50);
-    }
-
-    .agents-list app-agent-card.selected ::ng-deep .row {
-      background: var(--primary-color-50);
-    }
-
-    .agents-paginator {
-      position: sticky;
-      bottom: 0;
-      margin-top: auto;
-      background: var(--background-color-50);
-      border-top: 1px solid var(--surface-border);
-      display: flex;
-      align-items: center;
-    }
-
-    .paginator-count {
-      font-size: 0.6875rem;
-      color: var(--p-text-muted-color);
-      padding-left: 1rem;
-      white-space: nowrap;
-    }
-
-    :host ::ng-deep .p-paginator {
-      background: transparent;
-      border: none;
-      border-radius: 0;
-      padding: 0.875rem 1rem;
-      flex: 1;
-    }
-  `,
+  styleUrl: './agents.page.scss',
 })
 export class AgentsPage {
   facets: Facet[] = [
     { id: 'my-agents', label: 'Mes agents' },
     { id: 'shared', label: 'Partagés avec moi' },
+  ];
+
+  listColumns: ListColumn[] = [
+    { label: 'Nom', cssClass: 'col-flex' },
+    { label: 'Créateur', cssClass: 'col-creator' },
+    { label: 'Créé le', cssClass: 'col-date' },
+    { label: '', cssClass: 'col-actions' },
   ];
 
   isSharedFacet = false;

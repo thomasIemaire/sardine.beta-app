@@ -1,0 +1,12 @@
+@use 'styles/mixins' as *;
+
+.paginator-bar {
+  flex-shrink: 0;
+  background: var(--background-color-50);
+  border-top: 1px solid var(--surface-border);
+  display: flex;
+  align-items: center;
+}
+
+.paginator-count { @include paginator-count; }
+@include paginator-override;

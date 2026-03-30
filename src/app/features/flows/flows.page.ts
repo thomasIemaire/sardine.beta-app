@@ -1,17 +1,16 @@
 import { Component } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
-import { Paginator, PaginatorState } from 'primeng/paginator';
+import { PaginatorState } from 'primeng/paginator';
 import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
-import { ToolbarComponent, ViewMode } from '../../shared/components/toolbar/toolbar.component';
+import { DataListComponent, ListColumn } from '../../shared/components/data-list/data-list.component';
+import type { ViewMode } from '../../shared/components/toolbar/toolbar.component';
 import type { ActiveFilter, FilterDefinition, ActiveSort, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
 import { FlowCardComponent, Flow } from '../../shared/components/flow-card/flow-card.component';
-import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
-import { ElementSizeDirective } from '../../shared/directives/element-size.directive';
 
 @Component({
   selector: 'app-flows',
-  imports: [ButtonModule, Paginator, PageComponent, HeaderPageComponent, ToolbarComponent, FlowCardComponent, EmptyStateComponent, ElementSizeDirective],
+  imports: [ButtonModule, PageComponent, HeaderPageComponent, DataListComponent, FlowCardComponent],
   template: `
     <app-page>
       <app-header-page
@@ -24,164 +23,54 @@ import { ElementSizeDirective } from '../../shared/directives/element-size.direc
         <button pButton icon="fa-solid fa-book-blank" label="Documentation" severity="secondary" size="small" rounded action></button>
       </app-header-page>
 
-      <div class="flows-body">
-        <div class="flows-toolbar">
-          <app-toolbar searchPlaceholder="Rechercher un flow..." [(filters)]="filters" [(search)]="search" [filterDefinitions]="filterDefinitions" [(sorts)]="sorts" [sortDefinitions]="sortDefinitions" [(viewMode)]="viewMode">
-            <p-button label="Ajouter un flow" icon="fa-regular fa-plus" rounded size="small" [disabled]="isSharedFacet" />
-          </app-toolbar>
-        </div>
+      <app-data-list
+        searchPlaceholder="Rechercher un flow..."
+        [(filters)]="filters"
+        [(search)]="search"
+        [filterDefinitions]="filterDefinitions"
+        [(sorts)]="sorts"
+        [sortDefinitions]="sortDefinitions"
+        [(viewMode)]="viewMode"
+        [columns]="listColumns"
+        [gridTemplate]="gridTpl"
+        [listTemplate]="listTpl"
+        emptyIcon="fa-light fa-chart-diagram"
+        emptyTitle="Aucun flow disponible"
+        emptySubtitle="Créez votre premier flow pour commencer."
+        [totalRecords]="filteredFlows.length"
+        [paginatorFirst]="first"
+        [paginatorRows]="pageSize"
+        (pageChange)="onPageChange($event)"
+      >
+        <p-button label="Ajouter un flow" icon="fa-regular fa-plus" rounded size="small" [disabled]="isSharedFacet" toolbar-actions />
+      </app-data-list>
 
-        <div class="flows-content" [class.list-mode]="viewMode === 'list'">
-          @if (filteredFlows.length > 0) {
-            @if (viewMode === 'grid') {
-              <div class="flows-grid">
-                @for (flow of paginatedFlows; track flow.name) {
-                  <app-flow-card [flow]="flow" layout="grid" />
-                }
-              </div>
-            } @else {
-              <div class="flows-list-container" [appElementSize]="{ compact: 700 }">
-                <div class="flows-list-header">
-                  <span class="flh-dot"></span>
-                  <span class="flh-col flh-name">Nom</span>
-                  <span class="flh-col flh-creator">Créateur</span>
-                  <span class="flh-col flh-date">Créé le</span>
-                  <span class="flh-col flh-actions"></span>
-                </div>
-                <div class="flows-list">
-                  @for (flow of paginatedFlows; track flow.name) {
-                    <app-flow-card [flow]="flow" layout="list" />
-                  }
-                </div>
-              </div>
-            }
-          } @else {
-            <app-empty-state
-              icon="fa-light fa-chart-diagram"
-              title="Aucun flow disponible"
-              subtitle="Créez votre premier flow pour commencer."
-            />
-          }
-        </div>
-
-        @if (filteredFlows.length > 0) {
-          <div class="flows-paginator">
-            <span class="paginator-count">{{ filteredFlows.length }} résultat{{ filteredFlows.length > 1 ? 's' : '' }}</span>
-            <p-paginator
-              [first]="first"
-              [rows]="pageSize"
-              [totalRecords]="filteredFlows.length"
-              [rowsPerPageOptions]="[6, 12, 24, 48]"
-              (onPageChange)="onPageChange($event)"
-            />
-          </div>
+      <ng-template #gridTpl>
+        @for (flow of paginatedFlows; track flow.name) {
+          <app-flow-card [flow]="flow" layout="grid" />
         }
-      </div>
+      </ng-template>
+
+      <ng-template #listTpl>
+        @for (flow of paginatedFlows; track flow.name) {
+          <app-flow-card [flow]="flow" layout="list" />
+        }
+      </ng-template>
     </app-page>
-  `,
-  styles: `
-    .flows-body {
-      flex: 1;
-      overflow-y: auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .flows-toolbar {
-      flex-shrink: 0;
-      padding: 1rem;
-    }
-
-    .flows-content {
-      &.list-mode {
-        border-top: 1px solid var(--surface-border);
-      }
-    }
-
-    .flows-list-header {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.5rem 1rem;
-      background: var(--background-color-50);
-      border-bottom: 1px solid var(--surface-border);
-      position: sticky;
-      top: 0;
-      z-index: 1;
-    }
-
-    .flh-dot { width: 0.5rem; flex-shrink: 0; }
-
-    .flh-col {
-      font-size: 0.6875rem;
-      font-weight: 500;
-      color: var(--p-text-muted-color);
-
-      &.flh-name    { flex: 1; }
-      &.flh-creator { width: 9rem; flex-shrink: 0; }
-      &.flh-date    { width: 5.5rem; flex-shrink: 0; }
-      &.flh-actions { width: 2rem; flex-shrink: 0; }
-    }
-
-    .flows-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-      gap: 1rem;
-      padding: 0 1rem 1rem;
-    }
-
-    .flows-list-container {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .flows-list-container.compact {
-      .flh-creator { width: 2rem; overflow: hidden; font-size: 0; }
-      .flh-date    { display: none; }
-    }
-
-    .flows-list {
-      display: flex;
-      flex-direction: column;
-      border-bottom: 1px solid var(--surface-border);
-      overflow: hidden;
-
-      app-flow-card + app-flow-card {
-        border-top: 1px solid var(--surface-border);
-      }
-    }
-
-    .flows-paginator {
-      position: sticky;
-      bottom: 0;
-      margin-top: auto;
-      background: var(--background-color-50);
-      border-top: 1px solid var(--surface-border);
-      display: flex;
-      align-items: center;
-    }
-
-    .paginator-count {
-      font-size: 0.6875rem;
-      color: var(--p-text-muted-color);
-      padding-left: 1rem;
-      white-space: nowrap;
-    }
-
-    :host ::ng-deep .p-paginator {
-      background: transparent;
-      border: none;
-      border-radius: 0;
-      padding: 0.875rem 1rem;
-      flex: 1;
-    }
   `,
 })
 export class FlowsPage {
   facets: Facet[] = [
     { id: 'my-flows', label: 'Mes flows' },
     { id: 'shared', label: 'Partagés avec moi' },
+  ];
+
+  listColumns: ListColumn[] = [
+    { label: '', cssClass: 'col-dot' },
+    { label: 'Nom', cssClass: 'col-flex' },
+    { label: 'Créateur', cssClass: 'col-creator' },
+    { label: 'Créé le', cssClass: 'col-date' },
+    { label: '', cssClass: 'col-actions' },
   ];
 
   isSharedFacet = false;

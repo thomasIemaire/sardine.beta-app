@@ -1,0 +1,80 @@
+@use 'styles/mixins' as *;
+
+/* ── Card (grid) ── */
+.card {
+  @include card-interactive;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+.card-name-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.card-name { @include card-name; }
+
+.card-description {
+  @include card-description;
+  margin-bottom: .375rem;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-creator { @include card-creator; }
+.card-avatar  { @include avatar; }
+.card-creator-name { @include card-creator-name; }
+.card-date { @include card-date; }
+
+/* ── Row (list) ── */
+.row {
+  @include row-interactive;
+  cursor: pointer;
+}
+
+.row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.row-name-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.row-description {
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
+  @include text-truncate;
+}
+
+.row-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+
+  .card-creator { width: 9rem; flex-shrink: 0; }
+  .card-date    { width: 5.5rem; flex-shrink: 0; }
+}
+
+.row.compact .card-creator-name { display: none; }
+.row.compact .row-meta {
+  .card-creator { width: 2rem; }
+  .card-date    { display: none; }
+}
