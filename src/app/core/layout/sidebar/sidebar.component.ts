@@ -6,6 +6,7 @@ import { SidebarMenu } from './sidebar.models';
 import { SidebarService } from './sidebar.service';
 import { BrandComponent } from '../.././../shared/components/brand/brand.component';
 import { DividerModule } from 'primeng/divider';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -19,6 +20,11 @@ import { DividerModule } from 'primeng/divider';
           <div class="sidebar-nav">
             @for (menu of menus; track menu.title) {
               <app-sidebar-menu [title]="menu.title" [items]="menu.items" />
+            }
+            @if (userService.isAdmin()) {
+              <div>
+                <app-sidebar-menu [title]="adminMenu.title" [items]="adminMenu.items" />
+              </div>
             }
           </div>
 
@@ -143,11 +149,20 @@ import { DividerModule } from 'primeng/divider';
 })
 export class SidebarComponent {
   sidebarService = inject(SidebarService);
+  userService = inject(UserService);
   orgSelectOpen = signal(false);
 
   onFilesDropped(files: File[]): void {
     console.log('Fichiers déposés :', files);
   }
+
+  readonly adminMenu: SidebarMenu = {
+    title: 'Système',
+    items: [
+      { label: 'Serveurs', icon: 'fa-regular fa-server', link: '/admin/servers' },
+      { label: 'Fine-tuning', icon: 'fa-regular fa-sliders', link: '/admin/fine-tuning' },
+    ],
+  };
 
   readonly menus: SidebarMenu[] = [
     {

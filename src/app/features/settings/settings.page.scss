@@ -222,7 +222,7 @@
 
 .team-chevron {
   align-self: stretch;
-  aspect-ratio: 1 / 1;
+  width: 2.5rem;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -238,7 +238,7 @@
   &:hover { background: var(--background-color-200); }
 
   i {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     transition: transform 0.15s ease;
   }
 
@@ -247,14 +247,16 @@
 
 .team-dot {
   align-self: stretch;
-  aspect-ratio: 1 / 1;
+  width: 2.5rem;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
 
   &::before {
     content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     width: 4px;
     height: 4px;
     border-radius: 50%;

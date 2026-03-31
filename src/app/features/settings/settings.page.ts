@@ -178,8 +178,10 @@ interface FacetConfig {
               emptyTitle="Aucune équipe"
               emptySubtitle="Aucun résultat pour cette recherche."
               [totalRecords]="flatTeamRows.length"
-              [paginatorRows]="999"
-              [rowsPerPageOptions]="[]"
+              [paginatorFirst]="teamsPageFirst"
+              [paginatorRows]="teamsPageSize"
+              [rowsPerPageOptions]="[10, 25, 50]"
+              (pageChange)="onTeamsPageChange($event)"
               viewMode="list"
             >
               <p-button label="Nouvelle équipe" icon="fa-regular fa-users-medical" rounded size="small" toolbar-actions />
@@ -194,11 +196,11 @@ interface FacetConfig {
         </div>
 
         <ng-template #teamListTpl>
-          @for (row of flatTeamRows; track row.team.id) {
+          @for (row of paginatedTeamRows; track row.team.id) {
             <div class="team-row" [class.is-selected]="selectedTeam === row.team" (click)="selectTeam(row.team)">
               @if (row.hasChildren) {
                 <button class="team-chevron" [class.is-expanded]="row.isExpanded" [style.margin-left.rem]="row.depth * 2.5" (click)="toggleTeam(row.team.id); $event.stopPropagation()" type="button">
-                  <i class="fa-regular fa-chevron-right"></i>
+                  <i class="fa-solid fa-chevron-right"></i>
                 </button>
               } @else {
                 <span class="team-dot" [style.margin-left.rem]="row.depth * 1.5"></span>
@@ -479,6 +481,8 @@ export class SettingsPage {
   teamsSearch = '';
   selectedTeam: Team | null = null;
   private teamsExpandedIds: string[] = [];
+  teamsPageFirst = 0;
+  teamsPageSize = 10;
 
   selectTeam(team: Team): void {
     this.selectedTeam = this.selectedTeam === team ? null : team;
@@ -523,6 +527,15 @@ export class SettingsPage {
     };
     flatten(TEAMS, 0);
     return rows;
+  }
+
+  get paginatedTeamRows(): FlatTeamRow[] {
+    return this.flatTeamRows.slice(this.teamsPageFirst, this.teamsPageFirst + this.teamsPageSize);
+  }
+
+  onTeamsPageChange(event: PaginatorState): void {
+    this.teamsPageFirst = event.first ?? 0;
+    if (event.rows != null) this.teamsPageSize = event.rows;
   }
 
   toggleTeam(id: string): void {
@@ -594,6 +607,7 @@ export class SettingsPage {
     this.activeFilters = [];
     this.activeSorts = [];
     this.pageFirst = 0;
+    this.teamsPageFirst = 0;
     this.selectedTeam = null;
   }
 
