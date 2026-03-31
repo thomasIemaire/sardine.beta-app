@@ -163,7 +163,7 @@ export class SidebarComponent {
       items: [
         { label: 'Agents', icon: 'fa-regular fa-microchip-ai', link: '/agents' },
         { label: 'Flows', icon: 'fa-light fa-chart-diagram', link: '/flows' },
-        { label: 'Administration', icon: 'fa-jelly fa-regular fa-gear', link: '/administration' },
+{ label: 'Administration', icon: 'fa-jelly fa-regular fa-gear', link: '/administration' },
       ],
     },
   ];

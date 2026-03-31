@@ -1,6 +1,12 @@
 @use 'styles/mixins' as *;
 
-.row { @include row-interactive; }
+.row {
+  @include row-interactive;
+  cursor: pointer;
+
+  p-button { opacity: 0; transition: opacity 0.1s ease; }
+  &:hover p-button { opacity: 1; }
+}
 
 .row-main {
   flex: 1;

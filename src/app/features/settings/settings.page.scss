@@ -181,3 +181,137 @@
 }
 
 .org-actions { display: flex; justify-content: flex-end; }
+
+/* ── Teams layout ── */
+.teams-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.teams-main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.teams-panel {
+  width: 360px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--surface-border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  @include slide-in;
+}
+
+/* ── Teams facet rows ── */
+.team-row {
+  @include row-interactive;
+  cursor: pointer;
+  gap: 0.25rem;
+  padding: 0 1rem 0 0;
+  min-height: 52px;
+
+  &:hover .team-actions { opacity: 1; }
+  &.is-selected::before { background: var(--primary-color-50) !important; animation: none; }
+}
+
+.team-chevron {
+  align-self: stretch;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  padding: 0;
+  color: var(--p-text-muted-color);
+  transition: background 0.1s ease;
+
+  &:hover { background: var(--background-color-200); }
+
+  i {
+    font-size: 0.6875rem;
+    transition: transform 0.15s ease;
+  }
+
+  &.is-expanded i { transform: rotate(90deg); }
+}
+
+.team-dot {
+  align-self: stretch;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &::before {
+    content: '';
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--background-color-300);
+  }
+}
+
+.team-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.team-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--p-text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-desc {
+  font-size: 0.6875rem;
+  color: var(--p-text-muted-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-date {
+  width: 5.5rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+}
+
+.team-members-count {
+  width: 80px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+
+  i { font-size: 0.6875rem; }
+}
+
+.team-actions {
+  width: 2rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}

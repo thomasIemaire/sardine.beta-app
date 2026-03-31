@@ -3,6 +3,9 @@
 /* ── Card (grid) ── */
 .card {
   @include card-interactive;
+
+  p-button { opacity: 0; transition: opacity 0.1s ease; }
+  &:hover p-button { opacity: 1; }
 }
 
 .card-header {
@@ -41,6 +44,9 @@
 .row {
   @include row-interactive;
   cursor: pointer;
+
+  p-button { opacity: 0; transition: opacity 0.1s ease; }
+  &:hover p-button { opacity: 1; }
 }
 
 .row-main {

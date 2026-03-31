@@ -12,9 +12,61 @@ import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
 import { DataListComponent, ListColumn } from '../../shared/components/data-list/data-list.component';
 import type { ActiveFilter, ActiveSort, FilterDefinition, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
-import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { MemberRowComponent, Member } from '../../shared/components/member-row/member-row.component';
 import { OrgRowComponent, Organization } from '../../shared/components/org-row/org-row.component';
+import { TeamPanelComponent } from './team-panel.component';
+
+export interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  memberCount: number;
+  createdAt: Date;
+  children?: Team[];
+}
+
+interface FlatTeamRow {
+  team: Team;
+  depth: number;
+  hasChildren: boolean;
+  isExpanded: boolean;
+}
+
+const TEAMS: Team[] = [
+  {
+    id: 't1', name: 'Engineering', description: 'Équipe technique', memberCount: 12, createdAt: new Date('2024-03-10'),
+    children: [
+      {
+        id: 't1-1', name: 'Frontend', memberCount: 5, createdAt: new Date('2024-04-01'),
+        children: [
+          { id: 't1-1-1', name: 'Design System', memberCount: 2, createdAt: new Date('2024-06-15') },
+        ],
+      },
+      {
+        id: 't1-2', name: 'Backend', memberCount: 7, createdAt: new Date('2024-04-01'),
+        children: [
+          { id: 't1-2-1', name: 'API', memberCount: 3, createdAt: new Date('2024-05-20') },
+          { id: 't1-2-2', name: 'Infrastructure', memberCount: 4, createdAt: new Date('2024-07-08') },
+        ],
+      },
+    ],
+  },
+  {
+    id: 't2', name: 'Marketing', memberCount: 8, createdAt: new Date('2024-03-22'),
+    children: [
+      { id: 't2-1', name: 'Contenu', memberCount: 3, createdAt: new Date('2024-05-05') },
+      { id: 't2-2', name: 'Growth', memberCount: 5, createdAt: new Date('2024-08-12') },
+    ],
+  },
+  { id: 't3', name: 'Support', memberCount: 6, createdAt: new Date('2024-02-14') },
+  {
+    id: 't4', name: 'Produit', memberCount: 10, createdAt: new Date('2024-09-01'),
+    children: [
+      { id: 't4-1', name: 'UX Research', memberCount: 4, createdAt: new Date('2024-09-15') },
+      { id: 't4-2', name: 'Product Management', memberCount: 6, createdAt: new Date('2024-10-03') },
+    ],
+  },
+];
 
 interface ApiKey {
   id: string;
@@ -32,7 +84,7 @@ interface FacetConfig {
 
 @Component({
   selector: 'app-settings',
-  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, PageComponent, HeaderPageComponent, DataListComponent, EmptyStateComponent, MemberRowComponent, OrgRowComponent],
+  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, PageComponent, HeaderPageComponent, DataListComponent, MemberRowComponent, OrgRowComponent, TeamPanelComponent],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="3000" />
@@ -111,7 +163,67 @@ interface FacetConfig {
       }
 
       @if (currentFacet === 'teams') {
-        <app-empty-state icon="fa-regular fa-users-medical" title="Aucune équipe" subtitle="Créez votre première équipe." />
+        <div class="teams-layout">
+          <div class="teams-main">
+            <app-data-list
+              searchPlaceholder="Rechercher une équipe…"
+              [showViewMode]="false"
+              [(search)]="teamsSearch"
+              [(sorts)]="teamActiveSorts"
+              [sortDefinitions]="teamSortDefs"
+              [columns]="teamColumns"
+              [listCompactBreakpoint]="600"
+              [listTemplate]="teamListTpl"
+              emptyIcon="fa-regular fa-users-slash"
+              emptyTitle="Aucune équipe"
+              emptySubtitle="Aucun résultat pour cette recherche."
+              [totalRecords]="flatTeamRows.length"
+              [paginatorRows]="999"
+              [rowsPerPageOptions]="[]"
+              viewMode="list"
+            >
+              <p-button label="Nouvelle équipe" icon="fa-regular fa-users-medical" rounded size="small" toolbar-actions />
+            </app-data-list>
+          </div>
+
+          @if (selectedTeam) {
+            <div class="teams-panel">
+              <app-team-panel [team]="selectedTeam" (close)="selectedTeam = null" />
+            </div>
+          }
+        </div>
+
+        <ng-template #teamListTpl>
+          @for (row of flatTeamRows; track row.team.id) {
+            <div class="team-row" [class.is-selected]="selectedTeam === row.team" (click)="selectTeam(row.team)">
+              @if (row.hasChildren) {
+                <button class="team-chevron" [class.is-expanded]="row.isExpanded" [style.margin-left.rem]="row.depth * 2.5" (click)="toggleTeam(row.team.id); $event.stopPropagation()" type="button">
+                  <i class="fa-regular fa-chevron-right"></i>
+                </button>
+              } @else {
+                <span class="team-dot" [style.margin-left.rem]="row.depth * 1.5"></span>
+              }
+
+              <div class="team-info">
+                <span class="team-name">{{ row.team.name }}</span>
+                @if (row.team.description) {
+                  <span class="team-desc">{{ row.team.description }}</span>
+                }
+              </div>
+
+              <span class="team-date">{{ row.team.createdAt | date:'dd/MM/yyyy' }}</span>
+
+              <span class="team-members-count">
+                <i class="fa-regular fa-user"></i>
+                {{ row.team.memberCount }}
+              </span>
+
+              <div class="team-actions">
+                <p-button icon="fa-regular fa-ellipsis-vertical" severity="secondary" [text]="true" rounded size="small" (onClick)="$event.stopPropagation()" />
+              </div>
+            </div>
+          }
+        </ng-template>
       }
 
       @if (currentFacet === 'settings') {
@@ -245,6 +357,19 @@ export class SettingsPage {
     { label: '', cssClass: 'col-actions' },
   ];
 
+  teamColumns: ListColumn[] = [
+    { label: 'Équipe', cssClass: 'col-flex' },
+    { label: 'Créé le', cssClass: 'col-date' },
+    { label: 'Membres', cssClass: 'col-count' },
+    { label: '', cssClass: 'col-actions' },
+  ];
+
+  readonly teamSortDefs: SortDefinition[] = [
+    { id: 'name', label: 'Nom' },
+    { id: 'createdAt', label: 'Date de création' },
+  ];
+  teamActiveSorts: ActiveSort[] = [];
+
   orgColumns: ListColumn[] = [
     { label: 'Organisation', cssClass: 'col-flex' },
     { label: 'Type', cssClass: 'col-type' },
@@ -350,6 +475,64 @@ export class SettingsPage {
     return this.filteredOrganizations.slice(this.pageFirst, this.pageFirst + this.pageSize);
   }
 
+  // ── Teams ──
+  teamsSearch = '';
+  selectedTeam: Team | null = null;
+  private teamsExpandedIds: string[] = [];
+
+  selectTeam(team: Team): void {
+    this.selectedTeam = this.selectedTeam === team ? null : team;
+  }
+
+  private sortedTeams(teams: Team[]): Team[] {
+    if (!this.teamActiveSorts.length) return teams;
+    const { definitionId, direction } = this.teamActiveSorts[0];
+    const dir = direction === 'asc' ? 1 : -1;
+    return [...teams].sort((a, b) => {
+      if (definitionId === 'name') return dir * a.name.localeCompare(b.name);
+      if (definitionId === 'createdAt') return dir * (a.createdAt.getTime() - b.createdAt.getTime());
+      return 0;
+    });
+  }
+
+  get flatTeamRows(): FlatTeamRow[] {
+    const expanded = new Set(this.teamsExpandedIds);
+    const search = this.teamsSearch.toLowerCase().trim();
+
+    if (search) {
+      const rows: FlatTeamRow[] = [];
+      const flattenAll = (teams: Team[], depth: number) => {
+        for (const team of this.sortedTeams(teams)) {
+          if (team.name.toLowerCase().includes(search))
+            rows.push({ team, depth, hasChildren: !!(team.children?.length), isExpanded: false });
+          if (team.children?.length) flattenAll(team.children, depth + 1);
+        }
+      };
+      flattenAll(TEAMS, 0);
+      return rows;
+    }
+
+    const rows: FlatTeamRow[] = [];
+    const flatten = (teams: Team[], depth: number) => {
+      for (const team of this.sortedTeams(teams)) {
+        const hasChildren = !!(team.children?.length);
+        const isExpanded = expanded.has(team.id);
+        rows.push({ team, depth, hasChildren, isExpanded });
+        if (hasChildren && isExpanded) flatten(team.children!, depth + 1);
+      }
+    };
+    flatten(TEAMS, 0);
+    return rows;
+  }
+
+  toggleTeam(id: string): void {
+    if (this.teamsExpandedIds.includes(id)) {
+      this.teamsExpandedIds = this.teamsExpandedIds.filter(i => i !== id);
+    } else {
+      this.teamsExpandedIds = [...this.teamsExpandedIds, id];
+    }
+  }
+
   orgName = 'Sendoc';
   orgDomain = 'sendoc.fr';
   orgEmail = 'contact@sendoc.fr';
@@ -411,6 +594,7 @@ export class SettingsPage {
     this.activeFilters = [];
     this.activeSorts = [];
     this.pageFirst = 0;
+    this.selectedTeam = null;
   }
 
   onPageChange(event: PaginatorState): void {
