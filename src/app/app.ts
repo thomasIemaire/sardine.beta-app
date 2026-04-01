@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ThemeService } from './core/services/theme.service';
+import { AuthService } from './core/services/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -9,5 +10,8 @@ import { ThemeService } from './core/services/theme.service';
   styleUrl: './app.scss',
 })
 export class App {
-  constructor() { inject(ThemeService); }
+  constructor() {
+    inject(ThemeService);
+    inject(AuthService).initializeAuth();
+  }
 }

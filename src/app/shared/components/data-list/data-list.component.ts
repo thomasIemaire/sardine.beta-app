@@ -34,7 +34,11 @@ export interface ListColumn {
     <div class="data-list-content" [class.list-mode]="viewMode() === 'list'">
       @if (totalRecords() > 0) {
         @if (viewMode() === 'grid') {
-          <div class="data-list-grid">
+          <div class="data-list-grid"
+            [style.grid-template-columns]="gridMinWidth() ? 'repeat(auto-fill, minmax(' + gridMinWidth() + ', 1fr))' : null"
+            [style.gap]="gridGap()"
+            [style.padding]="gridPadding()"
+          >
             <ng-container *ngTemplateOutlet="gridTemplate()!" />
           </div>
         } @else {
@@ -90,6 +94,9 @@ export class DataListComponent {
   // Templates
   gridTemplate = input<TemplateRef<unknown> | null>(null);
   listTemplate = input<TemplateRef<unknown> | null>(null);
+  gridMinWidth = input<string | null>(null);
+  gridGap = input<string | null>(null);
+  gridPadding = input<string | null>(null);
 
   // Empty state
   emptyIcon = input('fa-regular fa-inbox');

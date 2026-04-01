@@ -8,7 +8,7 @@ import { BrandComponent } from '../../../shared/components/brand/brand.component
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
-  selector: 'app-login',
+  selector: 'app-register',
   imports: [FormsModule, ButtonModule, InputTextModule, PasswordModule, RouterLink, BrandComponent],
   template: `
     <div class="login-card">
@@ -22,6 +22,35 @@ import { AuthService } from '../../../core/services/auth.service';
       }
 
       <form class="login-form" (ngSubmit)="submit()">
+        <div class="login-row">
+          <div class="login-field">
+            <label class="login-label" for="firstName">Prénom</label>
+            <input
+              id="firstName"
+              pInputText
+              [(ngModel)]="firstName"
+              name="firstName"
+              placeholder="Jean"
+              autocomplete="given-name"
+              [disabled]="loading()"
+              pSize="small"
+            />
+          </div>
+          <div class="login-field">
+            <label class="login-label" for="lastName">Nom</label>
+            <input
+              id="lastName"
+              pInputText
+              [(ngModel)]="lastName"
+              name="lastName"
+              placeholder="Dupont"
+              autocomplete="family-name"
+              [disabled]="loading()"
+              pSize="small"
+            />
+          </div>
+        </div>
+
         <div class="login-field">
           <label class="login-label" for="email">Email</label>
           <input
@@ -44,30 +73,47 @@ import { AuthService } from '../../../core/services/auth.service';
             [(ngModel)]="password"
             name="password"
             placeholder="••••••••"
+            [toggleMask]="true"
+            [disabled]="loading()"
+            fluid
+            size="small"
+          />
+        </div>
+
+        <div class="login-field">
+          <label class="login-label" for="confirmPassword">Confirmer le mot de passe</label>
+          <p-password
+            inputId="confirmPassword"
+            [(ngModel)]="confirmPassword"
+            name="confirmPassword"
+            placeholder="••••••••"
             [feedback]="false"
             [toggleMask]="true"
             [disabled]="loading()"
-            size="small"
             fluid
+            size="small"
           />
+          @if (confirmPassword && password !== confirmPassword) {
+            <span class="login-field-error">Les mots de passe ne correspondent pas.</span>
+          }
         </div>
 
         <p-button
           [style.padding]="'1rem 0'"
           type="submit"
-          label="Se connecter"
+          label="Créer mon compte"
           [loading]="loading()"
-          [disabled]="!email || !password"
+          [disabled]="!firstName || !lastName || !email || !password || password !== confirmPassword"
           styleClass="w-full"
-          fluid
           size="small"
           rounded
+          fluid
         />
       </form>
 
       <p class="login-footer">
-        Pas encore de compte ?
-        <a routerLink="/auth/register" class="login-link">S'inscrire</a>
+        Déjà un compte ?
+        <a routerLink="/auth/login" class="login-link">Se connecter</a>
       </p>
     </div>
   `,
@@ -89,6 +135,19 @@ import { AuthService } from '../../../core/services/auth.service';
       text-align: center;
     }
 
+    .login-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--p-text-color);
+      margin: 0 0 0.25rem;
+    }
+
+    .login-subtitle {
+      font-size: 0.8125rem;
+      color: var(--p-text-muted-color);
+      margin: 0;
+    }
+
     .login-error {
       display: flex;
       align-items: center;
@@ -107,6 +166,12 @@ import { AuthService } from '../../../core/services/auth.service';
       display: flex;
       flex-direction: column;
       gap: 1rem;
+    }
+
+    .login-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
     }
 
     .login-field {
@@ -136,33 +201,41 @@ import { AuthService } from '../../../core/services/auth.service';
       text-decoration: none;
       &:hover { text-decoration: underline; }
     }
+
+    .login-field-error {
+      font-size: 0.75rem;
+      color: var(--red-color-600, #dc2626);
+    }
   `,
 })
-export class LoginPage {
+export class RegisterPage {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
+  firstName = '';
+  lastName = '';
   email = '';
   password = '';
+  confirmPassword = '';
   loading = signal(false);
   error = signal<string | null>(null);
 
   submit(): void {
-    if (!this.email || !this.password || this.loading()) return;
+    if (!this.firstName || !this.lastName || !this.email || !this.password || this.loading()) return;
 
     this.loading.set(true);
     this.error.set(null);
 
-    this.auth.login(this.email, this.password).subscribe({
+    this.auth.register(this.firstName, this.lastName, this.email, this.password, this.confirmPassword).subscribe({
       next: () => this.router.navigate(['/']),
       error: (err) => {
         this.loading.set(false);
-        if (err.status === 401) {
-          this.error.set('Email ou mot de passe incorrect.');
-        } else if (err.status === 423) {
-          this.error.set('Compte temporairement bloqué. Réessayez dans 15 minutes.');
+        if (err.status === 409) {
+          this.error.set('Un compte existe déjà avec cet email.');
+        } else if (err.status === 422) {
+          this.error.set('Données invalides. Vérifiez les champs.');
         } else {
-          this.error.set('Une erreur est survenue. Vérifiez votre connexion.');
+          this.error.set('Une erreur est survenue. Réessayez plus tard.');
         }
       },
     });

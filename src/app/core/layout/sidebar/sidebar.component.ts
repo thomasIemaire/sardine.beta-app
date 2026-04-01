@@ -160,7 +160,7 @@ export class SidebarComponent {
     title: 'Système',
     items: [
       { label: 'Serveurs', icon: 'fa-regular fa-server', link: '/admin/servers' },
-      { label: 'Fine-tuning', icon: 'fa-regular fa-sliders', link: '/admin/fine-tuning' },
+      { label: 'Fine Tuning', icon: 'fa-regular fa-sliders', link: '/admin/fine-tuning' },
     ],
   };
 

@@ -40,6 +40,7 @@
   &.col-date    { width: 5.5rem; flex-shrink: 0; }
   &.col-actions { width: 2rem; flex-shrink: 0; }
   &.col-dot     { width: 0.5rem; flex-shrink: 0; }
+  &.col-ref     { width: 120px; flex-shrink: 0; }
   &.col-role    { width: 120px; flex-shrink: 0; }
   &.col-type    { width: 140px; flex-shrink: 0; }
   &.col-count   { width: 80px; flex-shrink: 0; }
@@ -50,6 +51,7 @@
   .col-creator { width: 2rem; overflow: hidden; font-size: 0; }
   .col-date    { display: none; }
   .col-role    { width: 2rem; overflow: hidden; font-size: 0; padding: 0; }
+  .col-ref     { display: none; }
   .col-type    { display: none; }
   .col-count   { display: none; }
   .col-status  { display: none; }

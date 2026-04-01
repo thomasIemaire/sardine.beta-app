@@ -65,6 +65,9 @@ const DOCS: DocItem[] = [
 
       <div class="docs-body" (click)="clearSelection()">
         <app-data-list
+          gridMinWidth="155px"
+          gridGap="0.5rem"
+          gridPadding="0.75rem 1rem 1rem"
           searchPlaceholder="Rechercher un document..."
           [sortDefinitions]="sortDefs"
           [columns]="columns"

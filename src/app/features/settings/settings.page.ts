@@ -1,6 +1,10 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { Router, ActivatedRoute } from '@angular/router';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
+import { OrganizationService, ApiKeyRead, ApiKeyCreated, ApiOrgMember, ApiOrganization } from '../../core/services/organization.service';
+import { environment } from '../../../environments/environment';
+import { TeamService, ApiTeamNode } from '../../core/services/team.service';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -12,16 +16,18 @@ import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
 import { DataListComponent, ListColumn } from '../../shared/components/data-list/data-list.component';
 import type { ActiveFilter, ActiveSort, FilterDefinition, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
-import { MemberRowComponent, Member } from '../../shared/components/member-row/member-row.component';
-import { OrgRowComponent, Organization } from '../../shared/components/org-row/org-row.component';
+import { MemberRowComponent } from '../../shared/components/member-row/member-row.component';
+import { OrgRowComponent } from '../../shared/components/org-row/org-row.component';
 import { TeamPanelComponent } from './team-panel.component';
+import { CreateTeamDialogComponent } from './create-team-dialog.component';
+import { CreateOrgDialogComponent } from './create-org-dialog.component';
+import { InviteMembersDialogComponent } from './invite-members-dialog.component';
 
 export interface Team {
   id: string;
   name: string;
-  description?: string;
-  memberCount: number;
-  createdAt: Date;
+  is_root: boolean;
+  is_member: boolean;
   children?: Team[];
 }
 
@@ -32,49 +38,6 @@ interface FlatTeamRow {
   isExpanded: boolean;
 }
 
-const TEAMS: Team[] = [
-  {
-    id: 't1', name: 'Engineering', description: 'Équipe technique', memberCount: 12, createdAt: new Date('2024-03-10'),
-    children: [
-      {
-        id: 't1-1', name: 'Frontend', memberCount: 5, createdAt: new Date('2024-04-01'),
-        children: [
-          { id: 't1-1-1', name: 'Design System', memberCount: 2, createdAt: new Date('2024-06-15') },
-        ],
-      },
-      {
-        id: 't1-2', name: 'Backend', memberCount: 7, createdAt: new Date('2024-04-01'),
-        children: [
-          { id: 't1-2-1', name: 'API', memberCount: 3, createdAt: new Date('2024-05-20') },
-          { id: 't1-2-2', name: 'Infrastructure', memberCount: 4, createdAt: new Date('2024-07-08') },
-        ],
-      },
-    ],
-  },
-  {
-    id: 't2', name: 'Marketing', memberCount: 8, createdAt: new Date('2024-03-22'),
-    children: [
-      { id: 't2-1', name: 'Contenu', memberCount: 3, createdAt: new Date('2024-05-05') },
-      { id: 't2-2', name: 'Growth', memberCount: 5, createdAt: new Date('2024-08-12') },
-    ],
-  },
-  { id: 't3', name: 'Support', memberCount: 6, createdAt: new Date('2024-02-14') },
-  {
-    id: 't4', name: 'Produit', memberCount: 10, createdAt: new Date('2024-09-01'),
-    children: [
-      { id: 't4-1', name: 'UX Research', memberCount: 4, createdAt: new Date('2024-09-15') },
-      { id: 't4-2', name: 'Product Management', memberCount: 6, createdAt: new Date('2024-10-03') },
-    ],
-  },
-];
-
-interface ApiKey {
-  id: string;
-  name: string;
-  prefix: string;
-  createdAt: Date;
-  status: 'active' | 'revoked';
-}
 
 interface FacetConfig {
   searchPlaceholder: string;
@@ -84,7 +47,7 @@ interface FacetConfig {
 
 @Component({
   selector: 'app-settings',
-  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, PageComponent, HeaderPageComponent, DataListComponent, MemberRowComponent, OrgRowComponent, TeamPanelComponent],
+  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, PageComponent, HeaderPageComponent, DataListComponent, MemberRowComponent, OrgRowComponent, TeamPanelComponent, CreateTeamDialogComponent, CreateOrgDialogComponent, InviteMembersDialogComponent],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="3000" />
@@ -93,8 +56,8 @@ interface FacetConfig {
       <app-header-page
         title="Administration"
         subtitle="Gérez votre organisation"
-        [facets]="facets"
-        defaultFacetId="members"
+        [facets]="facets()"
+        [defaultFacetId]="defaultFacetId()"
         (facetChange)="onFacetChange($event)"
       />
 
@@ -120,11 +83,11 @@ interface FacetConfig {
           (pageChange)="onPageChange($event)"
           viewMode="list"
         >
-          <p-button [label]="currentConfig!.actionLabel" [icon]="currentConfig!.actionIcon" rounded size="small" toolbar-actions />
+          <p-button [label]="currentConfig!.actionLabel" [icon]="currentConfig!.actionIcon" rounded size="small" toolbar-actions (onClick)="showInviteDialog.set(true)" />
         </app-data-list>
 
         <ng-template #memberListTpl>
-          @for (member of paginatedMembers; track member.id) {
+          @for (member of paginatedMembers; track member.user_id) {
             <app-member-row [member]="member" />
           }
         </ng-template>
@@ -152,7 +115,7 @@ interface FacetConfig {
           (pageChange)="onPageChange($event)"
           viewMode="list"
         >
-          <p-button [label]="currentConfig!.actionLabel" [icon]="currentConfig!.actionIcon" rounded size="small" toolbar-actions />
+          <p-button [label]="currentConfig!.actionLabel" [icon]="currentConfig!.actionIcon" rounded size="small" toolbar-actions (onClick)="showCreateOrgDialog.set(true)" />
         </app-data-list>
 
         <ng-template #orgListTpl>
@@ -184,20 +147,26 @@ interface FacetConfig {
               (pageChange)="onTeamsPageChange($event)"
               viewMode="list"
             >
-              <p-button label="Nouvelle équipe" icon="fa-regular fa-users-medical" rounded size="small" toolbar-actions />
+              <p-button label="Nouvelle équipe" icon="fa-regular fa-users-medical" rounded size="small" toolbar-actions (onClick)="showCreateTeamDialog.set(true)" />
             </app-data-list>
           </div>
 
           @if (selectedTeam) {
             <div class="teams-panel">
-              <app-team-panel [team]="selectedTeam" (close)="selectedTeam = null" />
+              <app-team-panel
+                [team]="selectedTeam"
+                (close)="selectedTeam = null"
+                (teamChanged)="onTeamRenamed($event)"
+                (teamDeleted)="onTeamDeleted()"
+                (addSubTeam)="onAddSubTeam()"
+              />
             </div>
           }
         </div>
 
         <ng-template #teamListTpl>
           @for (row of paginatedTeamRows; track row.team.id) {
-            <div class="team-row" [class.is-selected]="selectedTeam === row.team" (click)="selectTeam(row.team)">
+            <div class="team-row" [class.is-selected]="selectedTeam?.id === row.team.id" (click)="selectTeam(row.team)">
               @if (row.hasChildren) {
                 <button class="team-chevron" [class.is-expanded]="row.isExpanded" [style.margin-left.rem]="row.depth * 2.5" (click)="toggleTeam(row.team.id); $event.stopPropagation()" type="button">
                   <i class="fa-solid fa-chevron-right"></i>
@@ -208,17 +177,7 @@ interface FacetConfig {
 
               <div class="team-info">
                 <span class="team-name">{{ row.team.name }}</span>
-                @if (row.team.description) {
-                  <span class="team-desc">{{ row.team.description }}</span>
-                }
               </div>
-
-              <span class="team-date">{{ row.team.createdAt | date:'dd/MM/yyyy' }}</span>
-
-              <span class="team-members-count">
-                <i class="fa-regular fa-user"></i>
-                {{ row.team.memberCount }}
-              </span>
 
               <div class="team-actions">
                 <p-button icon="fa-regular fa-ellipsis-vertical" severity="secondary" [text]="true" rounded size="small" (onClick)="$event.stopPropagation()" />
@@ -230,117 +189,146 @@ interface FacetConfig {
 
       @if (currentFacet === 'settings') {
         <div class="org-body">
-          <div class="org-section">
-            <div class="org-avatar-block">
-              <div class="org-avatar">SD</div>
-              <div class="org-avatar-info">
-                <span class="org-avatar-name">Sendoc</span>
-                <p-button label="Changer le logo" severity="secondary" size="small" rounded />
-              </div>
-            </div>
-          </div>
-
-          <div class="org-section">
-            <h3 class="org-section-title">Informations de l'organisation</h3>
-            <div class="org-form">
-              <div class="org-field org-field--full">
-                <label class="org-label">Nom de l'organisation</label>
-                <input pInputText pSize="small" [(ngModel)]="orgName" placeholder="Nom" />
-              </div>
-              <div class="org-field org-field--full">
-                <label class="org-label">Email de contact</label>
-                <input pInputText pSize="small" [(ngModel)]="orgEmail" placeholder="contact@sendoc.fr" type="email" />
-              </div>
-            </div>
-          </div>
-
-          <div class="org-section">
-            <div class="org-section-header">
-              <h3 class="org-section-title">Clés API</h3>
-              <p-button label="Nouvelle clé" icon="fa-regular fa-plus" [text]="true" severity="secondary" size="small" rounded (onClick)="showGenerateForm.set(!showGenerateForm())" />
-            </div>
-            <p class="org-section-hint">
-              Utilisez ces clés pour authentifier les appels à l'API Sardine.
-              <a class="org-doc-link" href="https://docs.sardine.ai/api" target="_blank" rel="noopener noreferrer">
-                <i class="fa-regular fa-arrow-up-right-from-square"></i> Documentation API
-              </a>
-            </p>
-
-            @if (showGenerateForm()) {
-              <div class="api-key-form">
-                <input pInputText pSize="small" [(ngModel)]="newKeyName" placeholder="Nom de la clé (ex : Production)" (keyup.enter)="generateKey()" />
-                <p-button label="Créer" size="small" rounded [disabled]="!newKeyName.trim()" (onClick)="generateKey()" />
-                <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" size="small" rounded (onClick)="showGenerateForm.set(false); newKeyName = ''" />
-              </div>
-            }
-
-            @if (newlyGeneratedKey()) {
-              <div class="api-key-reveal">
-                <div class="api-key-reveal__header">
-                  <i class="fa-regular fa-triangle-exclamation"></i>
-                  <span>Copiez cette clé maintenant, elle ne sera plus jamais affichée.</span>
-                </div>
-                <div class="api-key-reveal__value">
-                  <code>{{ newlyGeneratedKey()!.fullValue }}</code>
-                  <p-button icon="fa-regular fa-copy" [text]="true" size="small" rounded pTooltip="Copier" (onClick)="copyNewKey()" />
-                </div>
-                <div class="api-key-reveal__footer">
-                  <p-button label="J'ai copié la clé" icon="fa-regular fa-check" size="small" rounded (onClick)="newlyGeneratedKey.set(null)" />
+          @if (contextSwitcher.selectedOrganization(); as org) {
+            <div class="org-section">
+              <div class="org-avatar-block">
+                <div class="org-avatar">{{ selectedOrgInitials() }}</div>
+                <div class="org-avatar-info">
+                  <span class="org-avatar-name">{{ org.name }}</span>
+                  <span class="org-avatar-meta">{{ org.status_label }} · Créé le {{ org.created_at | date:'dd/MM/yyyy' }}</span>
                 </div>
               </div>
-            }
+            </div>
 
-            @if (apiKeys().length > 0) {
-              <div class="api-keys-list">
-                @for (key of apiKeys(); track key.id) {
-                  <div class="api-keys-list__row" [class.is-revoked]="key.status === 'revoked'">
-                    <div class="akl-main">
-                      <span class="akl-name">{{ key.name }}</span>
-                      <code class="akl-prefix">{{ key.prefix }}••••••••</code>
-                    </div>
-                    <span class="akl-date">{{ key.createdAt | date: 'dd/MM/yyyy' }}</span>
-                    <span class="key-status" [class.is-active]="key.status === 'active'">
-                      <span class="key-status__dot"></span>
-                      {{ key.status === 'active' ? 'Active' : 'Révoquée' }}
-                    </span>
-                    <div class="akl-actions">
-                      @if (key.status === 'active') {
-                        <p-button icon="fa-regular fa-ban" [text]="true" size="small" rounded pTooltip="Révoquer" tooltipPosition="left" (onClick)="revokeKey(key)" />
-                      }
-                      <p-button icon="fa-regular fa-trash" severity="danger" [text]="true" size="small" rounded pTooltip="Supprimer" tooltipPosition="left" (onClick)="deleteKey(key)" />
-                    </div>
+            <div class="org-section">
+              <h3 class="org-section-title">Informations de l'organisation</h3>
+              <div class="org-form">
+                <div class="org-field org-field--full">
+                  <label class="org-label">Nom</label>
+                  <input pInputText pSize="small" [(ngModel)]="orgName" placeholder="Nom de l'organisation" />
+                </div>
+                <div class="org-field org-field--full">
+                  <label class="org-label">Email de contact <span class="org-label-hint">(optionnel)</span></label>
+                  <input pInputText pSize="small" type="email" [(ngModel)]="orgContactEmail" placeholder="contact@exemple.fr" />
+                </div>
+                <div class="org-field org-field--full">
+                  <label class="org-label">Référence externe <span class="org-label-hint">(optionnel)</span></label>
+                  <input pInputText pSize="small" [(ngModel)]="orgExternalRef" placeholder="ERP-001" />
+                </div>
+              </div>
+            </div>
+
+            <div class="org-section">
+              <div class="org-section-header">
+                <h3 class="org-section-title">Clés API</h3>
+                <p-button label="Nouvelle clé" icon="fa-regular fa-plus" [text]="true" severity="secondary" size="small" rounded (onClick)="showGenerateForm.set(!showGenerateForm())" />
+              </div>
+              <p class="org-section-hint">
+                Utilisez ces clés pour authentifier les appels à l'API Sardine.
+                <a class="org-doc-link" [href]="apiDocsUrl" target="_blank" rel="noopener noreferrer">
+                  <i class="fa-regular fa-arrow-up-right-from-square"></i> Documentation API
+                </a>
+              </p>
+
+              @if (showGenerateForm()) {
+                <div class="api-key-form">
+                  <input pInputText pSize="small" [(ngModel)]="newKeyName" placeholder="Nom de la clé (ex : Production)" (keyup.enter)="generateKey()" />
+                  <p-button label="Créer" size="small" rounded [disabled]="!newKeyName.trim()" (onClick)="generateKey()" />
+                  <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" size="small" rounded (onClick)="showGenerateForm.set(false); newKeyName = ''" />
+                </div>
+              }
+
+              @if (newlyGeneratedKey()) {
+                <div class="api-key-reveal">
+                  <div class="api-key-reveal__header">
+                    <i class="fa-regular fa-triangle-exclamation"></i>
+                    <span>Copiez cette clé maintenant, elle ne sera plus jamais affichée.</span>
                   </div>
-                }
-              </div>
-            } @else {
-              <p class="api-keys-empty">Aucune clé API. Créez-en une pour commencer.</p>
-            }
-          </div>
+                  <div class="api-key-reveal__value">
+                    <code>{{ newlyGeneratedKey()!.token }}</code>
+                    <p-button icon="fa-regular fa-copy" [text]="true" size="small" rounded pTooltip="Copier" (onClick)="copyNewKey()" />
+                  </div>
+                  <div class="api-key-reveal__footer">
+                    <p-button label="J'ai copié la clé" icon="fa-regular fa-check" size="small" rounded (onClick)="newlyGeneratedKey.set(null)" />
+                  </div>
+                </div>
+              }
 
-          <div class="org-actions">
-            <p-button label="Enregistrer les modifications" icon="fa-regular fa-check" rounded size="small" />
-          </div>
+              @if (apiKeys().length > 0) {
+                <div class="api-keys-list">
+                  @for (key of apiKeys(); track key.id) {
+                    <div class="api-keys-list__row" [class.is-revoked]="key.status === 0">
+                      <div class="akl-main">
+                        <span class="akl-name">{{ key.name }}</span>
+                        <code class="akl-prefix">{{ key.prefix }}••••••••</code>
+                      </div>
+                      <span class="akl-date">{{ key.created_at | date: 'dd/MM/yyyy' }}</span>
+                      <span class="key-status" [class.is-active]="key.status === 1">
+                        <span class="key-status__dot"></span>
+                        {{ key.status_label }}
+                      </span>
+                      <div class="akl-actions">
+                        @if (key.status === 1) {
+                          <p-button icon="fa-regular fa-ban" [text]="true" size="small" rounded pTooltip="Révoquer" tooltipPosition="left" (onClick)="revokeKey(key)" />
+                        }
+                        <p-button icon="fa-regular fa-trash" severity="danger" [text]="true" size="small" rounded pTooltip="Supprimer" tooltipPosition="left" (onClick)="deleteKey(key)" />
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <p class="api-keys-empty">Aucune clé API. Créez-en une pour commencer.</p>
+              }
+            </div>
+
+            <div class="org-actions">
+              <p-button label="Enregistrer les modifications" icon="fa-regular fa-check" rounded size="small" [loading]="orgSaving()" (onClick)="saveOrg()" />
+            </div>
+          }
         </div>
       }
     </app-page>
+
+    <app-invite-members-dialog [(visible)]="showInviteDialog" (invited)="loadMembers()" />
+    <app-create-org-dialog [(visible)]="showCreateOrgDialog" (created)="onOrgCreated($event)" />
+    <app-create-team-dialog [(visible)]="showCreateTeamDialog" [parentTeamId]="createParentTeamId() ?? rootTeamId()" (created)="onTeamCreated($event)" (visibleChange)="!$event && createParentTeamId.set(null)" />
   `,
   styleUrl: './settings.page.scss',
 })
 export class SettingsPage {
-  facets: Facet[] = [
-    { id: 'members', label: 'Membres' },
-    { id: 'teams', label: 'Équipes' },
-    { id: 'organizations', label: 'Organisations' },
-    { id: 'settings', label: 'Paramètres' },
-  ];
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  readonly contextSwitcher = inject(ContextSwitcherService);
+
+  readonly isPersonal = computed(() => {
+    const orgs = this.contextSwitcher.organizations();
+    const id = this.contextSwitcher.selectedId();
+    return orgs.find((o) => o.id === id)?.isPersonal ?? false;
+  });
+
+  readonly facets = computed<Facet[]>(() => {
+    const personal = this.isPersonal();
+    return [
+      { id: 'members',       label: 'Membres',        disabled: personal },
+      { id: 'teams',         label: 'Équipes',         disabled: personal },
+      { id: 'organizations', label: 'Organisations',   disabled: personal },
+      { id: 'settings',      label: 'Paramètres' },
+    ];
+  });
+
+  readonly defaultFacetId = computed(() => this.isPersonal() ? 'settings' : 'members');
+
+  readonly selectedOrgInitials = computed(() => {
+    const orgs = this.contextSwitcher.organizations();
+    const id = this.contextSwitcher.selectedId();
+    return orgs.find((o) => o.id === id)?.initials ?? '';
+  });
 
   facetConfigs: Record<string, FacetConfig> = {
     members: { searchPlaceholder: 'Rechercher un membre...', actionLabel: 'Ajouter un membre', actionIcon: 'fa-regular fa-user-plus' },
     teams: { searchPlaceholder: 'Rechercher une équipe...', actionLabel: 'Ajouter une équipe', actionIcon: 'fa-regular fa-users-medical' },
     organizations: { searchPlaceholder: 'Rechercher une organisation...', actionLabel: 'Ajouter une organisation', actionIcon: 'fa-regular fa-plus' },
   };
-
-  readonly contextSwitcher = inject(ContextSwitcherService);
 
   currentConfig: FacetConfig | null = this.facetConfigs['members'];
   currentFacet = 'members';
@@ -361,34 +349,29 @@ export class SettingsPage {
 
   teamColumns: ListColumn[] = [
     { label: 'Équipe', cssClass: 'col-flex' },
-    { label: 'Créé le', cssClass: 'col-date' },
-    { label: 'Membres', cssClass: 'col-count' },
     { label: '', cssClass: 'col-actions' },
   ];
 
   readonly teamSortDefs: SortDefinition[] = [
     { id: 'name', label: 'Nom' },
-    { id: 'createdAt', label: 'Date de création' },
   ];
   teamActiveSorts: ActiveSort[] = [];
 
   orgColumns: ListColumn[] = [
+    { label: 'Référence', cssClass: 'col-ref' },
     { label: 'Organisation', cssClass: 'col-flex' },
-    { label: 'Type', cssClass: 'col-type' },
-    { label: 'Membres', cssClass: 'col-count' },
     { label: 'Statut', cssClass: 'col-status' },
     { label: '', cssClass: 'col-actions' },
   ];
 
   readonly memberFilterDefs: FilterDefinition[] = [
     { id: 'role', label: 'Rôle', type: 'select', options: [
-      { value: 'Administrateur', label: 'Administrateur' },
-      { value: 'Éditeur', label: 'Éditeur' },
-      { value: 'Lecteur', label: 'Lecteur' },
+      { value: '1', label: 'Propriétaire' },
+      { value: '2', label: 'Membre' },
     ]},
     { id: 'status', label: 'Statut', type: 'select', options: [
-      { value: 'active', label: 'Actif' },
-      { value: 'inactive', label: 'Inactif' },
+      { value: '1', label: 'Actif' },
+      { value: '0', label: 'Inactif' },
     ]},
   ];
 
@@ -398,86 +381,89 @@ export class SettingsPage {
   ];
 
   readonly orgFilterDefs: FilterDefinition[] = [
-    { id: 'type', label: 'Type', type: 'select', options: [
-      { value: 'Organisation principale', label: 'Organisation principale' },
-      { value: 'Client', label: 'Client' },
-      { value: 'Partenaire', label: 'Partenaire' },
-    ]},
     { id: 'status', label: 'Statut', type: 'select', options: [
-      { value: 'active', label: 'Active' },
-      { value: 'inactive', label: 'Inactive' },
+      { value: '1', label: 'Active' },
+      { value: '0', label: 'Inactive' },
     ]},
   ];
 
   readonly orgSortDefs: SortDefinition[] = [
     { id: 'name', label: 'Nom' },
-    { id: 'members', label: 'Membres' },
   ];
 
-  readonly members: Member[] = [
-    { id: '1', firstName: 'Thomas',  lastName: 'Lemaire', email: 'thomas.lemaire@sendoc.fr',  role: 'Administrateur', active: true },
-    { id: '2', firstName: 'Marie',   lastName: 'Dupont',  email: 'marie.dupont@sendoc.fr',    role: 'Éditeur',        active: true },
-    { id: '3', firstName: 'Lucas',   lastName: 'Martin',  email: 'lucas.martin@sendoc.fr',    role: 'Lecteur',        active: true },
-    { id: '4', firstName: 'Camille', lastName: 'Bernard', email: 'camille.bernard@sendoc.fr', role: 'Éditeur',        active: false },
-    { id: '5', firstName: 'Julie',   lastName: 'Moreau',  email: 'julie.moreau@sendoc.fr',    role: 'Lecteur',        active: true },
-  ];
+  readonly orgMembers = signal<ApiOrgMember[]>([]);
+  readonly loadingMembers = signal(false);
+  readonly showInviteDialog = signal(false);
 
-  readonly organizations: Organization[] = [
-    { id: '1', name: 'Sendoc',       initials: 'SD', type: 'Organisation principale', membersCount: 5,  active: true  },
-    { id: '2', name: 'Terre du sud', initials: 'TS', type: 'Client',                  membersCount: 3,  active: true  },
-    { id: '3', name: "T'Rhéa",       initials: 'TR', type: 'Client',                  membersCount: 2,  active: true  },
-    { id: '4', name: 'Agri Conseil', initials: 'AC', type: 'Partenaire',              membersCount: 1,  active: false },
-  ];
+  readonly childOrgs = signal<ApiOrganization[]>([]);
+  readonly loadingChildOrgs = signal(false);
+  readonly showCreateOrgDialog = signal(false);
 
-  get filteredMembers(): Member[] {
+  get filteredMembers(): ApiOrgMember[] {
     const q = this.search.toLowerCase();
-    let result = this.members.filter((m) =>
-      !q || `${m.firstName} ${m.lastName}`.toLowerCase().includes(q) || m.email.toLowerCase().includes(q) || m.role.toLowerCase().includes(q)
+    let result = this.orgMembers().filter((m) =>
+      !q || `${m.first_name} ${m.last_name}`.toLowerCase().includes(q) || m.role_label.toLowerCase().includes(q)
     );
     for (const f of this.activeFilters) {
-      if (f.definitionId === 'role') result = result.filter((m) => m.role === f.value);
-      if (f.definitionId === 'status') result = result.filter((m) => f.value === 'active' ? m.active : !m.active);
+      if (f.definitionId === 'role') result = result.filter((m) => String(m.role) === f.value);
+      if (f.definitionId === 'status') result = result.filter((m) => String(m.status) === f.value);
     }
     for (const s of this.activeSorts) {
       const dir = s.direction === 'asc' ? 1 : -1;
       result = [...result].sort((a, b) => {
-        if (s.definitionId === 'name') return dir * `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`);
-        if (s.definitionId === 'role') return dir * a.role.localeCompare(b.role);
+        if (s.definitionId === 'name') return dir * `${a.last_name}${a.first_name}`.localeCompare(`${b.last_name}${b.first_name}`);
+        if (s.definitionId === 'role') return dir * (a.role - b.role);
         return 0;
       });
     }
     return result;
   }
 
-  get paginatedMembers(): Member[] {
+  get paginatedMembers(): ApiOrgMember[] {
     return this.filteredMembers.slice(this.pageFirst, this.pageFirst + this.pageSize);
   }
 
-  get filteredOrganizations(): Organization[] {
+  get filteredOrganizations(): ApiOrganization[] {
     const q = this.search.toLowerCase();
-    let result = this.organizations.filter((o) =>
-      !q || o.name.toLowerCase().includes(q) || o.type.toLowerCase().includes(q)
+    let result = this.childOrgs().filter((o) =>
+      !q || o.name.toLowerCase().includes(q) || (o.external_reference ?? '').toLowerCase().includes(q)
     );
     for (const f of this.activeFilters) {
-      if (f.definitionId === 'type') result = result.filter((o) => o.type === f.value);
-      if (f.definitionId === 'status') result = result.filter((o) => f.value === 'active' ? o.active : !o.active);
+      if (f.definitionId === 'status') result = result.filter((o) => f.value === '1' ? o.status === 1 : o.status === 0);
     }
     for (const s of this.activeSorts) {
       const dir = s.direction === 'asc' ? 1 : -1;
       result = [...result].sort((a, b) => {
         if (s.definitionId === 'name') return dir * a.name.localeCompare(b.name);
-        if (s.definitionId === 'members') return dir * (a.membersCount - b.membersCount);
         return 0;
       });
     }
     return result;
   }
 
-  get paginatedOrganizations(): Organization[] {
+  get paginatedOrganizations(): ApiOrganization[] {
     return this.filteredOrganizations.slice(this.pageFirst, this.pageFirst + this.pageSize);
   }
 
+  onOrgCreated(org: ApiOrganization): void {
+    this.childOrgs.update((list) => [...list, org]);
+    this.contextSwitcher.appendOrganization(org);
+  }
+
+  loadChildOrgs(): void {
+    const org = this.contextSwitcher.selectedOrganization();
+    if (!org) return;
+    this.loadingChildOrgs.set(true);
+    this.orgService.getChildOrganizations(org.id).subscribe({
+      next: (list) => { this.childOrgs.set(list); this.loadingChildOrgs.set(false); },
+      error: () => this.loadingChildOrgs.set(false),
+    });
+  }
+
   // ── Teams ──
+  readonly teams = signal<Team[]>([]);
+  readonly loadingTeams = signal(false);
+  readonly showCreateTeamDialog = signal(false);
   teamsSearch = '';
   selectedTeam: Team | null = null;
   private teamsExpandedIds: string[] = [];
@@ -485,7 +471,30 @@ export class SettingsPage {
   teamsPageSize = 10;
 
   selectTeam(team: Team): void {
-    this.selectedTeam = this.selectedTeam === team ? null : team;
+    this.selectedTeam = this.selectedTeam?.id === team.id ? null : team;
+  }
+
+  private mapTeamNode(node: ApiTeamNode): Team {
+    return {
+      id: node.id,
+      name: node.name,
+      is_root: node.is_root,
+      is_member: node.is_member,
+      children: node.children?.map((c) => this.mapTeamNode(c)),
+    };
+  }
+
+  loadTeams(): void {
+    const org = this.contextSwitcher.selectedOrganization();
+    if (!org) return;
+    this.loadingTeams.set(true);
+    this.teamService.getTeamTree(org.id).subscribe({
+      next: (nodes) => {
+        this.teams.set(nodes.map((n) => this.mapTeamNode(n)));
+        this.loadingTeams.set(false);
+      },
+      error: () => this.loadingTeams.set(false),
+    });
   }
 
   private sortedTeams(teams: Team[]): Team[] {
@@ -494,9 +503,16 @@ export class SettingsPage {
     const dir = direction === 'asc' ? 1 : -1;
     return [...teams].sort((a, b) => {
       if (definitionId === 'name') return dir * a.name.localeCompare(b.name);
-      if (definitionId === 'createdAt') return dir * (a.createdAt.getTime() - b.createdAt.getTime());
       return 0;
     });
+  }
+
+  readonly rootTeamId = computed(() => this.teams().find((t) => t.is_root)?.id ?? null);
+  readonly createParentTeamId = signal<string | null>(null);
+
+  private get topLevelTeams(): Team[] {
+    const roots = this.teams().filter((t) => t.is_root);
+    return roots.length ? (roots[0].children ?? []) : this.teams().filter((t) => !t.is_root);
   }
 
   get flatTeamRows(): FlatTeamRow[] {
@@ -512,7 +528,7 @@ export class SettingsPage {
           if (team.children?.length) flattenAll(team.children, depth + 1);
         }
       };
-      flattenAll(TEAMS, 0);
+      flattenAll(this.topLevelTeams, 0);
       return rows;
     }
 
@@ -525,7 +541,7 @@ export class SettingsPage {
         if (hasChildren && isExpanded) flatten(team.children!, depth + 1);
       }
     };
-    flatten(TEAMS, 0);
+    flatten(this.topLevelTeams, 0);
     return rows;
   }
 
@@ -538,6 +554,28 @@ export class SettingsPage {
     if (event.rows != null) this.teamsPageSize = event.rows;
   }
 
+  onAddSubTeam(): void {
+    this.createParentTeamId.set(this.selectedTeam!.id);
+    this.showCreateTeamDialog.set(true);
+  }
+
+  onTeamCreated(_teamId: string): void {
+    this.createParentTeamId.set(null);
+    this.loadTeams();
+  }
+
+  onTeamRenamed(newName: string): void {
+    if (this.selectedTeam) {
+      this.selectedTeam = { ...this.selectedTeam, name: newName };
+    }
+    this.loadTeams();
+  }
+
+  onTeamDeleted(): void {
+    this.selectedTeam = null;
+    this.loadTeams();
+  }
+
   toggleTeam(id: string): void {
     if (this.teamsExpandedIds.includes(id)) {
       this.teamsExpandedIds = this.teamsExpandedIds.filter(i => i !== id);
@@ -546,58 +584,125 @@ export class SettingsPage {
     }
   }
 
-  orgName = 'Sendoc';
-  orgDomain = 'sendoc.fr';
-  orgEmail = 'contact@sendoc.fr';
+  private readonly orgService = inject(OrganizationService);
+  private readonly teamService = inject(TeamService);
 
-  apiKeys = signal<ApiKey[]>([
-    { id: '1', name: 'Production', prefix: 'srd_a3f8c2e1', createdAt: new Date('2026-01-15'), status: 'active' },
-  ]);
-  newlyGeneratedKey = signal<{ key: ApiKey; fullValue: string } | null>(null);
+  readonly apiDocsUrl = environment.apiUrl.replace('/api', '/docs');
+
+  orgName = '';
+  orgContactEmail = '';
+  orgExternalRef = '';
+  orgSaving = signal(false);
+
+  apiKeys = signal<ApiKeyRead[]>([]);
+  newlyGeneratedKey = signal<ApiKeyCreated | null>(null);
   showGenerateForm = signal(false);
   newKeyName = '';
 
-  constructor(private messageService: MessageService) {}
+  constructor(private messageService: MessageService) {
+    effect(() => {
+      if (this.isPersonal()) {
+        this.currentFacet = 'settings';
+        this.currentConfig = null;
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { facet: 'settings' },
+          queryParamsHandling: 'merge',
+        });
+      }
+    });
+
+    effect(() => {
+      const org = this.contextSwitcher.selectedOrganization();
+      if (org) {
+        this.orgName = org.name;
+        this.orgContactEmail = org.contact_email ?? '';
+        this.orgExternalRef = org.external_reference ?? '';
+        this.loadApiKeys();
+        this.loadTeams();
+        this.loadMembers();
+        this.loadChildOrgs();
+      }
+    });
+  }
+
+  saveOrg(): void {
+    const org = this.contextSwitcher.selectedOrganization();
+    if (!org) return;
+    this.orgSaving.set(true);
+    this.orgService.updateOrganization(org.id, {
+      name: this.orgName,
+      contact_email: this.orgContactEmail || null,
+      external_reference: this.orgExternalRef || null,
+    }).subscribe({
+      next: () => {
+        this.orgSaving.set(false);
+        this.messageService.add({ severity: 'success', summary: 'Enregistré', detail: 'Les informations ont été mises à jour.' });
+      },
+      error: () => {
+        this.orgSaving.set(false);
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de sauvegarder les modifications.' });
+      },
+    });
+  }
+
+  loadMembers(): void {
+    const org = this.contextSwitcher.selectedOrganization();
+    if (!org) return;
+    this.loadingMembers.set(true);
+    this.orgService.getOrgMembers(org.id).subscribe({
+      next: (list) => { this.orgMembers.set(list); this.loadingMembers.set(false); },
+      error: () => this.loadingMembers.set(false),
+    });
+  }
+
+  private loadApiKeys(): void {
+    const org = this.contextSwitcher.selectedOrganization();
+    if (!org) return;
+    this.orgService.getApiKeys(org.id).subscribe((res) => this.apiKeys.set(res.items));
+  }
 
   generateKey(): void {
-    if (!this.newKeyName.trim()) return;
-    const fullValue = this.buildKeyValue();
-    const prefix = fullValue.substring(0, 12);
-    const newKey: ApiKey = {
-      id: Date.now().toString(),
-      name: this.newKeyName.trim(),
-      prefix,
-      createdAt: new Date(),
-      status: 'active',
-    };
-    this.apiKeys.update(keys => [...keys, newKey]);
-    this.newlyGeneratedKey.set({ key: newKey, fullValue });
-    this.showGenerateForm.set(false);
-    this.newKeyName = '';
+    const org = this.contextSwitcher.selectedOrganization();
+    if (!this.newKeyName.trim() || !org) return;
+    this.orgService.createApiKey(org.id, this.newKeyName.trim()).subscribe({
+      next: (created) => {
+        this.apiKeys.update((keys) => [created, ...keys]);
+        this.newlyGeneratedKey.set(created);
+        this.showGenerateForm.set(false);
+        this.newKeyName = '';
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de créer la clé.' }),
+    });
   }
 
-  revokeKey(key: ApiKey): void {
-    this.apiKeys.update(keys => keys.map(k => k.id === key.id ? { ...k, status: 'revoked' } : k));
+  revokeKey(key: ApiKeyRead): void {
+    const org = this.contextSwitcher.selectedOrganization();
+    if (!org) return;
+    this.orgService.revokeApiKey(org.id, key.id).subscribe({
+      next: (updated) => this.apiKeys.update((keys) => keys.map((k) => k.id === updated.id ? updated : k)),
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de révoquer la clé.' }),
+    });
   }
 
-  deleteKey(key: ApiKey): void {
-    this.apiKeys.update(keys => keys.filter(k => k.id !== key.id));
-    if (this.newlyGeneratedKey()?.key.id === key.id) this.newlyGeneratedKey.set(null);
+  deleteKey(key: ApiKeyRead): void {
+    const org = this.contextSwitcher.selectedOrganization();
+    if (!org) return;
+    this.orgService.deleteApiKey(org.id, key.id).subscribe({
+      next: () => {
+        this.apiKeys.update((keys) => keys.filter((k) => k.id !== key.id));
+        if (this.newlyGeneratedKey()?.id === key.id) this.newlyGeneratedKey.set(null);
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer la clé.' }),
+    });
   }
 
   copyNewKey(): void {
     const entry = this.newlyGeneratedKey();
     if (!entry) return;
-    navigator.clipboard.writeText(entry.fullValue).then(() => {
+    navigator.clipboard.writeText(entry.token).then(() => {
       this.messageService.add({ severity: 'success', summary: 'Clé copiée', detail: 'La clé a été copiée dans le presse-papier.' });
     });
-  }
-
-  private buildKeyValue(): string {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    let result = 'srd_';
-    for (let i = 0; i < 48; i++) result += chars[Math.floor(Math.random() * chars.length)];
-    return result;
   }
 
   onFacetChange(facet: Facet): void {

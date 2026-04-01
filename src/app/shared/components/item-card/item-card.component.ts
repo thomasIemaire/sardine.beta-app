@@ -4,6 +4,7 @@ import { ButtonModule } from 'primeng/button';
 import { ElementSizeDirective } from '../../directives/element-size.directive';
 
 export interface ItemCardData {
+  id: string;
   name: string;
   description: string;
   createdAt: Date;

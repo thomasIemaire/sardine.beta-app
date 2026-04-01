@@ -6,6 +6,7 @@ import { ButtonModule } from 'primeng/button';
 export interface Facet {
   id: string;
   label: string;
+  disabled?: boolean;
 }
 
 @Component({
@@ -26,6 +27,7 @@ export interface Facet {
               <p-button
                 [label]="facet.label"
                 [severity]="currentFacetId() === facet.id ? 'primary' : 'secondary'"
+                [disabled]="facet.disabled"
                 rounded
                 size="small"
                 (onClick)="selectFacet(facet)"
@@ -109,6 +111,7 @@ export class HeaderPageComponent implements OnInit {
   }
 
   selectFacet(facet: Facet): void {
+    if (facet.disabled) return;
     this.currentFacetId.set(facet.id);
     this.facetChange.emit(facet);
     this.router.navigate([], {

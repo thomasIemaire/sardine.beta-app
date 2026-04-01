@@ -121,12 +121,6 @@
   color: var(--p-text-muted-color);
 }
 
-/* ── Grid override ── */
-:host ::ng-deep .data-list-grid {
-  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
-  gap: 0.5rem;
-  padding: 0.75rem 1rem 1rem;
-}
 
 .doc-card {
   @include card-interactive;

@@ -1,15 +1,18 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { Router, NavigationEnd } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map, startWith } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { BreadcrumbComponent, BreadcrumbItem } from '../../../shared/components/breadcrumb/breadcrumb.component';
+import { UserAvatarComponent } from '../../../shared/components/user-avatar/user-avatar.component';
 import { SidebarService } from '../sidebar/sidebar.service';
 import { Divider } from "primeng/divider";
+import { AuthService } from '../../services/auth.service';
+import { ContextSwitcherService } from '../context-switcher/context-switcher.service';
 
 @Component({
   selector: 'app-header',
-  imports: [ButtonModule, BreadcrumbComponent, Divider],
+  imports: [ButtonModule, BreadcrumbComponent, Divider, UserAvatarComponent],
   template: `
     <header class="header">
       <div class="header-left">
@@ -29,11 +32,15 @@ import { Divider } from "primeng/divider";
         <span class="header-notification-wrapper">
           <p-button icon="fa-jelly-fill fa-regular fa-bell" severity="secondary" [text]="true" rounded size="small" aria-label="Notifications" />
         </span>
-        <p-button severity="secondary" [text]="true" rounded size="small" (onClick)="router.navigate(['/user'])">
-          <span class="header-avatar">TL</span>
-          <span class="header-username">Thomas Lemaire</span>
+        <p-button class="user-button" severity="secondary" [text]="true" rounded size="small" (onClick)="router.navigate(['/user'])">
+          <span class="header-avatar">
+            @if (auth.currentUser(); as u) {
+              <app-user-avatar [userId]="u.id" [initials]="userInitials()" [refreshToken]="auth.avatarVersion()" />
+            }
+          </span>
+          <span class="header-username">{{ userName() }}</span>
         </p-button>
-        <p-button icon="fa-solid fa-right-from-bracket" severity="secondary" [text]="true" rounded size="small" aria-label="Se déconnecter" />
+        <p-button icon="fa-solid fa-right-from-bracket" severity="secondary" [text]="true" rounded size="small" aria-label="Se déconnecter" (onClick)="auth.logout()" />
       </div>
     </header>
   `,
@@ -99,13 +106,33 @@ import { Divider } from "primeng/divider";
       font-weight: 600;
     }
 
+    ::ng-deep .user-button button {
+      border-radius: 100px !important;
+      padding: .3125rem .5rem !important;
+    }
   `,
 })
 export class HeaderComponent {
   sidebar = inject(SidebarService);
   router = inject(Router);
+  readonly auth = inject(AuthService);
+  private readonly contextSwitcher = inject(ContextSwitcherService);
 
-  private readonly organizationName = 'Mon Organisation';
+  readonly userInitials = computed(() => {
+    const u = this.auth.currentUser();
+    return u ? `${u.first_name[0]}${u.last_name[0]}`.toUpperCase() : '?';
+  });
+
+  readonly userName = computed(() => {
+    const u = this.auth.currentUser();
+    return u ? `${u.first_name} ${u.last_name}` : '';
+  });
+
+  readonly orgName = computed(() => {
+    const orgs = this.contextSwitcher.organizations();
+    const id = this.contextSwitcher.selectedId();
+    return orgs.find((o) => o.id === id)?.name ?? '';
+  });
 
   private readonly routeLabels: Record<string, string> = {
     '': 'Accueil',
@@ -118,29 +145,27 @@ export class HeaderComponent {
     'user': 'Mon compte',
   };
 
-  breadcrumb = toSignal(
+  private readonly routeUrl = toSignal(
     this.router.events.pipe(
       filter((e) => e instanceof NavigationEnd),
       startWith(null),
-      map(() => {
-        const segments = this.router.url.split('/').filter(Boolean);
-        const items: BreadcrumbItem[] = [{ label: this.organizationName, link: '/' }];
-        let path = '';
-        for (const segment of segments) {
-          path += '/' + segment;
-          const clean = segment.split('?')[0];
-          items.push({
-            label: this.routeLabels[clean] ?? clean,
-            link: path,
-          });
-        }
-        // Last item has no link
-        if (items.length > 1) {
-          delete items[items.length - 1].link;
-        }
-        return items;
-      }),
+      map(() => this.router.url),
     ),
-    { initialValue: [{ label: this.organizationName }] as BreadcrumbItem[] },
+    { initialValue: this.router.url },
   );
+
+  readonly breadcrumb = computed(() => {
+    const url = this.routeUrl();
+    const orgLabel = this.orgName();
+    const segments = url.split('/').filter(Boolean);
+    const items: BreadcrumbItem[] = [{ label: orgLabel || 'Accueil', link: '/' }];
+    let path = '';
+    for (const segment of segments) {
+      path += '/' + segment;
+      const clean = segment.split('?')[0];
+      items.push({ label: this.routeLabels[clean] ?? clean, link: path });
+    }
+    if (items.length > 1) delete items[items.length - 1].link;
+    return items;
+  });
 }

@@ -68,6 +68,10 @@ export class AppLayoutComponent {
   private contexts = inject(ChildrenOutletContexts);
   readonly contextSwitcher = inject(ContextSwitcherService);
 
+  constructor() {
+    this.contextSwitcher.loadOrganizations();
+  }
+
   getRouteUrl() {
     return this.contexts.getContext('primary')?.route?.url;
   }

@@ -54,9 +54,8 @@
   @include badge;
   padding: 0.2rem 0.625rem;
 
-  &[data-role='Administrateur'] { background: var(--primary-color-100); color: var(--primary-color-700); }
-  &[data-role='Éditeur']        { background: var(--yellow-color-200);  color: var(--yellow-color-700); }
-  &[data-role='Lecteur']        { background: var(--background-color-100); color: var(--p-text-muted-color); }
+  &[data-role='1'] { background: var(--primary-color-100); color: var(--primary-color-700); }
+  &[data-role='2'] { background: var(--background-color-100); color: var(--p-text-muted-color); }
 }
 
 .row-status {

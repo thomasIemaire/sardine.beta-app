@@ -1,6 +1,7 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ThemeService } from '../../core/services/theme.service';
+import { AuthService } from '../../core/services/auth.service';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
@@ -8,11 +9,12 @@ import { SelectModule } from 'primeng/select';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
+import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar.component';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
 @Component({
   selector: 'app-user',
-  imports: [FormsModule, ButtonModule, InputTextModule, PasswordModule, SelectModule, ToggleSwitchModule, PageComponent, HeaderPageComponent],
+  imports: [FormsModule, ButtonModule, InputTextModule, PasswordModule, SelectModule, ToggleSwitchModule, PageComponent, HeaderPageComponent, UserAvatarComponent],
   template: `
     <app-page>
       <app-header-page
@@ -27,13 +29,16 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
         @if (currentTab() === 'profile') {
           <div class="user-section">
             <div class="user-avatar-block">
-              <div class="user-avatar">TL</div>
+              <div class="user-avatar">
+                @if (auth.currentUser(); as u) {
+                  <app-user-avatar [userId]="u.id" [initials]="u.first_name[0] + u.last_name[0]" [refreshable]="true" [refreshToken]="auth.avatarVersion()" (refreshClick)="onAvatarRefresh()" />
+                }
+              </div>
               <div class="user-avatar-info">
                 <div class="user-avatar-name-row">
-                  <span class="user-avatar-name">Thomas Lemaire</span>
-                  <span class="user-role-badge">{{ role }}</span>
+                  <span class="user-avatar-name">{{ auth.currentUser()?.first_name }} {{ auth.currentUser()?.last_name }}</span>
+                  <span class="user-role-badge">{{ auth.currentUser()?.role_label }}</span>
                 </div>
-                <p-button label="Changer la photo" severity="secondary" size="small" rounded />
               </div>
             </div>
           </div>
@@ -161,6 +166,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
 export class UserPage {
   themeService = inject(ThemeService);
   contextSwitcher = inject(ContextSwitcherService);
+  readonly auth = inject(AuthService);
   currentTab = signal('profile');
 
   facets: Facet[] = [
@@ -168,10 +174,24 @@ export class UserPage {
     { id: 'preferences', label: 'Préférences' },
   ];
 
-  firstName = 'Thomas';
-  lastName = 'Lemaire';
-  email = 'thomas.lemaire@sendoc.fr';
-  role = 'Administrateur';
+  firstName = '';
+  lastName = '';
+  email = '';
+
+  constructor() {
+    effect(() => {
+      const u = this.auth.currentUser();
+      if (u) {
+        this.firstName = u.first_name;
+        this.lastName = u.last_name;
+        this.email = u.email;
+      }
+    });
+  }
+  onAvatarRefresh(): void {
+    this.auth.refreshAvatar().subscribe();
+  }
+
   currentPassword = '';
   newPassword = '';
   confirmPassword = '';
