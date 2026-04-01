@@ -93,7 +93,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
                   <span class="user-pref-label">Thème</span>
                   <span class="user-pref-hint">Choisissez le thème de l'interface</span>
                 </div>
-                <p-select size="small" [(ngModel)]="theme" [options]="themeOptions" optionLabel="label" optionValue="value" />
+                <p-select size="small" [(ngModel)]="theme" [options]="themeOptions" optionLabel="label" optionValue="value" appendTo="body"/>
               </div>
             </div>
           </div>
@@ -121,6 +121,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
                     [options]="contextSwitcher.organizations()"
                     optionLabel="name"
                     optionValue="id"
+                    appendTo="body"
                   />
                 </div>
               }

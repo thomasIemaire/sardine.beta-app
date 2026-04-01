@@ -66,6 +66,7 @@ interface OrgOption {
             size="small"
             [disabled]="loading() || loadingOrgs()"
             fluid
+            appendTo="body"
           />
         </div>
 
@@ -83,6 +84,7 @@ interface OrgOption {
             size="small"
             [disabled]="loading() || loadingOrgs()"
             fluid
+            appendTo="body"
           />
         </div>
 
