@@ -467,8 +467,8 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
                     ...n,
                     inputs: n.inputs || [],
                     outputs: n.outputs || [],
-                    entries: blueprint?.entries || [],
-                    exits: blueprint?.exits || [],
+                    entries: n.entries ?? blueprint?.entries ?? [],
+                    exits: n.exits ?? blueprint?.exits ?? [],
                     color: definition?.color || '',
                     icon: definition?.icon || { icon: '' },
                     config: n.config || {},
@@ -509,6 +509,11 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
         this.history.clear();
         this.pushSnapshot();
         this.cdr.markForCheck();
+
+        // Second pass: ensures link paths are recalculated after the browser has
+        // fully laid out the new node elements (getBoundingClientRect returns
+        // accurate values only once the layout is stable).
+        setTimeout(() => this.renderer.schedule(), 50);
     }
 
     onSave(): void {
@@ -527,6 +532,8 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
                     config: n.config,
                     inputs: n.inputs,
                     outputs: n.outputs,
+                    entries: n.entries,
+                    exits: n.exits,
                     ...(n.parentId !== undefined && { parentId: n.parentId }),
                     ...(n.zoneWidth !== undefined && { zoneWidth: n.zoneWidth }),
                     ...(n.zoneHeight !== undefined && { zoneHeight: n.zoneHeight }),
@@ -542,7 +549,6 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
 
         this.saveFlow.emit(payload);
         this.isDirty.set(false);
-        this.messageService.add({ severity: 'success', summary: 'Sauvegardé', detail: 'Le flow a été sauvegardé.' });
     }
 
     onClose(): void {
@@ -1884,6 +1890,7 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
 
     private centerOnStartNode(): void {
         setTimeout(() => {
+            if (!this.shouldCenterOnStart) return;
             this.viewport.invalidateRect();
             this.viewport.centerOn(0, 0, NODE_WIDTH, NODE_BASE_HEIGHT);
             this.renderer.schedule();

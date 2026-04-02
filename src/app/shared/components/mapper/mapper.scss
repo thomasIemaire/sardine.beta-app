@@ -1,0 +1,48 @@
+.mapper__node {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+
+    .mapper__row {
+        display: flex;
+        align-items: flex-end;
+        gap: .25rem;
+
+        app-field {
+            width: 160px;
+            flex-shrink: 0;
+        }
+
+        > app-text-field {
+            width: 160px;
+            flex-shrink: 0;
+        }
+
+        .mapper__type {
+            width: 120px;
+            flex-shrink: 0;
+        }
+
+        .mapper__desc {
+            width: 180px;
+            flex-shrink: 0;
+        }
+
+        .mapper__req {
+            width: 140px;
+            flex-shrink: 0;
+        }
+
+        p-button {
+            flex-shrink: 0;
+        }
+    }
+
+    .mapper__children {
+        padding-left: 2rem;
+    }
+
+    > p-button {
+        width: min-content;
+    }
+}

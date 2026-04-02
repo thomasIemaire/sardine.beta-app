@@ -8,6 +8,7 @@ export interface CtxOrganization {
   subtitle?: string;
   initials: string;
   isPersonal: boolean;
+  locked: boolean;
 }
 
 const STORAGE_KEY = 'defaultOrgId';
@@ -54,19 +55,20 @@ export class ContextSwitcherService {
           subtitle: isPersonal ? 'Espace personnel' : undefined,
           initials: toInitials(name),
           isPersonal,
+          locked: !o.is_active_member,
         };
       });
 
       this.organizations.set(mapped);
 
-      // Auto-select if nothing stored or stored ID no longer valid
-      const currentValid = this.selectedId() && mapped.find((o) => o.id === this.selectedId());
+      // Auto-select if nothing stored or stored ID no longer valid (skip locked orgs)
+      const currentValid = this.selectedId() && mapped.find((o) => o.id === this.selectedId() && !o.locked);
       if (!currentValid) {
-        const first = mapped[0];
+        const first = mapped.find((o) => !o.locked);
         if (first) {
           this.selectedId.set(first.id);
           // Show switcher only if multiple orgs and no stored default
-          if (!this.storedDefault && mapped.length > 1) this.visible.set(true);
+          if (!this.storedDefault && mapped.filter((o) => !o.locked).length > 1) this.visible.set(true);
         }
       }
     });
@@ -81,20 +83,22 @@ export class ContextSwitcherService {
         name: org.name,
         initials: toInitials(org.name),
         isPersonal: org.is_private,
+        locked: !org.is_active_member,
       },
     ]);
   }
 
-  open(): void { this.isManualOpen.set(true); this.visible.set(true); }
-  close(): void { this.visible.set(false); this.isManualOpen.set(false); }
-
   select(org: CtxOrganization, saveAsDefault: boolean): void {
+    if (org.locked) return;
     this.selectedId.set(org.id);
     if (saveAsDefault) {
       localStorage.setItem(STORAGE_KEY, org.id);
       this.defaultOrgId.set(org.id);
     }
   }
+
+  open(): void { this.isManualOpen.set(true); this.visible.set(true); }
+  close(): void { this.visible.set(false); this.isManualOpen.set(false); }
 
   setDefault(org: CtxOrganization): void {
     localStorage.setItem(STORAGE_KEY, org.id);

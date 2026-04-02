@@ -250,7 +250,7 @@ export interface FlowViewport {
     scale: number;
 }
 
-/** Slim format stored in DB — derivable fields (color, icon, entries, exits) are excluded. */
+/** Slim format stored in DB — derivable fields (color, icon) are excluded. */
 export interface SerializedNode {
     id: string;
     type: NodeType;
@@ -261,6 +261,8 @@ export interface SerializedNode {
     config: NodeConfig;
     inputs: GFlowPort[];
     outputs: GFlowPort[];
+    entries: GFlowPort[];
+    exits: GFlowPort[];
     parentId?: string;
     zoneWidth?: number;
     zoneHeight?: number;

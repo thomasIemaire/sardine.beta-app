@@ -1,63 +1,91 @@
-import { Component, input, output, computed } from '@angular/core';
+import { Component, input, output, inject, signal, computed, effect } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
+import { MessageService } from 'primeng/api';
 import { Agent } from '../../shared/components/agent-card/agent-card.component';
-
-export interface VersionNode {
-  id: string;
-  tag: string;
-  message: string;
-  author: { name: string; initials: string };
-  date: Date;
-  isCurrent: boolean;
-  column: number;       // column index of the dot (0-based)
-  parents: string[];    // parent version ids
-  branchName?: string;
-}
+import { AgentService, ApiAgentVersion } from '../../core/services/agent.service';
+import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
 // ── graph geometry ──────────────────────────────────────────────
-const COL_W = 16;   // px between branch columns
-const DOT_R = 4;    // dot radius
-const ROW_H = 52;   // px per row (must match CSS .version-row height)
+const COL_W = 16;
+const DOT_R = 4;
+const ROW_H = 52;
+
+interface VersionRow {
+  id: string;
+  versionNumber: number;
+  schemaData: Record<string, unknown>;
+  parentVersionId: string | null;
+  createdBy: string;
+  createdAt: Date;
+  isCurrent: boolean;
+  column: number;
+}
 
 interface GraphEdge { path: string; col: number; }
 
-function buildGraph(nodes: VersionNode[]): { w: number; edges: GraphEdge[] } {
-  if (nodes.length === 0) return { w: DOT_R * 2, edges: [] };
-  const byId = new Map(nodes.map((n, i) => [n.id, i]));
-  const maxCol = Math.max(...nodes.map(n => n.column));
+function assignColumns(versions: VersionRow[]): void {
+  // versions are ordered newest-first.
+  // Each lane tracks the id of the node it's heading toward (its expected parent).
+  // When a node is placed, it takes the lane already targeting it;
+  // if none exists it opens a new lane. Any other lane also targeting this node
+  // is freed (merge point).
+  const lanes: (string | null)[] = [];
+
+  for (const v of versions) {
+    let col = lanes.indexOf(v.id);
+
+    if (col === -1) {
+      col = lanes.indexOf(null);
+      if (col === -1) col = lanes.length;
+    }
+
+    v.column = col;
+
+    if (col < lanes.length) {
+      lanes[col] = v.parentVersionId;
+    } else {
+      lanes.push(v.parentVersionId);
+    }
+
+    // Free any other lanes also waiting for this node
+    for (let l = 0; l < lanes.length; l++) {
+      if (l !== col && lanes[l] === v.id) lanes[l] = null;
+    }
+  }
+}
+
+function buildGraph(rows: VersionRow[]): { w: number; edges: GraphEdge[] } {
+  if (rows.length === 0) return { w: DOT_R * 2, edges: [] };
+  const byId = new Map(rows.map((r, i) => [r.id, i]));
+  const maxCol = Math.max(...rows.map((r) => r.column));
   const w = (maxCol + 1) * COL_W + DOT_R * 2;
   const edges: GraphEdge[] = [];
 
-  nodes.forEach((node, i) => {
-    const x = node.column * COL_W + DOT_R;
+  rows.forEach((row, i) => {
+    if (!row.parentVersionId) return;
+    const pi = byId.get(row.parentVersionId);
+    if (pi == null) return;
+    const parent = rows[pi];
+    const x = row.column * COL_W + DOT_R;
     const y = i * ROW_H + ROW_H / 2;
+    const px = parent.column * COL_W + DOT_R;
+    const py = pi * ROW_H + ROW_H / 2;
 
-    for (const pid of node.parents) {
-      const pi = byId.get(pid);
-      if (pi == null) continue;
-      const parent = nodes[pi];
-      const px = parent.column * COL_W + DOT_R;
-      const py = pi * ROW_H + ROW_H / 2;
-
-      let path: string;
-      if (node.column === parent.column) {
-        // straight vertical
-        path = `M ${x},${y} L ${px},${py}`;
-      } else {
-        // S-curve (cubic bezier) — smoother than elbow
-        const my = (y + py) / 2;
-        path = `M ${x},${y} C ${x},${my} ${px},${my} ${px},${py}`;
-      }
-      edges.push({ path, col: node.column });
+    let path: string;
+    if (row.column === parent.column) {
+      path = `M ${x},${y} L ${px},${py}`;
+    } else {
+      const my = (y + py) / 2;
+      path = `M ${x},${y} C ${x},${my} ${px},${my} ${px},${py}`;
     }
+    edges.push({ path, col: row.column });
   });
 
   return { w, edges };
 }
 
-// ── branch colours ──────────────────────────────────────────────
 const BRANCH_COLORS = [
   'var(--p-primary-color)',
   'var(--green-color-500)',
@@ -77,62 +105,78 @@ const BRANCH_COLORS = [
       </div>
 
       <div class="version-tree">
-        <!-- graph SVG overlay (lines only) -->
-        <svg class="graph-svg" [attr.width]="graph().w" [attr.height]="totalHeight()">
-          @for (edge of graph().edges; track $index) {
-            <path
-              [attr.d]="edge.path"
-              [attr.stroke]="branchColor(edge.col)"
-              stroke-width="1.5"
-              fill="none"
-              stroke-linecap="round"
-            />
-          }
-        </svg>
-
-        @for (node of versions(); track node.id) {
-          <div class="version-row" [class.current]="node.isCurrent">
-            <!-- dot column -->
-            <div class="dot-col" [style.width.px]="graph().w">
-              <svg [attr.width]="graph().w" height="100%" overflow="visible">
-                @if (node.isCurrent) {
-                  <circle
-                    [attr.cx]="node.column * 16 + 4"
-                    cy="50%"
-                    [attr.r]="DOT_R + 3"
-                    [attr.fill]="branchColor(node.column)"
-                    fill-opacity="0.2"
-                  />
-                }
-                <circle
-                  [attr.cx]="node.column * 16 + 4"
-                  cy="50%"
-                  [attr.r]="node.isCurrent ? DOT_R + 1 : DOT_R"
-                  [attr.fill]="branchColor(node.column)"
-                />
-              </svg>
-            </div>
-
-            <!-- info -->
-            <div class="version-info">
-              <div class="version-top">
-                <span class="version-tag" [style.color]="branchColor(node.column)">{{ node.tag }}</span>
-                @if (node.isCurrent) {
-                  <span class="current-badge">HEAD</span>
-                }
-                @if (node.branchName) {
-                  <span class="branch-badge" [pTooltip]="node.branchName" tooltipPosition="left">
-                    <i class="fa-regular fa-code-branch"></i>
-                    <span class="branch-badge-text">{{ node.branchName }}</span>
-                  </span>
-                }
-              </div>
-              <div class="version-meta">
-                <span class="meta-avatar">{{ node.author.initials }}</span>
-                <span>{{ node.date | date:'dd/MM/yy' }}</span>
-              </div>
-            </div>
+        @if (loading()) {
+          <div class="version-loading">
+            <i class="fa-regular fa-spinner-third fa-spin"></i>
           </div>
+        } @else if (rows().length === 0) {
+          <div class="version-empty">Aucune version disponible.</div>
+        } @else {
+          <!-- graph SVG overlay (lines only) -->
+          <svg class="graph-svg" [attr.width]="graph().w" [attr.height]="totalHeight()">
+            @for (edge of graph().edges; track $index) {
+              <path
+                [attr.d]="edge.path"
+                [attr.stroke]="branchColor(edge.col)"
+                stroke-width="1.5"
+                fill="none"
+                stroke-linecap="round"
+              />
+            }
+          </svg>
+
+          @for (row of rows(); track row.id) {
+            <div class="version-row" [class.current]="row.isCurrent">
+              <!-- dot column -->
+              <div class="dot-col" [style.width.px]="graph().w">
+                <svg [attr.width]="graph().w" height="100%" overflow="visible">
+                  @if (row.isCurrent) {
+                    <circle
+                      [attr.cx]="row.column * 16 + 4"
+                      cy="50%"
+                      [attr.r]="DOT_R + 3"
+                      [attr.fill]="branchColor(row.column)"
+                      fill-opacity="0.2"
+                    />
+                  }
+                  <circle
+                    [attr.cx]="row.column * 16 + 4"
+                    cy="50%"
+                    [attr.r]="row.isCurrent ? DOT_R + 1 : DOT_R"
+                    [attr.fill]="branchColor(row.column)"
+                  />
+                </svg>
+              </div>
+
+              <!-- info -->
+              <div class="version-info">
+                <div class="version-top">
+                  <span class="version-tag" [style.color]="branchColor(row.column)">v{{ row.versionNumber }}</span>
+                  @if (row.isCurrent) {
+                    <span class="current-badge">HEAD</span>
+                  }
+                </div>
+                <div class="version-meta">
+                  <span>{{ row.createdAt | date:'dd/MM/yy HH:mm' }}</span>
+                </div>
+              </div>
+
+              <!-- checkout button -->
+              @if (!row.isCurrent) {
+                <p-button
+                  icon="fa-regular fa-check"
+                  severity="secondary"
+                  [text]="true"
+                  rounded
+                  size="small"
+                  pTooltip="Définir comme version active"
+                  tooltipPosition="left"
+                  [loading]="checkingOut() === row.id"
+                  (onClick)="checkout(row)"
+                />
+              }
+            </div>
+          }
         }
       </div>
     </div>
@@ -140,28 +184,87 @@ const BRANCH_COLORS = [
   styleUrl: './agent-version-panel.component.scss',
 })
 export class AgentVersionPanelComponent {
+  private readonly agentService = inject(AgentService);
+  private readonly contextSwitcher = inject(ContextSwitcherService);
+  private readonly messageService = inject(MessageService);
+
   agent = input.required<Agent>();
   close = output();
+  checkedOut = output<void>();
 
   protected readonly DOT_R = DOT_R;
 
-  versions = computed<VersionNode[]>(() => [
-    { id: 'head',   tag: 'Support complet PDF',            message: '', author: { name: 'Thomas Lemaire', initials: 'TL' }, date: new Date('2026-03-20'), isCurrent: true,  column: 0, parents: ['merge1'] },
-    { id: 'merge1', tag: 'Fusion extraction avancée',      message: '', author: { name: 'Thomas Lemaire', initials: 'TL' }, date: new Date('2026-03-18'), isCurrent: false, column: 0, parents: ['mainC', 'feat2'] },
-    { id: 'feat2',  tag: 'Tables & structures',            message: '', author: { name: 'Marie Dupont',   initials: 'MD' }, date: new Date('2026-03-14'), isCurrent: false, column: 1, parents: ['feat1', 'fix2'], branchName: 'feature/extraction' },
-    { id: 'fix2',   tag: 'Encodage caractères spéciaux',   message: '', author: { name: 'Marie Dupont',   initials: 'MD' }, date: new Date('2026-03-12'), isCurrent: false, column: 2, parents: ['fix1'],           branchName: 'feature/parser' },
-    { id: 'mainC',  tag: 'Correction validation schéma',   message: '', author: { name: 'Thomas Lemaire', initials: 'TL' }, date: new Date('2026-03-10'), isCurrent: false, column: 0, parents: ['mainB'] },
-    { id: 'fix1',   tag: 'Nouveau parseur XML',            message: '', author: { name: 'Marie Dupont',   initials: 'MD' }, date: new Date('2026-03-08'), isCurrent: false, column: 2, parents: ['feat1'],           branchName: 'feature/parser' },
-    { id: 'mainB',  tag: 'Mise à jour dépendances',        message: '', author: { name: 'Thomas Lemaire', initials: 'TL' }, date: new Date('2026-03-06'), isCurrent: false, column: 0, parents: ['prev'] },
-    { id: 'feat1',  tag: 'Détection colonnes dynamiques',  message: '', author: { name: 'Thomas Lemaire', initials: 'TL' }, date: new Date('2026-03-05'), isCurrent: false, column: 1, parents: ['prev'],            branchName: 'feature/extraction' },
-    { id: 'prev',   tag: 'Optimisation performances',      message: '', author: { name: 'Thomas Lemaire', initials: 'TL' }, date: new Date('2026-03-01'), isCurrent: false, column: 0, parents: ['init'] },
-    { id: 'init',   tag: 'Version initiale',               message: '', author: { name: 'Thomas Lemaire', initials: 'TL' }, date: new Date('2026-02-15'), isCurrent: false, column: 0, parents: [] },
-  ]);
+  readonly loading = signal(false);
+  readonly checkingOut = signal<string | null>(null);
+  private readonly versions = signal<ApiAgentVersion[]>([]);
 
-  graph = computed(() => buildGraph(this.versions()));
-  totalHeight = computed(() => this.versions().length * ROW_H);
+  rows = computed<VersionRow[]>(() => {
+    const activeId = this.agent().activeVersionId ?? null;
+    const raw = this.versions();
+
+    // Sort newest-first by created_at (most reliable field from API)
+    const sorted = [...raw].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+
+    const rows: VersionRow[] = sorted.map((v, i) => ({
+      id: v.id,
+      versionNumber: v.version_number ?? (sorted.length - i),
+      schemaData: v.schema_data,
+      parentVersionId: v.parent_version_id,
+      createdBy: v.created_by,
+      createdAt: new Date(v.created_at),
+      isCurrent: v.id === activeId,
+      column: 0,
+    }));
+
+    assignColumns(rows);
+    return rows;
+  });
+
+  graph = computed(() => buildGraph(this.rows()));
+  totalHeight = computed(() => this.rows().length * ROW_H);
+
+  constructor() {
+    effect(() => {
+      // reload whenever the selected agent changes
+      const agentId = this.agent().id;
+      if (agentId) this.load();
+    });
+  }
 
   branchColor(col: number): string {
     return BRANCH_COLORS[col % BRANCH_COLORS.length];
+  }
+
+  private load(): void {
+    const orgId = this.contextSwitcher.selectedId();
+    const agentId = this.agent().id;
+    if (!orgId || !agentId) return;
+
+    this.loading.set(true);
+    this.agentService.getAgentVersions(orgId, agentId).subscribe({
+      next: (v) => { this.versions.set(v); this.loading.set(false); },
+      error: () => { this.loading.set(false); },
+    });
+  }
+
+  checkout(row: VersionRow): void {
+    const orgId = this.contextSwitcher.selectedId();
+    const agentId = this.agent().id;
+    if (!orgId || !agentId || this.checkingOut()) return;
+
+    this.checkingOut.set(row.id);
+    this.agentService.checkoutVersion(orgId, agentId, row.id).subscribe({
+      next: () => {
+        this.checkingOut.set(null);
+        this.messageService.add({ severity: 'success', summary: 'Version activée', detail: `v${row.versionNumber} est maintenant la version active.` });
+        this.checkedOut.emit();
+      },
+      error: () => {
+        this.checkingOut.set(null);
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de changer de version.' });
+      },
+    });
   }
 }

@@ -16,14 +16,19 @@ import { SelectableComponent } from '../../../shared/components/selectable/selec
 
       <div class="cs-grid">
         @for (org of displayedOrgs(); track org.id) {
-          <div class="cs-item" (click)="select(org)">
-            <app-selectable [selected]="service.selectedId() === org.id" borderRadius="1.7rem">
-              <div class="cs-avatar">{{ org.initials }}</div>
+          <div class="cs-item" [class.is-locked]="org.locked" (click)="!org.locked && select(org)">
+            <app-selectable [selected]="service.selectedId() === org.id && !org.locked" borderRadius="1.7rem">
+              <div class="cs-avatar" [class.cs-avatar--locked]="org.locked">
+                @if (org.locked) { <i class="fa-regular fa-lock"></i> } @else { {{ org.initials }} }
+              </div>
             </app-selectable>
             <div class="cs-names">
-              <span class="cs-name">{{ org.name }}</span>
+              <span class="cs-name" [class.cs-name--muted]="org.locked">{{ org.name }}</span>
               @if (org.subtitle) {
                 <span class="cs-subtitle">{{ org.subtitle }}</span>
+              }
+              @if (org.locked) {
+                <span class="cs-subtitle">Accès suspendu</span>
               }
             </div>
           </div>
@@ -130,6 +135,7 @@ import { SelectableComponent } from '../../../shared/components/selectable/selec
       cursor: pointer;
 
       &--overflow { cursor: default; }
+      &.is-locked { cursor: not-allowed; opacity: 0.55; }
     }
 
     .cs-avatar {
@@ -146,6 +152,8 @@ import { SelectableComponent } from '../../../shared/components/selectable/selec
       color: var(--p-text-color);
       text-transform: uppercase;
       user-select: none;
+
+      &--locked { color: var(--p-text-muted-color); }
     }
 
     .cs-overflow-avatar {

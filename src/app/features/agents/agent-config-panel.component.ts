@@ -1,30 +1,68 @@
-import { Component, input, output, computed } from '@angular/core';
+import { Component, input, output, computed, effect, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { TextareaModule } from 'primeng/textarea';
 import { DividerModule } from 'primeng/divider';
 import { TooltipModule } from 'primeng/tooltip';
+import { MessageService } from 'primeng/api';
 import { Agent } from '../../shared/components/agent-card/agent-card.component';
+import { MapperComponent } from '../../shared/components/mapper/mapper';
+import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar.component';
+import { AgentService } from '../../core/services/agent.service';
+import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
 @Component({
   selector: 'app-agent-config-panel',
-  imports: [DatePipe, ButtonModule, DividerModule, TooltipModule],
+  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, TextareaModule, DividerModule, TooltipModule, MapperComponent, UserAvatarComponent],
   template: `
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title-group">
-          <span class="panel-title">{{ agent().name }}</span>
+          @if (editingMeta()) {
+            <input
+              class="panel-title-input"
+              pInputText
+              pSize="small"
+              [(ngModel)]="editName"
+              placeholder="Nom de l'agent"
+              (keyup.enter)="saveMeta()"
+              (keyup.escape)="cancelEdit()"
+            />
+          } @else {
+            <span class="panel-title">{{ agent().name }}</span>
+          }
           <span class="panel-badge" [attr.data-severity]="percentageSeverity()">{{ agent().percentage }}%</span>
         </div>
         <div class="panel-header-actions">
-          <p-button icon="fa-regular fa-code-branch" severity="secondary" [text]="true" rounded size="small" pTooltip="Versions" tooltipPosition="top" (onClick)="toggleVersions.emit()" />
-          <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" rounded size="small" (onClick)="close.emit()" />
+          @if (editingMeta()) {
+            <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" rounded size="small" pTooltip="Annuler" tooltipPosition="top" (onClick)="cancelEdit()" />
+            <p-button icon="fa-regular fa-check" severity="success" [text]="true" rounded size="small" pTooltip="Sauvegarder" tooltipPosition="top" [loading]="savingMeta()" (onClick)="saveMeta()" />
+          } @else {
+            <p-button icon="fa-regular fa-pen" severity="secondary" [text]="true" rounded size="small" pTooltip="Modifier" tooltipPosition="top" (onClick)="startEdit()" />
+            <p-button icon="fa-regular fa-code-branch" severity="secondary" [text]="true" rounded size="small" pTooltip="Versions" tooltipPosition="top" (onClick)="toggleVersions.emit()" />
+            <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" rounded size="small" (onClick)="close.emit()" />
+          }
         </div>
       </div>
 
       <div class="panel-body">
         <section class="panel-section">
           <span class="section-label">Description</span>
-          <p class="section-value">{{ agent().description }}</p>
+          @if (editingMeta()) {
+            <textarea
+              pTextarea
+              pSize="small"
+              [(ngModel)]="editDescription"
+              placeholder="Description de l'agent…"
+              rows="3"
+              class="meta-textarea"
+              (keyup.escape)="cancelEdit()"
+            ></textarea>
+          } @else {
+            <p class="section-value">{{ agent().description || '—' }}</p>
+          }
         </section>
 
         <p-divider />
@@ -33,7 +71,7 @@ import { Agent } from '../../shared/components/agent-card/agent-card.component';
           <section class="panel-section">
             <span class="section-label">Créateur</span>
             <div class="creator-row">
-              <span class="creator-avatar">{{ agent().creator.initials }}</span>
+              <span class="creator-avatar"><app-user-avatar [userId]="agent().creator.id" [initials]="agent().creator.initials" /></span>
               <span class="section-value">{{ agent().creator.name }}</span>
             </div>
           </section>
@@ -47,11 +85,26 @@ import { Agent } from '../../shared/components/agent-card/agent-card.component';
         <p-divider />
 
         <section class="panel-section">
-          <span class="section-label">Configuration</span>
-          <div class="config-placeholder">
-            <i class="fa-regular fa-gear"></i>
-            <span>Aucune configuration disponible</span>
+          <div class="section-header">
+            <span class="section-label">Configuration</span>
+            <p-button
+              label="Enregistrer"
+              icon="fa-regular fa-floppy-disk"
+              severity="secondary"
+              size="small"
+              rounded
+              [loading]="saving()"
+              (onClick)="save()"
+            />
           </div>
+
+          <app-mapper
+            [json]="currentSchema"
+            [root]="schemaRoot()"
+            [isRoot]="true"
+            label="Schéma de données"
+            (jsonChange)="onSchemaChange($event)"
+          />
         </section>
       </div>
     </div>
@@ -59,9 +112,27 @@ import { Agent } from '../../shared/components/agent-card/agent-card.component';
   styleUrl: './agent-config-panel.component.scss',
 })
 export class AgentConfigPanelComponent {
+  private readonly agentService = inject(AgentService);
+  private readonly contextSwitcher = inject(ContextSwitcherService);
+  private readonly messageService = inject(MessageService);
+
   agent = input.required<Agent>();
   close = output();
   toggleVersions = output();
+  agentUpdated = output<{ name: string; description: string }>();
+  versionSaved = output<void>();
+
+  readonly saving = signal(false);
+  readonly savingMeta = signal(false);
+  readonly editingMeta = signal(false);
+
+  editName = '';
+  editDescription = '';
+  currentSchema: Record<string, unknown> = {};
+
+  schemaRoot = computed(() =>
+    this.agent().name.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'SCHEMA'
+  );
 
   percentageSeverity = computed(() => {
     const p = this.agent().percentage;
@@ -69,4 +140,67 @@ export class AgentConfigPanelComponent {
     if (p >= 40) return 'warn';
     return 'danger';
   });
+
+  constructor() {
+    effect(() => {
+      // Reset edit mode and schema when the selected agent changes
+      const agent = this.agent();
+      this.editingMeta.set(false);
+      this.currentSchema = { ...(agent.schemaData ?? {}) };
+    });
+  }
+
+  startEdit(): void {
+    this.editName = this.agent().name;
+    this.editDescription = this.agent().description;
+    this.editingMeta.set(true);
+  }
+
+  cancelEdit(): void {
+    this.editingMeta.set(false);
+  }
+
+  saveMeta(): void {
+    const orgId = this.contextSwitcher.selectedId();
+    const agentId = this.agent().id;
+    const name = this.editName.trim();
+    if (!orgId || !agentId || !name || this.savingMeta()) return;
+
+    this.savingMeta.set(true);
+    this.agentService.updateAgent(orgId, agentId, name, this.editDescription.trim()).subscribe({
+      next: (updated) => {
+        this.savingMeta.set(false);
+        this.editingMeta.set(false);
+        this.agentUpdated.emit({ name: updated.name, description: updated.description });
+        this.messageService.add({ severity: 'success', summary: 'Modifié', detail: 'Les informations ont été mises à jour.' });
+      },
+      error: () => {
+        this.savingMeta.set(false);
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'La modification a échoué.' });
+      },
+    });
+  }
+
+  onSchemaChange(json: Record<string, unknown>): void {
+    this.currentSchema = json;
+  }
+
+  save(): void {
+    const orgId = this.contextSwitcher.selectedId();
+    const agentId = this.agent().id;
+    if (!orgId || !agentId || this.saving()) return;
+
+    this.saving.set(true);
+    this.agentService.saveAgentVersion(orgId, agentId, this.currentSchema).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.messageService.add({ severity: 'success', summary: 'Sauvegardé', detail: 'La configuration a été sauvegardée.' });
+        this.versionSaved.emit();
+      },
+      error: () => {
+        this.saving.set(false);
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'La sauvegarde a échoué.' });
+      },
+    });
+  }
 }

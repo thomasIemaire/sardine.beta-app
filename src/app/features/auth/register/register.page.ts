@@ -119,7 +119,7 @@ import { AuthService } from '../../../core/services/auth.service';
   `,
   styles: `
     .login-card {
-      width: 380px;
+      width: 320px;
       display: flex;
       flex-direction: column;
       gap: 1.5rem;
@@ -178,6 +178,9 @@ import { AuthService } from '../../../core/services/auth.service';
       display: flex;
       flex-direction: column;
       gap: 0.375rem;
+      min-width: 0;
+
+      input { width: 100%; box-sizing: border-box; }
     }
 
     .login-label {

@@ -73,7 +73,7 @@ import { AuthService } from '../../../core/services/auth.service';
   `,
   styles: `
     .login-card {
-      width: 380px;
+      width: 320px;
       display: flex;
       flex-direction: column;
       gap: 1.5rem;

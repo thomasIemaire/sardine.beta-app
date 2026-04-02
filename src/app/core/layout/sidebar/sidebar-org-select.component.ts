@@ -17,12 +17,17 @@ import { CreateOrgDialogComponent } from '../../../shared/components/create-org-
                     <div class="org-panel__separator"></div>
 
                     @for (o of contextSwitcher.organizations().slice(0, 4); track o.id) {
-                        <button class="org-row" [class.is-active]="o.id === contextSwitcher.selectedId()" (click)="select(o)">
-                            <div class="org-row__avatar">{{ o.initials }}</div>
+                        <button class="org-row" [class.is-active]="o.id === contextSwitcher.selectedId()" [class.is-locked]="o.locked" (click)="!o.locked && select(o)">
+                            <div class="org-row__avatar">
+                                @if (o.locked) { <i class="fa-regular fa-lock"></i> } @else { {{ o.initials }} }
+                            </div>
                             <div class="org-row__info">
                                 <span class="org-row__name">{{ o.name }}</span>
                                 @if (o.subtitle) {
                                     <span class="org-row__subtitle">{{ o.subtitle }}</span>
+                                }
+                                @if (o.locked) {
+                                    <span class="org-row__subtitle">Accès suspendu</span>
                                 }
                             </div>
                             @if (o.id === contextSwitcher.selectedId()) {
@@ -91,6 +96,7 @@ import { CreateOrgDialogComponent } from '../../../shared/components/create-org-
             &--static { cursor: default; &:hover::before { animation: none; } }
             &--loading { cursor: default; &:hover::before { animation: none; } }
             &--more { justify-content: center; .org-row__name { flex: unset; font-size: 0.6125rem; font-weight: 500; color: var(--p-text-muted-color); } }
+            &.is-locked { cursor: not-allowed; opacity: 0.55; }
             &--trigger {
                 position: relative;
                 z-index: 1;

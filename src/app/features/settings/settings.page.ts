@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
@@ -10,8 +10,9 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
+import { ContextMenu } from 'primeng/contextmenu';
 import { PaginatorState } from 'primeng/paginator';
-import { MessageService } from 'primeng/api';
+import { MessageService, MenuItem } from 'primeng/api';
 import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
 import { DataListComponent, ListColumn } from '../../shared/components/data-list/data-list.component';
@@ -47,10 +48,11 @@ interface FacetConfig {
 
 @Component({
   selector: 'app-settings',
-  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, PageComponent, HeaderPageComponent, DataListComponent, MemberRowComponent, OrgRowComponent, TeamPanelComponent, CreateTeamDialogComponent, CreateOrgDialogComponent, InviteMembersDialogComponent],
+  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, ContextMenu, PageComponent, HeaderPageComponent, DataListComponent, MemberRowComponent, OrgRowComponent, TeamPanelComponent, CreateTeamDialogComponent, CreateOrgDialogComponent, InviteMembersDialogComponent],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="3000" />
+    <p-contextmenu #memberCm />
 
     <app-page>
       <app-header-page
@@ -88,7 +90,7 @@ interface FacetConfig {
 
         <ng-template #memberListTpl>
           @for (member of paginatedMembers; track member.user_id) {
-            <app-member-row [member]="member" />
+            <app-member-row [member]="member" (menuOpen)="onMemberMenuOpen($event, member)" />
           }
         </ng-template>
       }
@@ -643,6 +645,48 @@ export class SettingsPage {
         this.orgSaving.set(false);
         this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de sauvegarder les modifications.' });
       },
+    });
+  }
+
+  private readonly memberCm = viewChild<ContextMenu>('memberCm');
+
+  onMemberMenuOpen(event: MouseEvent, member: ApiOrgMember): void {
+    const cm = this.memberCm();
+    if (!cm) return;
+    cm.model = [
+      member.role === 2
+        ? { label: 'Promouvoir en Propriétaire', icon: 'fa-regular fa-shield-check', command: () => this.onMemberRoleChange({ userId: member.user_id, role: 1 }) }
+        : { label: 'Rétrograder en Membre',      icon: 'fa-regular fa-shield-minus',  command: () => this.onMemberRoleChange({ userId: member.user_id, role: 2 }) },
+      { separator: true },
+      member.status === 1
+        ? { label: 'Désactiver', icon: 'fa-regular fa-user-slash', command: () => this.onMemberStatusChange({ userId: member.user_id, status: 0 }) }
+        : { label: 'Activer',    icon: 'fa-regular fa-user-check', command: () => this.onMemberStatusChange({ userId: member.user_id, status: 1 }) },
+    ] as MenuItem[];
+    cm.show(event);
+  }
+
+  onMemberRoleChange(event: { userId: string; role: 1 | 2 }): void {
+    const org = this.contextSwitcher.selectedOrganization();
+    if (!org) return;
+    this.orgService.updateMemberRole(org.id, event.userId, event.role).subscribe({
+      next: (updated) => {
+        this.orgMembers.update((list) => list.map((m) => m.user_id === updated.user_id ? updated : m));
+        const label = event.role === 1 ? 'Propriétaire' : 'Membre';
+        this.messageService.add({ severity: 'success', summary: 'Rôle mis à jour', detail: `Le membre est maintenant ${label}.` });
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de modifier le rôle du membre.' }),
+    });
+  }
+
+  onMemberStatusChange(event: { userId: string; status: 0 | 1 }): void {
+    const org = this.contextSwitcher.selectedOrganization();
+    if (!org) return;
+    this.orgService.updateMemberStatus(org.id, event.userId, event.status).subscribe({
+      next: (updated) => {
+        this.orgMembers.update((list) => list.map((m) => m.user_id === updated.user_id ? updated : m));
+        this.messageService.add({ severity: 'success', summary: 'Statut mis à jour', detail: `Le membre a été ${event.status === 1 ? 'activé' : 'désactivé'}.` });
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de modifier le statut du membre.' }),
     });
   }
 

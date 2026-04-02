@@ -6,6 +6,7 @@ export interface ApiOrganization {
   id: string;
   name: string;
   is_private: boolean;
+  is_active_member: boolean;
   status: number;
   status_label: string;
   contact_email: string | null;
@@ -117,5 +118,13 @@ export class OrganizationService {
 
   deleteApiKey(orgId: string, keyId: string) {
     return this.http.delete(`${this.base}/organizations/${orgId}/api-keys/${keyId}`);
+  }
+
+  updateMemberStatus(orgId: string, userId: string, status: 0 | 1) {
+    return this.http.patch<ApiOrgMember>(`${this.base}/organizations/${orgId}/members/${userId}/status`, { status });
+  }
+
+  updateMemberRole(orgId: string, userId: string, role: 1 | 2) {
+    return this.http.patch<ApiOrgMember>(`${this.base}/organizations/${orgId}/members/${userId}/role`, { role });
   }
 }

@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
 import { ElementSizeDirective } from '../../directives/element-size.directive';
 import { UserAvatarComponent } from '../user-avatar/user-avatar.component';
@@ -18,7 +18,7 @@ export interface Member {
   selector: 'app-member-row',
   imports: [ButtonModule, ElementSizeDirective, UserAvatarComponent],
   template: `
-    <div class="row" [appElementSize]="{ compact: 600 }">
+    <div class="row" [appElementSize]="{ compact: 600 }" (contextmenu)="menuOpen.emit($event); $event.preventDefault()">
       <div class="row-main">
         <div class="row-avatar">
           <app-user-avatar [userId]="member().user_id" [initials]="member().first_name[0] + member().last_name[0]" />
@@ -38,12 +38,13 @@ export interface Member {
           <span class="row-status__dot"></span>
           <span class="row-status__label">{{ member().status_label }}</span>
         </span>
-        <p-button icon="fa-regular fa-ellipsis-vertical" severity="secondary" [text]="true" rounded size="small" />
+        <p-button icon="fa-regular fa-ellipsis-vertical" severity="secondary" [text]="true" rounded size="small" (onClick)="menuOpen.emit($event)" />
       </div>
     </div>
   `,
   styleUrl: './member-row.component.scss',
 })
 export class MemberRowComponent {
-  member = input.required<Member>();
+  readonly member = input.required<Member>();
+  readonly menuOpen = output<MouseEvent>();
 }

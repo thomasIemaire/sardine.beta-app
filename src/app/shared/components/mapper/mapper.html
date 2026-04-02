@@ -1,0 +1,27 @@
+<div class="mapper__node" *ngFor="let node of mapper; index as i; trackBy: trackByIndex">
+    <div class="mapper__row">
+        @if (isRoot && isFirstNode(node)) {
+        <app-field [label]="label" [required]="required">
+            <app-text-field [(ngModel)]="node.label" placeholder="Clé" (focusout)="removeNodeIfEmpty(node); emitJson()" />
+        </app-field>
+        } @else {
+        <app-text-field [(ngModel)]="node.label" placeholder="Clé" (focusout)="removeNodeIfEmpty(node); emitJson()" />
+        }
+
+        @if (!node.children.length && node.label) {
+        <app-select-field class="mapper__type" [options]="typeOptions" [(ngModel)]="node.type"
+            optionLabel="label" optionValue="value" placeholder="Type" (ngModelChange)="emitJson()" />
+        <app-text-field class="mapper__desc" [(ngModel)]="node.description" placeholder="Description" (focusout)="emitJson()" />
+        <app-requirements-editor class="mapper__req" [requirements]="node.requirements" (requirementsChange)="emitJson()" />
+        <p-button icon="fa-regular fa-plus" variant="text" severity="secondary"
+            size="small" (click)="addChild(node)" [pTooltip]="'Ajouter un enfant à ' + node.label" rounded />
+        }
+    </div>
+
+    <app-mapper class="mapper__children" [mapper]="node.children" (jsonChange)="onChildJsonChange()" [usingKeys]="usingKeys" />
+
+    @if (isLastNode(node) && node.label) {
+    <p-button icon="fa-regular fa-plus" variant="text" severity="secondary" size="small"
+        (click)="addNode(node.parent)" [pTooltip]="'Ajouter un champ à ' + (node.parent?.label ?? root)" rounded/>
+    }
+</div>

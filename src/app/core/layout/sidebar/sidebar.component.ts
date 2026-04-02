@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { SidebarMenuComponent } from './sidebar-menu.component';
 import { SidebarOrgSelectComponent } from './sidebar-org-select.component';
 import { DropZoneComponent } from '../../../shared/components/drop-zone/drop-zone.component';
@@ -7,6 +7,8 @@ import { SidebarService } from './sidebar.service';
 import { BrandComponent } from '../.././../shared/components/brand/brand.component';
 import { DividerModule } from 'primeng/divider';
 import { UserService } from '../../services/user.service';
+import { AuthService } from '../../services/auth.service';
+import { ContextSwitcherService } from '../context-switcher/context-switcher.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -18,7 +20,7 @@ import { UserService } from '../../services/user.service';
           <div class="sidebar-brand"><app-brand /></div>
 
           <div class="sidebar-nav">
-            @for (menu of menus; track menu.title) {
+            @for (menu of menus(); track menu.title) {
               <app-sidebar-menu [title]="menu.title" [items]="menu.items" />
             }
             @if (userService.isAdmin()) {
@@ -150,7 +152,15 @@ import { UserService } from '../../services/user.service';
 export class SidebarComponent {
   sidebarService = inject(SidebarService);
   userService = inject(UserService);
+  private readonly auth = inject(AuthService);
+  private readonly contextSwitcher = inject(ContextSwitcherService);
   orgSelectOpen = signal(false);
+
+  readonly isOrgOwner = computed(() => {
+    const org = this.contextSwitcher.selectedOrganization();
+    const user = this.auth.currentUser();
+    return !!org && !!user && org.owner_id === user.id;
+  });
 
   onFilesDropped(files: File[]): void {
     console.log('Fichiers déposés :', files);
@@ -164,7 +174,7 @@ export class SidebarComponent {
     ],
   };
 
-  readonly menus: SidebarMenu[] = [
+  readonly menus = computed<SidebarMenu[]>(() => [
     {
       items: [
         { label: 'Accueil', icon: 'fa-jelly fa-regular fa-house', link: '/', exact: true },
@@ -178,8 +188,8 @@ export class SidebarComponent {
       items: [
         { label: 'Agents', icon: 'fa-regular fa-microchip-ai', link: '/agents' },
         { label: 'Flows', icon: 'fa-light fa-chart-diagram', link: '/flows' },
-{ label: 'Administration', icon: 'fa-jelly fa-regular fa-gear', link: '/administration' },
+        ...( this.isOrgOwner() ? [{ label: 'Administration', icon: 'fa-jelly fa-regular fa-gear', link: '/administration' }] : [] ),
       ],
     },
-  ];
+  ]);
 }
