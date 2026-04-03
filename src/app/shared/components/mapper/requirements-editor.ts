@@ -39,7 +39,7 @@ const REQUIREMENT_TYPE_DEFS: RequirementTypeDef[] = [
     imports: [FormsModule, DialogModule, ButtonModule, InputTextModule, InputNumberModule, CheckboxModule],
     template: `
         <!-- Trigger — looks like an input -->
-        <button type="button" class="req-trigger" (click)="openDialog()">
+        <button type="button" class="req-trigger" [disabled]="readonly" (click)="openDialog()">
             @if (requirements.length === 0) {
                 <span class="req-placeholder">Contraintes</span>
             } @else {
@@ -253,6 +253,7 @@ const REQUIREMENT_TYPE_DEFS: RequirementTypeDef[] = [
 })
 export class RequirementsEditorComponent {
     @Input() requirements: SchemaRequirement[] = [];
+    @Input() readonly: boolean = false;
     @Output() requirementsChange = new EventEmitter<void>();
 
     typeDefs = REQUIREMENT_TYPE_DEFS;

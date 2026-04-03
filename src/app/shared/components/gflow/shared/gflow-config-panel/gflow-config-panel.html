@@ -1,14 +1,14 @@
 @if (node) {
 @if (node.configComponent) {
 <app-config-base [title]="node.name || ''" [component]="node.configComponent" [componentInputs]="componentInputs"
-    [canDelete]="node.type !== 'start'" [docFragment]="node.type" (cancel)="cancel.emit()" (save)="save.emit()"
+    [canDelete]="node.type !== 'start' && !readonly" [canSave]="!readonly" [docFragment]="node.type" (cancel)="cancel.emit()" (save)="save.emit()"
     (delete)="delete.emit()" (configChange)="configChange.emit($event)" (docNavigate)="docNavigate.emit($event)">
     <app-node-data-preview slot="before" [inputMap]="inputMap" />
 </app-config-base>
 } @else {
 <div class="config-panel__empty">
     <em>Aucun panneau de configuration pour ce noeud.</em>
-    @if (node.type !== 'start') {
+    @if (node.type !== 'start' && !readonly) {
     <p style="margin-top: 1rem;">
         <p-button label="Supprimer le noeud" severity="danger" text size="small" icon="fa-jelly-fill fa-solid fa-trash"
             (onClick)="delete.emit()" />
@@ -17,7 +17,7 @@
 </div>
 }
 } @else if (link) {
-<app-config-base title="Inspecter le lien" [component]="null" (cancel)="cancel.emit()" (save)="save.emit()"
+<app-config-base title="Inspecter le lien" [component]="null" [canSave]="!readonly" [canDelete]="!readonly" (cancel)="cancel.emit()" (save)="save.emit()"
     (delete)="delete.emit()">
     <div style="padding: 0.5rem;">
         <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">Données

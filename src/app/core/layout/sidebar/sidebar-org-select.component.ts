@@ -1,10 +1,11 @@
 import { Component, computed, ElementRef, HostListener, inject, output, signal } from '@angular/core';
 import { ContextSwitcherService, CtxOrganization } from '../context-switcher/context-switcher.service';
 import { CreateOrgDialogComponent } from '../../../shared/components/create-org-dialog/create-org-dialog.component';
+import { OrgAvatarComponent } from '../../../shared/components/org-avatar/org-avatar.component';
 
 @Component({
     selector: 'app-sidebar-org-select',
-    imports: [CreateOrgDialogComponent],
+    imports: [CreateOrgDialogComponent, OrgAvatarComponent],
     template: `
         @if (selectedOrg(); as org) {
             @if (isOpen()) {
@@ -18,9 +19,11 @@ import { CreateOrgDialogComponent } from '../../../shared/components/create-org-
 
                     @for (o of contextSwitcher.organizations().slice(0, 4); track o.id) {
                         <button class="org-row" [class.is-active]="o.id === contextSwitcher.selectedId()" [class.is-locked]="o.locked" (click)="!o.locked && select(o)">
-                            <div class="org-row__avatar">
-                                @if (o.locked) { <i class="fa-regular fa-lock"></i> } @else { {{ o.initials }} }
-                            </div>
+                            @if (o.locked) {
+                                <div class="org-row__avatar org-row__avatar--icon"><i class="fa-regular fa-lock"></i></div>
+                            } @else {
+                                <app-org-avatar [initials]="o.initials" />
+                            }
                             <div class="org-row__info">
                                 <span class="org-row__name">{{ o.name }}</span>
                                 @if (o.subtitle) {
@@ -45,7 +48,7 @@ import { CreateOrgDialogComponent } from '../../../shared/components/create-org-
             }
 
             <div class="org-row org-row--trigger" [class.is-open]="isOpen()" (click)="toggle()">
-                <div class="org-row__avatar">{{ org.initials }}</div>
+                <app-org-avatar [initials]="org.initials" />
                 <span class="org-row__name">{{ org.name }}</span>
                 <div class="org-row__chevron">
                     <i class="fa-solid fa-chevron-up"></i>
@@ -124,11 +127,7 @@ import { CreateOrgDialogComponent } from '../../../shared/components/create-org-
             background: var(--background-color-100);
             border: 1px solid var(--surface-border);
             font-size: 0.625rem;
-            font-weight: 700;
-            color: var(--p-text-color);
-            text-transform: uppercase;
-
-            &--icon { color: var(--p-text-muted-color); }
+            color: var(--p-text-muted-color);
         }
 
         .org-row__name {

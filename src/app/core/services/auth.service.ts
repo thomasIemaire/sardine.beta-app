@@ -1,7 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { tap, catchError, EMPTY, switchMap } from 'rxjs';
+import { tap, catchError, throwError, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface AuthUser {
@@ -96,16 +96,16 @@ export class AuthService {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) {
       this.clearSession();
-      return EMPTY;
+      return throwError(() => new Error('No refresh token'));
     }
 
     return this.http
       .post<TokenResponse>(`${this.base}/auth/refresh`, { refresh_token: refreshToken })
       .pipe(
         tap((res) => this.storeTokens(res.access_token, res.refresh_token)),
-        catchError(() => {
+        catchError((err) => {
           this.clearSession();
-          return EMPTY;
+          return throwError(() => err);
         }),
       );
   }
@@ -119,6 +119,12 @@ export class AuthService {
   initializeAuth() {
     if (this.getAccessToken()) {
       this.loadCurrentUser().subscribe({
+        error: () => this.clearSession(),
+      });
+    } else if (this.getRefreshToken()) {
+      this.refreshAccessToken().pipe(
+        switchMap(() => this.loadCurrentUser()),
+      ).subscribe({
         error: () => this.clearSession(),
       });
     }

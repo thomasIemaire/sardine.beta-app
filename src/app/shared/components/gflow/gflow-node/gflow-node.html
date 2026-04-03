@@ -43,13 +43,15 @@
         }
     </div>
 
+    @if (!readonly()) {
     <div class="zone__resize" (mousedown)="onResizeHandleDown($event)"></div>
+    }
 </div>
 
 } @else if (isTextNode()) {
 
 <div class="node__container node__container--text" [style.width.px]="textWidth()" (dblclick)="onTextDblClick($event)">
-    @if (item().selected && !editing()) {
+    @if (item().selected && !editing() && !readonly()) {
     <button class="node__text-delete" (mousedown)="$event.stopPropagation()" (click)="onDeleteClick($event)">
         <span class="fa-solid fa-xmark"></span>
     </button>
@@ -62,7 +64,9 @@
     } @else {
     <span class="node__text-placeholder">Double-cliquer pour écrire...</span>
     }
+    @if (!readonly()) {
     <div class="node__text-resize" (mousedown)="onResizeHandleDown($event)"></div>
+    }
 </div>
 
 } @else {
@@ -136,13 +140,15 @@
                 <span class="agent-slot__version">{{ agent.version }}</span>
             </div>
             }
+            @if (!readonly()) {
             <button class="node__add-btn" (mousedown)="$event.stopPropagation()" (click)="onAddAgentClick($event)">
                 <span class="fa-solid fa-plus"></span>
             </button>
+            }
         }
     </div>
 
-    @if (showAddButton()) {
+    @if (showAddButton() && !readonly()) {
     <button class="node__add-btn node__add-btn--below" (mousedown)="$event.stopPropagation()" (click)="onAddAgentClick($event)">
         <span class="fa-solid fa-plus"></span>
     </button>

@@ -8,6 +8,7 @@ export type FlowStatus = 'success' | 'warn' | 'danger';
 export interface Flow extends ItemCardData {
   status: FlowStatus;
   forkedFromId: string | null;
+  organizationId: string;
 }
 
 @Component({
@@ -54,7 +55,9 @@ export class FlowCardComponent {
   menuOpen = output<MouseEvent>();
 
   navigate(): void {
-    this.router.navigate(['/flows', this.flow().id]);
+    this.router.navigate(['/flows', this.flow().id], {
+      queryParams: { orgId: this.flow().organizationId },
+    });
   }
 
   statusLabel(): string {

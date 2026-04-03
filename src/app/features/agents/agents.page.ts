@@ -13,12 +13,13 @@ import { AgentCardComponent, Agent } from '../../shared/components/agent-card/ag
 import { AgentConfigPanelComponent } from './agent-config-panel.component';
 import { AgentVersionPanelComponent } from './agent-version-panel.component';
 import { CreateAgentDialogComponent } from './create-agent-dialog.component';
+import { ShareDialogComponent } from '../../shared/components/share-dialog/share-dialog.component';
 import { AgentService } from '../../core/services/agent.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
 @Component({
   selector: 'app-agents',
-  imports: [ButtonModule, ToastModule, ContextMenu, HeaderPageComponent, DataListComponent, AgentCardComponent, AgentConfigPanelComponent, AgentVersionPanelComponent, CreateAgentDialogComponent],
+  imports: [ButtonModule, ToastModule, ContextMenu, HeaderPageComponent, DataListComponent, AgentCardComponent, AgentConfigPanelComponent, AgentVersionPanelComponent, CreateAgentDialogComponent, ShareDialogComponent],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="3000" />
@@ -90,6 +91,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
           <div class="agents-panel">
             <app-agent-config-panel
               [agent]="selectedAgent"
+              [readonly]="!selectedAgent.isOwned"
               (close)="selectedAgent = null; showVersionPanel = false"
               (toggleVersions)="showVersionPanel = !showVersionPanel"
               (agentUpdated)="onAgentUpdated($event)"
@@ -106,6 +108,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
     </div>
 
     <app-create-agent-dialog [(visible)]="showCreateDialog" (created)="onAgentCreated($event)" />
+    <app-share-dialog [(visible)]="showShareDialog" itemType="agents" [itemId]="shareTarget?.id ?? ''" [itemName]="shareTarget?.name ?? ''" />
   `,
   styleUrl: './agents.page.scss',
 })
@@ -117,6 +120,8 @@ export class AgentsPage {
   private readonly agentCm = viewChild<ContextMenu>('agentCm');
 
   readonly showCreateDialog = signal(false);
+  readonly showShareDialog = signal(false);
+  shareTarget: Agent | null = null;
 
   facets: Facet[] = [
     { id: 'my-agents', label: 'Mes agents' },
@@ -203,6 +208,8 @@ export class AgentsPage {
     this.selectedAgent = agent;
     this.showVersionPanel = false;
 
+    if (!agent.isOwned) return;
+
     const orgId = this.contextSwitcher.selectedId();
     if (!orgId) return;
 
@@ -226,6 +233,7 @@ export class AgentsPage {
     } else {
       cm.model = [
         { label: 'Ouvrir', icon: 'fa-regular fa-arrow-up-right-from-square', command: () => this.selectAgent(agent) },
+        { label: 'Partager', icon: 'fa-regular fa-share-nodes', command: () => { this.shareTarget = agent; this.showShareDialog.set(true); } },
         { separator: true },
         { label: 'Supprimer', icon: 'fa-regular fa-trash', styleClass: 'p-danger', command: () => this.delete(agent) },
       ] as MenuItem[];

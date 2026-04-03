@@ -4,10 +4,11 @@ import { ButtonModule } from 'primeng/button';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { ContextSwitcherService, CtxOrganization } from './context-switcher.service';
 import { SelectableComponent } from '../../../shared/components/selectable/selectable.component';
+import { OrgAvatarComponent } from '../../../shared/components/org-avatar/org-avatar.component';
 
 @Component({
   selector: 'app-context-switcher',
-  imports: [FormsModule, ButtonModule, ToggleSwitchModule, SelectableComponent],
+  imports: [FormsModule, ButtonModule, ToggleSwitchModule, SelectableComponent, OrgAvatarComponent],
   template: `
     <div class="cs-backdrop" (click)="service.isManualOpen() && close()"></div>
 
@@ -18,9 +19,11 @@ import { SelectableComponent } from '../../../shared/components/selectable/selec
         @for (org of displayedOrgs(); track org.id) {
           <div class="cs-item" [class.is-locked]="org.locked" (click)="!org.locked && select(org)">
             <app-selectable [selected]="service.selectedId() === org.id && !org.locked" borderRadius="1.7rem">
-              <div class="cs-avatar" [class.cs-avatar--locked]="org.locked">
-                @if (org.locked) { <i class="fa-regular fa-lock"></i> } @else { {{ org.initials }} }
-              </div>
+              @if (org.locked) {
+                <div class="cs-avatar cs-avatar--locked"><i class="fa-regular fa-lock"></i></div>
+              } @else {
+                <app-org-avatar [initials]="org.initials" size="96px" fontSize="1.25rem" radius="1.5rem" />
+              }
             </app-selectable>
             <div class="cs-names">
               <span class="cs-name" [class.cs-name--muted]="org.locked">{{ org.name }}</span>
@@ -148,12 +151,7 @@ import { SelectableComponent } from '../../../shared/components/selectable/selec
       align-items: center;
       justify-content: center;
       font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--p-text-color);
-      text-transform: uppercase;
-      user-select: none;
-
-      &--locked { color: var(--p-text-muted-color); }
+      color: var(--p-text-muted-color);
     }
 
     .cs-overflow-avatar {

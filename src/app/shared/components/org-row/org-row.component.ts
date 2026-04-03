@@ -2,15 +2,16 @@ import { Component, input, output } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
 import { ElementSizeDirective } from '../../directives/element-size.directive';
 import { ApiOrganization } from '../../../core/services/organization.service';
+import { OrgAvatarComponent } from '../org-avatar/org-avatar.component';
 
 @Component({
   selector: 'app-org-row',
-  imports: [ButtonModule, ElementSizeDirective],
+  imports: [ButtonModule, ElementSizeDirective, OrgAvatarComponent],
   template: `
     <div class="row" [appElementSize]="{ compact: 600 }" (click)="select.emit(org())">
       <span class="row-ref">{{ org().external_reference || '—' }}</span>
       <div class="row-main">
-        <div class="row-logo">{{ initials() }}</div>
+        <app-org-avatar [initials]="initials()" fontSize="0.5rem" />
         <span class="row-name">{{ org().name }}</span>
       </div>
       <div class="row-meta">

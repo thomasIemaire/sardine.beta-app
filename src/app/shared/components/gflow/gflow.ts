@@ -125,6 +125,7 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
     readonly navigateBack = input<string | null>(null);
     readonly flowId = input<string | null>(null);
     readonly orgId = input<string | null>(null);
+    readonly readonly = input<boolean>(false);
     readonly saveFlow = output<FlowSavePayload>();
     readonly executeFlow = output<void>();
     readonly close = output<void>();
@@ -401,20 +402,30 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
     handleKeyboardEvent(event: KeyboardEvent): void {
         if ((event.ctrlKey || event.metaKey) && event.key === 's') {
             event.preventDefault();
-            this.onSave();
+            if (!this.readonly()) this.onSave();
             return;
         }
 
-        if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
-            event.preventDefault();
-            this.undo();
-            return;
-        }
+        if (!this.readonly()) {
+            if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+                event.preventDefault();
+                this.undo();
+                return;
+            }
 
-        if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
-            event.preventDefault();
-            this.redo();
-            return;
+            if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
+                event.preventDefault();
+                this.redo();
+                return;
+            }
+
+            if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+                const target = event.target as HTMLElement;
+                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+                event.preventDefault();
+                this.pasteClipboard();
+                return;
+            }
         }
 
         if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
@@ -425,20 +436,12 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
             return;
         }
 
-        if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
-            const target = event.target as HTMLElement;
-            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
-            event.preventDefault();
-            this.pasteClipboard();
-            return;
-        }
-
         const target = event.target as HTMLElement;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
             return;
         }
 
-        if (event.key === 'Delete') {
+        if (!this.readonly() && event.key === 'Delete') {
             this.onDeleteFromPanel();
         }
     }
@@ -517,6 +520,7 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     onSave(): void {
+        if (this.readonly()) return;
         const flowState = this.flow();
         const payload: FlowSavePayload = {
             name: flowState.title,
@@ -552,7 +556,7 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     onClose(): void {
-        if (this.isDirty()) {
+        if (!this.readonly() && this.isDirty()) {
             this.confirmationService.confirm({
                 message: 'Vous avez des modifications non sauvegardées.',
                 header: 'Sauvegarder avant de quitter ?',
@@ -595,6 +599,7 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
     // Title editing
 
     startEditingTitle(event: MouseEvent): void {
+        if (this.readonly()) return;
         event.stopPropagation();
         this.isEditingTitle.set(true);
         this.cdr.detectChanges();
@@ -680,6 +685,7 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     onDocMouseDown(ev: MouseEvent): void {
+        if (this.readonly()) return;
         const target = ev.target as HTMLElement;
         const portEl = target?.closest('.input-port, .output-port, .entry-port, .exit-port') as HTMLElement | null;
         if (!portEl) return;
@@ -701,6 +707,7 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
 
     startDrag(ev: MouseEvent, node: GFlowNode): void {
         if (this.isPortElement(ev.target as HTMLElement)) return;
+        if (this.readonly()) { ev.preventDefault(); ev.stopPropagation(); return; }
         ev.preventDefault();
         ev.stopPropagation();
 
@@ -953,29 +960,35 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
         event.preventDefault();
         event.stopPropagation();
 
-        this.nodeContextMenuItems = [
+        const items: MenuItem[] = [
             {
                 label: 'Configurer',
                 icon: 'fa-solid fa-sliders',
                 disabled: node.type === 'text',
                 command: () => { this.focusNode(node); this.openConfig(); },
             },
-            {
-                label: 'Dupliquer',
-                icon: 'fa-solid fa-copy',
-                disabled: node.type === 'start',
-                command: () => this.duplicateNode(node),
-            },
-            { separator: true },
-            {
-                label: 'Supprimer',
-                icon: 'fa-solid fa-trash',
-                disabled: node.type === 'start',
-                styleClass: 'menu-item--danger',
-                command: () => this.onDeleteNode(node),
-            },
         ];
 
+        if (!this.readonly()) {
+            items.push(
+                {
+                    label: 'Dupliquer',
+                    icon: 'fa-solid fa-copy',
+                    disabled: node.type === 'start',
+                    command: () => this.duplicateNode(node),
+                },
+                { separator: true },
+                {
+                    label: 'Supprimer',
+                    icon: 'fa-solid fa-trash',
+                    disabled: node.type === 'start',
+                    styleClass: 'menu-item--danger',
+                    command: () => this.onDeleteNode(node),
+                },
+            );
+        }
+
+        this.nodeContextMenuItems = items;
         this.nodeContextMenuRef()?.show(event);
     }
 

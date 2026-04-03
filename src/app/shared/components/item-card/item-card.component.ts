@@ -3,22 +3,25 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 import { ElementSizeDirective } from '../../directives/element-size.directive';
 import { UserAvatarComponent } from '../user-avatar/user-avatar.component';
+import { OrgAvatarComponent } from '../org-avatar/org-avatar.component';
 
 export interface ItemCardData {
   id: string;
   name: string;
   description: string;
   createdAt: Date;
+  isOwned: boolean;
   creator: {
     id: string;
     name: string;
     initials: string;
+    shape?: 'circle' | 'org';
   };
 }
 
 @Component({
   selector: 'app-item-card',
-  imports: [DatePipe, ButtonModule, NgTemplateOutlet, ElementSizeDirective, UserAvatarComponent],
+  imports: [DatePipe, ButtonModule, NgTemplateOutlet, ElementSizeDirective, UserAvatarComponent, OrgAvatarComponent],
   template: `
     @if (layout() === 'grid') {
       <div class="card" (click)="cardClick.emit()" (contextmenu)="menuClick.emit($event); $event.preventDefault()">
@@ -37,7 +40,11 @@ export interface ItemCardData {
         <p class="card-description">{{ item().description }}</p>
         <div class="card-footer">
           <div class="card-creator">
-            <span class="card-avatar"><app-user-avatar [userId]="item().creator.id" [initials]="item().creator.initials" /></span>
+            @if (item().creator.shape === 'org') {
+              <app-org-avatar [initials]="item().creator.initials" size="1.75rem" fontSize="0.5rem" />
+            } @else {
+              <span class="card-avatar"><app-user-avatar [userId]="item().creator.id" [initials]="item().creator.initials" /></span>
+            }
             <span class="card-creator-name">{{ item().creator.name }}</span>
           </div>
           <span class="card-date">Créé le {{ item().createdAt | date: 'dd/MM/yyyy' }}</span>
@@ -59,7 +66,11 @@ export interface ItemCardData {
         </div>
         <div class="row-meta">
           <div class="card-creator">
-            <span class="card-avatar"><app-user-avatar [userId]="item().creator.id" [initials]="item().creator.initials" /></span>
+            @if (item().creator.shape === 'org') {
+              <app-org-avatar [initials]="item().creator.initials" size="1.75rem" fontSize="0.5rem" />
+            } @else {
+              <span class="card-avatar"><app-user-avatar [userId]="item().creator.id" [initials]="item().creator.initials" /></span>
+            }
             <span class="card-creator-name">{{ item().creator.name }}</span>
           </div>
           <span class="card-date">{{ item().createdAt | date: 'dd/MM/yyyy' }}</span>

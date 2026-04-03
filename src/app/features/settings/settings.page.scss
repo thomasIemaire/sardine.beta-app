@@ -32,10 +32,6 @@
 
 .org-avatar-block { display: flex; align-items: center; gap: 1rem; }
 
-.org-avatar {
-  @include avatar(3.5rem, 0.875rem, 0.625rem);
-}
-
 .org-avatar-info { display: flex; flex-direction: column; gap: 0.25rem; }
 .org-avatar-name { font-size: 1rem; font-weight: 600; color: var(--p-text-color); }
 .org-avatar-meta { font-size: 0.75rem; color: var(--p-text-muted-color); }

@@ -19,6 +19,7 @@ export class GflowConfigPanelComponent implements OnChanges {
     @Input() link: GFlowLink | null = null;
     @Input() nodes: GFlowNode[] = [];
     @Input() links: GFlowLink[] = [];
+    @Input() readonly: boolean = false;
 
     @Output() cancel = new EventEmitter<void>();
     @Output() save = new EventEmitter<void>();

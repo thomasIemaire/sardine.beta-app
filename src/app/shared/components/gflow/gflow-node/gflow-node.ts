@@ -14,6 +14,7 @@ export class GflowNodeComponent {
     readonly item = input.required<GFlowNode>();
     readonly links = input<GFlowLink[]>([]);
     readonly showAddButton = input<boolean>(false);
+    readonly readonly = input<boolean>(false);
     readonly addAgent = output<void>();
     readonly textChange = output<string>();
     readonly deleteNode = output<void>();
@@ -115,22 +116,26 @@ export class GflowNodeComponent {
     onDeleteClick(event: MouseEvent): void {
         event.stopPropagation();
         event.preventDefault();
+        if (this.readonly()) return;
         this.deleteNode.emit();
     }
 
     onResizeHandleDown(event: MouseEvent): void {
         event.stopPropagation();
         event.preventDefault();
+        if (this.readonly()) return;
         this.resizeStart.emit(event);
     }
 
     onAddAgentClick(event: MouseEvent): void {
         event.stopPropagation();
         event.preventDefault();
+        if (this.readonly()) return;
         this.addAgent.emit();
     }
 
     onTextDblClick(event: MouseEvent): void {
+        if (this.readonly()) return;
         event.stopPropagation();
         event.preventDefault();
         this.editing.set(true);

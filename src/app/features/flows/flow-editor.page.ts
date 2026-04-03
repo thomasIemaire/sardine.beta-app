@@ -44,6 +44,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
             #gflow
             [flowId]="flowId"
             [orgId]="orgId"
+            [readonly]="isReadonly()"
             [navigateBack]="'/flows'"
             (saveFlow)="onSaveFlow($event)"
             (close)="onClose()" />
@@ -136,12 +137,13 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
     private readonly gflowRef = viewChild<GflowComponent>('gflow');
 
     readonly loading = signal(true);
+    readonly isReadonly = signal(false);
     flowId: string | null = null;
     orgId: string | null = null;
 
     ngOnInit(): void {
         this.flowId = this.route.snapshot.paramMap.get('id');
-        this.orgId = this.contextSwitcher.selectedId();
+        this.orgId = this.route.snapshot.queryParamMap.get('orgId') ?? this.contextSwitcher.selectedId();
     }
 
     ngAfterViewInit(): void {
@@ -153,6 +155,7 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
 
         this.flowService.getFlow(orgId, flowId).subscribe({
             next: (flow) => {
+                this.isReadonly.set(!flow.isOwned);
                 this.gflowRef()?.loadFlow({
                     id: flow.id,
                     title: flow.name,

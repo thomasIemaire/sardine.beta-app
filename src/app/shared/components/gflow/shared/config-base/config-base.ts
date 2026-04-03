@@ -52,6 +52,7 @@ import { Subscription } from 'rxjs';
         <ng-content></ng-content>
       </section>
 
+      @if (canSave) {
       <footer class="config-base__footer">
         <p-button
           [label]="cancelLabel"
@@ -67,6 +68,7 @@ import { Subscription } from 'rxjs';
           rounded
           (click)="onSaveClick()" />
       </footer>
+      }
     </div>
   `,
     styles: [`
@@ -86,6 +88,7 @@ export class ConfigBase implements AfterViewInit, OnChanges, OnDestroy {
     @Input() component: Type<unknown> | null = null;
     @Input() componentInputs: Record<string, unknown> | null = null;
     @Input() canDelete: boolean = true;
+    @Input() canSave: boolean = true;
     @Input() docFragment: string | null = null;
 
     @Output() cancel = new EventEmitter<void>();

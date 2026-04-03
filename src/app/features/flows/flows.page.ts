@@ -13,10 +13,11 @@ import { FlowCardComponent, Flow } from '../../shared/components/flow-card/flow-
 import { FlowService } from '../../core/services/flow.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 import { CreateFlowDialogComponent } from './create-flow-dialog.component';
+import { ShareDialogComponent } from '../../shared/components/share-dialog/share-dialog.component';
 
 @Component({
   selector: 'app-flows',
-  imports: [ButtonModule, ToastModule, ContextMenu, PageComponent, HeaderPageComponent, DataListComponent, FlowCardComponent, CreateFlowDialogComponent],
+  imports: [ButtonModule, ToastModule, ContextMenu, PageComponent, HeaderPageComponent, DataListComponent, FlowCardComponent, CreateFlowDialogComponent, ShareDialogComponent],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="3000" />
@@ -67,6 +68,7 @@ import { CreateFlowDialogComponent } from './create-flow-dialog.component';
     </app-page>
 
     <app-create-flow-dialog [(visible)]="showCreateDialog" (created)="onFlowCreated($event)" />
+    <app-share-dialog [(visible)]="showShareDialog" itemType="flows" [itemId]="shareTarget?.id ?? ''" [itemName]="shareTarget?.name ?? ''" />
   `,
 })
 export class FlowsPage {
@@ -76,6 +78,8 @@ export class FlowsPage {
   private readonly flowCm = viewChild<ContextMenu>('flowCm');
 
   readonly showCreateDialog = signal(false);
+  readonly showShareDialog = signal(false);
+  shareTarget: Flow | null = null;
 
   facets: Facet[] = [
     { id: 'my-flows', label: 'Mes flows' },
@@ -164,6 +168,7 @@ export class FlowsPage {
     } else {
       cm.model = [
         { label: 'Ouvrir', icon: 'fa-regular fa-arrow-up-right-from-square', command: () => this.navigate(flow) },
+        { label: 'Partager', icon: 'fa-regular fa-share-nodes', command: () => { this.shareTarget = flow; this.showShareDialog.set(true); } },
         { separator: true },
         { label: 'Supprimer', icon: 'fa-regular fa-trash', styleClass: 'p-danger', command: () => this.delete(flow) },
       ] as MenuItem[];

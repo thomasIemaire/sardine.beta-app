@@ -12,24 +12,34 @@
                 <input #titleInput class="title-input" type="text" [ngModel]="flow().title"
                     (ngModelChange)="updateFlowTitle($event)" (blur)="stopEditingTitle()"
                     (keydown)="onTitleKeydown($event)" (mousedown)="$event.stopPropagation()" [pAutoFocus]="true" />
-                } @else {
+                } @else if (!readonly()) {
                 <p-button iconPos="right" text rounded severity="secondary" [label]="flow().title"
                     (click)="startEditingTitle($event)" icon="fa-solid fa-pen-to-square edit-icon" />
+                } @else {
+                <span class="toolbar__title">{{ flow().title }}</span>
                 }
             </div>
+
+            @if (readonly()) {
+            <span class="toolbar__badge toolbar__badge--reader">Lecteur</span>
+            }
         </div>
 
         <div class="toolbar--actions">
             <app-presence-bar [users]="presenceUsers()" />
             @if (flowId()) {
+            @if (!readonly()) {
             <p-button icon="fa-solid fa-code-branch" severity="secondary" size="small" rounded text
                 [outlined]="versionPanelOpen()" (click)="versionPanelOpen.set(!versionPanelOpen())" />
+            }
             <p-button icon="fa-solid fa-clock-rotate-left" severity="secondary" size="small" rounded text
                 [outlined]="execPanelOpen()" (click)="toggleExecPanel()" />
             <p-button icon="fa-solid fa-play" label="Exécuter" severity="success" size="small" rounded outlined
                 (click)="executeFlow.emit()" />
             }
+            @if (!readonly()) {
             <p-button label="Enregistrer" severity="contrast" size="small" rounded (click)="onSave()" />
+            }
         </div>
     </div>
 
@@ -100,7 +110,7 @@
                             [class.exec-failed]="nodeExecStatusMap().get(n.id) === 'failed'"
                             [class.exec-waiting]="nodeExecStatusMap().get(n.id) === 'waiting'"
                             [class.exec-skipped]="nodeExecStatusMap().get(n.id) === 'skipped'"
-                            [item]="n" [showAddButton]="isSoleSelectedAgent(n)"
+                            [item]="n" [readonly]="readonly()" [showAddButton]="isSoleSelectedAgent(n)"
                             [zoneChildCount]="zoneChildCount(n.id)"
                             [zoneDropTarget]="isZoneDropTarget(n.id)"
                             (addAgent)="onAddToContainer(n)"
@@ -121,6 +131,7 @@
             </div>
         </div>
 
+        @if (!readonly()) {
         <div class="floating-actions-toolbar">
             <button class="action-btn" [class.active]="currentTool() === 'pan'" (click)="setTool('pan')"
                 title="Outil Main (Panoramique)">
@@ -148,12 +159,14 @@
                 <i class="fa-jelly-fill fa-regular fa-arrow-rotate-right"></i>
             </button>
         </div>
+        }
 
         @if (configOpen()) {
         <aside class="config-sidebar" (mousedown)="$event.stopPropagation()">
 
             <div class="config-sidebar__content">
                 <app-gflow-config-panel [node]="focusedNode" [link]="focusedLink" [nodes]="nodes" [links]="links"
+                    [readonly]="readonly()"
                     (configChange)="onNodeConfigChange($event)" (cancel)="closeConfig()"
                     (save)="closeConfig()" (delete)="onDeleteFromPanel()" (docNavigate)="onDocNavigate($event)">
                 </app-gflow-config-panel>
@@ -182,7 +195,7 @@
         </aside>
         }
 
-        @if (paletteOpen()) {
+        @if (paletteOpen() && !readonly()) {
         <aside class="palette-floating" (mousedown)="$event.stopPropagation()">
             <div class="palette__content">
                 <div class="palette__groups">

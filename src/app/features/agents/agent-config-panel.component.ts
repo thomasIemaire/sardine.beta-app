@@ -10,12 +10,13 @@ import { MessageService } from 'primeng/api';
 import { Agent } from '../../shared/components/agent-card/agent-card.component';
 import { MapperComponent } from '../../shared/components/mapper/mapper';
 import { UserAvatarComponent } from '../../shared/components/user-avatar/user-avatar.component';
+import { OrgAvatarComponent } from '../../shared/components/org-avatar/org-avatar.component';
 import { AgentService } from '../../core/services/agent.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
 @Component({
   selector: 'app-agent-config-panel',
-  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, TextareaModule, DividerModule, TooltipModule, MapperComponent, UserAvatarComponent],
+  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, TextareaModule, DividerModule, TooltipModule, MapperComponent, UserAvatarComponent, OrgAvatarComponent],
   template: `
     <div class="panel">
       <div class="panel-header">
@@ -40,8 +41,10 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
             <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" rounded size="small" pTooltip="Annuler" tooltipPosition="top" (onClick)="cancelEdit()" />
             <p-button icon="fa-regular fa-check" severity="success" [text]="true" rounded size="small" pTooltip="Sauvegarder" tooltipPosition="top" [loading]="savingMeta()" (onClick)="saveMeta()" />
           } @else {
-            <p-button icon="fa-regular fa-pen" severity="secondary" [text]="true" rounded size="small" pTooltip="Modifier" tooltipPosition="top" (onClick)="startEdit()" />
-            <p-button icon="fa-regular fa-code-branch" severity="secondary" [text]="true" rounded size="small" pTooltip="Versions" tooltipPosition="top" (onClick)="toggleVersions.emit()" />
+            @if (!readonly()) {
+              <p-button icon="fa-regular fa-pen" severity="secondary" [text]="true" rounded size="small" pTooltip="Modifier" tooltipPosition="top" (onClick)="startEdit()" />
+              <p-button icon="fa-regular fa-code-branch" severity="secondary" [text]="true" rounded size="small" pTooltip="Versions" tooltipPosition="top" (onClick)="toggleVersions.emit()" />
+            }
             <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" rounded size="small" (onClick)="close.emit()" />
           }
         </div>
@@ -71,7 +74,11 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
           <section class="panel-section">
             <span class="section-label">Créateur</span>
             <div class="creator-row">
-              <span class="creator-avatar"><app-user-avatar [userId]="agent().creator.id" [initials]="agent().creator.initials" /></span>
+              @if (agent().creator.shape === 'org') {
+                <app-org-avatar [initials]="agent().creator.initials" size="1.25rem" fontSize="0.4375rem" />
+              } @else {
+                <span class="creator-avatar"><app-user-avatar [userId]="agent().creator.id" [initials]="agent().creator.initials" /></span>
+              }
               <span class="section-value">{{ agent().creator.name }}</span>
             </div>
           </section>
@@ -87,21 +94,24 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
         <section class="panel-section">
           <div class="section-header">
             <span class="section-label">Configuration</span>
-            <p-button
-              label="Enregistrer"
-              icon="fa-regular fa-floppy-disk"
-              severity="secondary"
-              size="small"
-              rounded
-              [loading]="saving()"
-              (onClick)="save()"
-            />
+            @if (!readonly()) {
+              <p-button
+                label="Enregistrer"
+                icon="fa-regular fa-floppy-disk"
+                severity="secondary"
+                size="small"
+                rounded
+                [loading]="saving()"
+                (onClick)="save()"
+              />
+            }
           </div>
 
           <app-mapper
             [json]="currentSchema"
             [root]="schemaRoot()"
             [isRoot]="true"
+            [readonly]="readonly()"
             label="Schéma de données"
             (jsonChange)="onSchemaChange($event)"
           />
@@ -117,6 +127,7 @@ export class AgentConfigPanelComponent {
   private readonly messageService = inject(MessageService);
 
   agent = input.required<Agent>();
+  readonly = input(false);
   close = output();
   toggleVersions = output();
   agentUpdated = output<{ name: string; description: string }>();

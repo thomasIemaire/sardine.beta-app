@@ -78,6 +78,7 @@ export class MapperComponent implements OnInit, OnChanges {
     @Input() json?: Record<string, unknown>;
     @Input() isRoot: boolean = false;
     @Input() usingKeys: string[] = [];
+    @Input() readonly: boolean = false;
 
     @Output() jsonChange = new EventEmitter<Record<string, unknown>>();
     @Output() keysChange = new EventEmitter<{ label: string; value: string }[]>();

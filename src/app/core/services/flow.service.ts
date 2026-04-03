@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
+import { ContextSwitcherService } from '../layout/context-switcher/context-switcher.service';
 import type { Flow, FlowStatus } from '../../shared/components/flow-card/flow-card.component';
 import type { SerializedFlowData, SerializedLink } from '../../shared/components/gflow/core/gflow.types';
 
@@ -60,6 +61,7 @@ function mapStatus(s: ApiFlowStatus): FlowStatus {
 export class FlowService {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
+  private readonly contextSwitcher = inject(ContextSwitcherService);
   private readonly base = environment.apiUrl;
 
   getFlow(orgId: string, flowId: string) {
@@ -134,17 +136,32 @@ export class FlowService {
 
   private mapFlow(f: ApiFlow): Flow {
     const user = this.auth.currentUser();
-    const isMine = user && f.created_by === user.id;
+    const selectedOrgId = this.contextSwitcher.selectedId();
+    const isOwn = f.organization_id === selectedOrgId;
+
+    let creator: Flow['creator'];
+    if (isOwn) {
+      const isMine = user && f.created_by === user.id;
+      creator = isMine
+        ? { id: user.id, name: `${user.first_name} ${user.last_name}`, initials: `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() }
+        : { id: f.created_by, name: 'Autre', initials: f.created_by.slice(0, 2).toUpperCase() };
+    } else {
+      const org = this.contextSwitcher.organizations().find((o) => o.id === f.organization_id);
+      creator = org
+        ? { id: org.id, name: org.name, initials: org.initials, shape: 'org' as const }
+        : { id: f.organization_id, name: 'Org externe', initials: f.organization_id.slice(0, 2).toUpperCase(), shape: 'org' as const };
+    }
+
     return {
       id: f.id,
       name: f.name,
       description: f.description ?? '',
       status: mapStatus(f.status),
+      isOwned: isOwn,
+      organizationId: f.organization_id,
       forkedFromId: f.forked_from_id,
       createdAt: new Date(f.created_at),
-      creator: isMine
-        ? { id: user.id, name: `${user.first_name} ${user.last_name}`, initials: `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() }
-        : { id: f.created_by, name: 'Autre', initials: f.created_by.slice(0, 2).toUpperCase() },
+      creator,
     };
   }
 }

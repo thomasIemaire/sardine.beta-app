@@ -19,6 +19,7 @@ import { DataListComponent, ListColumn } from '../../shared/components/data-list
 import type { ActiveFilter, ActiveSort, FilterDefinition, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
 import { MemberRowComponent } from '../../shared/components/member-row/member-row.component';
 import { OrgRowComponent } from '../../shared/components/org-row/org-row.component';
+import { OrgAvatarComponent } from '../../shared/components/org-avatar/org-avatar.component';
 import { TeamPanelComponent } from './team-panel.component';
 import { CreateTeamDialogComponent } from './create-team-dialog.component';
 import { CreateOrgDialogComponent } from './create-org-dialog.component';
@@ -48,7 +49,7 @@ interface FacetConfig {
 
 @Component({
   selector: 'app-settings',
-  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, ContextMenu, PageComponent, HeaderPageComponent, DataListComponent, MemberRowComponent, OrgRowComponent, TeamPanelComponent, CreateTeamDialogComponent, CreateOrgDialogComponent, InviteMembersDialogComponent],
+  imports: [DatePipe, FormsModule, ButtonModule, InputTextModule, ToastModule, TooltipModule, ContextMenu, PageComponent, HeaderPageComponent, DataListComponent, MemberRowComponent, OrgRowComponent, TeamPanelComponent, CreateTeamDialogComponent, CreateOrgDialogComponent, InviteMembersDialogComponent, OrgAvatarComponent],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="3000" />
@@ -194,7 +195,7 @@ interface FacetConfig {
           @if (contextSwitcher.selectedOrganization(); as org) {
             <div class="org-section">
               <div class="org-avatar-block">
-                <div class="org-avatar">{{ selectedOrgInitials() }}</div>
+                <app-org-avatar [initials]="selectedOrgInitials()" size="3.5rem" fontSize="0.875rem" radius="0.625rem" />
                 <div class="org-avatar-info">
                   <span class="org-avatar-name">{{ org.name }}</span>
                   <span class="org-avatar-meta">{{ org.status_label }} · Créé le {{ org.created_at | date:'dd/MM/yyyy' }}</span>
