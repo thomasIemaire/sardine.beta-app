@@ -42,8 +42,8 @@ export const routes: Routes = [
         loadChildren: () => import('./features/user/user.routes').then((m) => m.USER_ROUTES),
       },
       {
-        path: 'admin',
-        loadChildren: () => import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
+        path: 'system',
+        loadChildren: () => import('./features/system/system.routes').then((m) => m.SYSTEM_ROUTES),
       },
     ],
   },

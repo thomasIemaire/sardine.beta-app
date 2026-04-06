@@ -32,7 +32,7 @@ export interface ListColumn {
     </div>
 
     <div class="data-list-content" [class.list-mode]="viewMode() === 'list'">
-      @if (totalRecords() > 0) {
+      @if ((displayedCount() ?? totalRecords()) > 0) {
         @if (viewMode() === 'grid') {
           <div class="data-list-grid"
             [style.grid-template-columns]="gridMinWidth() ? 'repeat(auto-fill, minmax(' + gridMinWidth() + ', 1fr))' : null"
@@ -102,6 +102,9 @@ export class DataListComponent {
   emptyIcon = input('fa-regular fa-inbox');
   emptyTitle = input('Aucun résultat');
   emptySubtitle = input('');
+
+  // Displayed count (when client-side filtering reduces items below totalRecords)
+  displayedCount = input<number | null>(null);
 
   // Paginator
   totalRecords = input(0);

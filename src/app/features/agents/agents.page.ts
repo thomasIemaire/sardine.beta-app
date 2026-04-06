@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
@@ -8,13 +8,13 @@ import { MessageService, MenuItem } from 'primeng/api';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
 import { DataListComponent, ListColumn } from '../../shared/components/data-list/data-list.component';
 import type { ViewMode } from '../../shared/components/toolbar/toolbar.component';
-import type { ActiveSort, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
+import type { ActiveFilter, FilterDefinition, ActiveSort, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
 import { AgentCardComponent, Agent } from '../../shared/components/agent-card/agent-card.component';
 import { AgentConfigPanelComponent } from './agent-config-panel.component';
 import { AgentVersionPanelComponent } from './agent-version-panel.component';
 import { CreateAgentDialogComponent } from './create-agent-dialog.component';
 import { ShareDialogComponent } from '../../shared/components/share-dialog/share-dialog.component';
-import { AgentService } from '../../core/services/agent.service';
+import { AgentService, AgentListParams } from '../../core/services/agent.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
 @Component({
@@ -44,13 +44,16 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
               [(search)]="search"
               [(sorts)]="sorts"
               [sortDefinitions]="sortDefinitions"
+              [(filters)]="filters"
+              [filterDefinitions]="filterDefinitions()"
               [(viewMode)]="viewMode"
               [columns]="listColumns"
               [gridTemplate]="gridTpl"
               [listTemplate]="listTpl"
+              [displayedCount]="sortedAgents().length"
               emptyIcon="fa-regular fa-microchip-ai"
-              emptyTitle="Aucun agent disponible"
-              [emptySubtitle]="isSharedFacet ? 'Aucun agent partagé avec votre organisation.' : 'Créez votre premier agent pour commencer.'"
+              [emptyTitle]="hasActiveFilters() ? 'Aucun résultat' : 'Aucun agent disponible'"
+              [emptySubtitle]="hasActiveFilters() ? 'Aucun agent ne correspond à vos filtres.' : (isSharedFacet ? 'Aucun agent partagé avec votre organisation.' : 'Créez votre premier agent pour commencer.')"
               [totalRecords]="total()"
               [paginatorFirst]="first"
               [paginatorRows]="pageSize"
@@ -150,7 +153,45 @@ export class AgentsPage {
   }
   private _searchTimer = 0;
 
-  sorts: ActiveSort[] = [];
+  private _sorts: ActiveSort[] = [];
+  get sorts(): ActiveSort[] { return this._sorts; }
+  set sorts(v: ActiveSort[]) { this._sorts = v; this.page = 0; this.load(); }
+
+  private _filters: ActiveFilter[] = [];
+  get filters(): ActiveFilter[] { return this._filters; }
+  set filters(v: ActiveFilter[]) { this._filters = v; this.page = 0; this.load(); }
+
+  filterDefinitions = computed<FilterDefinition[]>(() => [
+    {
+      id: 'creator',
+      label: 'Créateur',
+      type: 'multiselect',
+      options: this.creatorOptions(),
+    },
+    {
+      id: 'origin',
+      label: 'Origine',
+      type: 'select',
+      options: [
+        { value: 'original', label: 'Original' },
+        { value: 'forked', label: 'Forké' },
+      ],
+    },
+    {
+      id: 'createdAt',
+      label: 'Date de création',
+      type: 'date',
+      dateRange: true,
+    },
+  ]);
+
+  private creatorOptions = computed(() => {
+    const seen = new Map<string, string>();
+    for (const a of this.agents()) {
+      if (!seen.has(a.creator.id)) seen.set(a.creator.id, a.creator.name);
+    }
+    return Array.from(seen, ([value, label]) => ({ value, label }));
+  });
 
   private _viewMode: ViewMode = (localStorage.getItem('viewMode:agents') as ViewMode) ?? 'grid';
   get viewMode(): ViewMode { return this._viewMode; }
@@ -162,6 +203,8 @@ export class AgentsPage {
   set pageSize(value: number) { this._pageSize = value; localStorage.setItem('pageSize:agents', String(value)); }
 
   get first(): number { return this.page * this.pageSize; }
+
+  hasActiveFilters(): boolean { return this.filters.length > 0 || this._search.length > 0; }
 
   sortDefinitions: SortDefinition[] = [
     { id: 'name', label: 'Nom' },
@@ -179,23 +222,7 @@ export class AgentsPage {
   }
 
   sortedAgents(): Agent[] {
-    const q = this._search.toLowerCase();
-    let result = q
-      ? this.agents().filter((a) => a.name.toLowerCase().includes(q) || a.description.toLowerCase().includes(q))
-      : this.agents();
-
-    for (const sort of this.sorts) {
-      const dir = sort.direction === 'asc' ? 1 : -1;
-      result = [...result].sort((a, b) => {
-        switch (sort.definitionId) {
-          case 'name': return dir * a.name.localeCompare(b.name);
-          case 'createdAt': return dir * (a.createdAt.getTime() - b.createdAt.getTime());
-          case 'percentage': return dir * (a.percentage - b.percentage);
-          default: return 0;
-        }
-      });
-    }
-    return result;
+    return this.agents();
   }
 
   selectAgent(agent: Agent): void {
@@ -313,13 +340,36 @@ export class AgentsPage {
     });
   }
 
+  private buildListParams(): AgentListParams {
+    const p: AgentListParams = { page: this.page + 1, pageSize: this.pageSize };
+    if (this._search) p.search = this._search;
+    if (this._sorts.length > 0) {
+      p.sortBy = this._sorts[0].definitionId;
+      p.sortDir = this._sorts[0].direction;
+    }
+    for (const f of this._filters) {
+      switch (f.definitionId) {
+        case 'creator': p.creator = f.value as string[]; break;
+        case 'origin': p.origin = f.value as 'original' | 'forked'; break;
+        case 'createdAt': {
+          const [start, end] = f.value as Date[];
+          p.createdFrom = start.toISOString();
+          if (end) p.createdTo = end.toISOString();
+          break;
+        }
+      }
+    }
+    return p;
+  }
+
   private load(): void {
     const orgId = this.contextSwitcher.selectedId();
     if (!orgId) return;
 
+    const p = this.buildListParams();
     const call = this.isSharedFacet
-      ? this.agentService.getSharedAgents(orgId)
-      : this.agentService.getAgents(orgId, this.page + 1, this.pageSize);
+      ? this.agentService.getSharedAgents(orgId, p)
+      : this.agentService.getAgents(orgId, p);
 
     call.subscribe((res) => {
       this.agents.set(res.items);

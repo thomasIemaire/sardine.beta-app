@@ -143,6 +143,10 @@ export class HeaderComponent {
     'agents': 'Agents',
     'administration': 'Administration',
     'user': 'Mon compte',
+    'docs': 'Documentation',
+    'system': 'Système',
+    'servers': 'Serveurs',
+    'fine-tuning': 'Fine Tuning',
   };
 
   private readonly routeUrl = toSignal(
@@ -158,7 +162,10 @@ export class HeaderComponent {
     const url = this.routeUrl();
     const orgLabel = this.orgName();
     const segments = url.split('/').filter(Boolean);
-    const items: BreadcrumbItem[] = [{ label: orgLabel || 'Accueil', link: '/' }];
+    const isSystemPage = segments[0] === 'system';
+    const items: BreadcrumbItem[] = isSystemPage
+      ? []
+      : [{ label: orgLabel || 'Accueil', link: '/' }];
     let path = '';
     for (const segment of segments) {
       path += '/' + segment;

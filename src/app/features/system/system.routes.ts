@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-export const ADMIN_ROUTES: Routes = [
+export const SYSTEM_ROUTES: Routes = [
   {
     path: 'servers',
     loadComponent: () => import('./servers/servers.page').then((m) => m.ServersPage),

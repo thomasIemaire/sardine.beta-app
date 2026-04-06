@@ -44,6 +44,18 @@ export interface AgentPage {
   totalPages: number;
 }
 
+export interface AgentListParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  creator?: string[];
+  origin?: 'original' | 'forked';
+  createdFrom?: string;
+  createdTo?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AgentService {
   private readonly http = inject(HttpClient);
@@ -51,19 +63,35 @@ export class AgentService {
   private readonly contextSwitcher = inject(ContextSwitcherService);
   private readonly base = environment.apiUrl;
 
-  getAgents(orgId: string, page: number, pageSize: number) {
-    const params = new HttpParams()
-      .set('page', page)
-      .set('page_size', pageSize);
+  getAgents(orgId: string, p: AgentListParams) {
+    let params = new HttpParams()
+      .set('page', p.page)
+      .set('page_size', p.pageSize);
+    if (p.search) params = params.set('search', p.search);
+    if (p.sortBy) params = params.set('sort_by', p.sortBy);
+    if (p.sortDir) params = params.set('sort_dir', p.sortDir);
+    if (p.creator?.length) params = params.set('creator', p.creator.join(','));
+    if (p.origin) params = params.set('origin', p.origin);
+    if (p.createdFrom) params = params.set('created_from', p.createdFrom);
+    if (p.createdTo) params = params.set('created_to', p.createdTo);
 
     return this.http
       .get<ApiPaginatedResponse<ApiAgent>>(`${this.base}/organizations/${orgId}/agents/`, { params })
       .pipe(map((res) => this.mapPage(res)));
   }
 
-  getSharedAgents(orgId: string) {
+  getSharedAgents(orgId: string, p?: Partial<AgentListParams>) {
+    let params = new HttpParams();
+    if (p?.search) params = params.set('search', p.search);
+    if (p?.sortBy) params = params.set('sort_by', p.sortBy);
+    if (p?.sortDir) params = params.set('sort_dir', p.sortDir);
+    if (p?.creator?.length) params = params.set('creator', p.creator.join(','));
+    if (p?.origin) params = params.set('origin', p.origin);
+    if (p?.createdFrom) params = params.set('created_from', p.createdFrom);
+    if (p?.createdTo) params = params.set('created_to', p.createdTo);
+
     return this.http
-      .get<ApiAgent[]>(`${this.base}/organizations/${orgId}/agents/shared`)
+      .get<ApiAgent[]>(`${this.base}/organizations/${orgId}/agents/shared`, { params })
       .pipe(map((items) => ({
         items: items.map((a) => this.mapAgent(a)),
         total: items.length,

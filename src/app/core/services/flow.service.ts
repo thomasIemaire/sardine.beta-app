@@ -51,6 +51,19 @@ export interface FlowPage {
   totalPages: number;
 }
 
+export interface FlowListParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  creator?: string[];
+  status?: string[];
+  origin?: 'original' | 'forked';
+  createdFrom?: string;
+  createdTo?: string;
+}
+
 function mapStatus(s: ApiFlowStatus): FlowStatus {
   if (s === 'active') return 'success';
   if (s === 'error') return 'danger';
@@ -90,19 +103,37 @@ export class FlowService {
     };
   }
 
-  getFlows(orgId: string, page: number, pageSize: number) {
-    const params = new HttpParams()
-      .set('page', page)
-      .set('page_size', pageSize);
+  getFlows(orgId: string, p: FlowListParams) {
+    let params = new HttpParams()
+      .set('page', p.page)
+      .set('page_size', p.pageSize);
+    if (p.search) params = params.set('search', p.search);
+    if (p.sortBy) params = params.set('sort_by', p.sortBy);
+    if (p.sortDir) params = params.set('sort_dir', p.sortDir);
+    if (p.creator?.length) params = params.set('creator', p.creator.join(','));
+    if (p.status?.length) params = params.set('status', p.status.join(','));
+    if (p.origin) params = params.set('origin', p.origin);
+    if (p.createdFrom) params = params.set('created_from', p.createdFrom);
+    if (p.createdTo) params = params.set('created_to', p.createdTo);
 
     return this.http
       .get<ApiPaginatedResponse<ApiFlow>>(`${this.base}/organizations/${orgId}/flows/`, { params })
       .pipe(map((res) => this.mapPage(res)));
   }
 
-  getSharedFlows(orgId: string) {
+  getSharedFlows(orgId: string, p?: Partial<FlowListParams>) {
+    let params = new HttpParams();
+    if (p?.search) params = params.set('search', p.search);
+    if (p?.sortBy) params = params.set('sort_by', p.sortBy);
+    if (p?.sortDir) params = params.set('sort_dir', p.sortDir);
+    if (p?.creator?.length) params = params.set('creator', p.creator.join(','));
+    if (p?.status?.length) params = params.set('status', p.status.join(','));
+    if (p?.origin) params = params.set('origin', p.origin);
+    if (p?.createdFrom) params = params.set('created_from', p.createdFrom);
+    if (p?.createdTo) params = params.set('created_to', p.createdTo);
+
     return this.http
-      .get<ApiFlow[]>(`${this.base}/organizations/${orgId}/flows/shared`)
+      .get<ApiFlow[]>(`${this.base}/organizations/${orgId}/flows/shared`, { params })
       .pipe(map((items) => ({
         items: items.map((f) => this.mapFlow(f)),
         total: items.length,
@@ -112,7 +143,7 @@ export class FlowService {
 
   createFlow(orgId: string, name: string, description: string) {
     return this.http
-      .post<ApiFlow>(`${this.base}/organizations/${orgId}/flows/`, { name, description })
+      .post<ApiFlow>(`${this.base}/organizations/${orgId}/flows/`, { name, description, flow_data: { nodes: [], edges: [] } })
       .pipe(map((f) => this.mapFlow(f)));
   }
 

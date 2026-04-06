@@ -47,8 +47,27 @@ app-root {
 .p-inputtext,
 .p-select,
 .p-select-option,
-textarea {
+textarea,
+p-multiselect {
   border-radius: .6875rem !important;
+}
+
+.p-multiselect-header {
+  padding: 0.5rem !important;
+}
+
+.p-multiselect-filter {
+  border-radius: .6875rem !important;
+  color: var(--p-inputtext-color) !important;
+  background: var(--p-inputtext-background) !important;
+  font-size: var(--p-inputtext-sm-font-size) !important;
+  padding-block: var(--p-inputtext-sm-padding-y) !important;
+  padding-inline: var(--p-inputtext-sm-padding-x) !important;
+  border: 1px solid var(--p-inputtext-border-color) !important;
+  transition: background var(--p-inputtext-transition-duration), color var(--p-inputtext-transition-duration), border-color var(--p-inputtext-transition-duration), outline-color var(--p-inputtext-transition-duration), box-shadow var(--p-inputtext-transition-duration) !important;
+  appearance: none;
+  outline-color: transparent;
+  box-shadow: var(--p-inputtext-shadow) !important;
 }
 
 .p-select,
@@ -137,6 +156,71 @@ p-datepicker {
   &:hover {
     background: var(--background-color-400);
   }
+}
+
+/* ── Select & MultiSelect panels ── */
+.p-select-overlay,
+.p-multiselect-overlay {
+  border-radius: 0.6875rem !important;
+  overflow: hidden;
+}
+
+.p-select-list,
+.p-multiselect-list {
+  padding: 0.25rem !important;
+}
+
+/* Hide default multiselect checkboxes */
+.p-multiselect-option .p-checkbox {
+  display: none !important;
+}
+
+/* Option base styling */
+.p-select-option,
+.p-multiselect-option {
+  position: relative;
+  border-radius: 0.5rem !important;
+  padding-right: 2.25rem !important;
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background-size: 0.5rem;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+
+  /* Unselected: plus icon */
+  &:not(.p-select-option-selected):not(.p-multiselect-option-selected)::after {
+    border: 1px solid var(--surface-border);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%239ca3af' d='M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32V224H48c-17.7 0-32 14.3-32 32s14.3 32 32 32H192V432c0 17.7 14.3 32 32 32s32-14.3 32-32V288H400c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z'/%3E%3C/svg%3E");
+    background-size: 0.4375rem;
+  }
+
+  /* Selected: check icon */
+  &.p-select-option-selected::after,
+  &.p-multiselect-option-selected::after {
+    background-color: var(--p-primary-500);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='white' d='M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z'/%3E%3C/svg%3E");
+  }
+}
+
+/* Remove default highlight on selected options */
+.p-select-option.p-select-option-selected,
+.p-multiselect-option.p-multiselect-option-selected {
+  background: transparent !important;
+  color: var(--p-text-color) !important;
+}
+
+/* Hide default select checkmark */
+.p-select-option .p-select-option-check-icon {
+  display: none !important;
 }
 
 p-breadcrumb .p-breadcrumb {

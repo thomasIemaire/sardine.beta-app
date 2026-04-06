@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
 import { ContextMenu } from 'primeng/contextmenu';
@@ -8,9 +8,9 @@ import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
 import { DataListComponent, ListColumn } from '../../shared/components/data-list/data-list.component';
 import type { ViewMode } from '../../shared/components/toolbar/toolbar.component';
-import type { ActiveSort, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
+import type { ActiveFilter, FilterDefinition, ActiveSort, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
 import { FlowCardComponent, Flow } from '../../shared/components/flow-card/flow-card.component';
-import { FlowService } from '../../core/services/flow.service';
+import { FlowService, FlowListParams } from '../../core/services/flow.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 import { CreateFlowDialogComponent } from './create-flow-dialog.component';
 import { ShareDialogComponent } from '../../shared/components/share-dialog/share-dialog.component';
@@ -37,13 +37,16 @@ import { ShareDialogComponent } from '../../shared/components/share-dialog/share
         [(search)]="search"
         [(sorts)]="sorts"
         [sortDefinitions]="sortDefinitions"
+        [(filters)]="filters"
+        [filterDefinitions]="filterDefinitions()"
         [(viewMode)]="viewMode"
         [columns]="listColumns"
         [gridTemplate]="gridTpl"
         [listTemplate]="listTpl"
+        [displayedCount]="displayedFlows().length"
         emptyIcon="fa-light fa-chart-diagram"
-        emptyTitle="Aucun flow disponible"
-        [emptySubtitle]="isSharedFacet ? 'Aucun flow partagé avec votre organisation.' : 'Créez votre premier flow pour commencer.'"
+        [emptyTitle]="hasActiveFilters() ? 'Aucun résultat' : 'Aucun flow disponible'"
+        [emptySubtitle]="hasActiveFilters() ? 'Aucun flow ne correspond à vos filtres.' : (isSharedFacet ? 'Aucun flow partagé avec votre organisation.' : 'Créez votre premier flow pour commencer.')"
         [totalRecords]="total()"
         [paginatorFirst]="first"
         [paginatorRows]="pageSize"
@@ -107,7 +110,55 @@ export class FlowsPage {
   }
   private _searchTimer = 0;
 
-  sorts: ActiveSort[] = [];
+  private _sorts: ActiveSort[] = [];
+  get sorts(): ActiveSort[] { return this._sorts; }
+  set sorts(v: ActiveSort[]) { this._sorts = v; this.page = 0; this.load(); }
+
+  private _filters: ActiveFilter[] = [];
+  get filters(): ActiveFilter[] { return this._filters; }
+  set filters(v: ActiveFilter[]) { this._filters = v; this.page = 0; this.load(); }
+
+  filterDefinitions = computed<FilterDefinition[]>(() => [
+    {
+      id: 'creator',
+      label: 'Créateur',
+      type: 'multiselect',
+      options: this.creatorOptions(),
+    },
+    {
+      id: 'status',
+      label: 'Statut',
+      type: 'multiselect',
+      options: [
+        { value: 'success', label: 'Succès' },
+        { value: 'warn', label: 'Avertissement' },
+        { value: 'danger', label: 'Erreur' },
+      ],
+    },
+    {
+      id: 'origin',
+      label: 'Origine',
+      type: 'select',
+      options: [
+        { value: 'original', label: 'Original' },
+        { value: 'forked', label: 'Forké' },
+      ],
+    },
+    {
+      id: 'createdAt',
+      label: 'Date de création',
+      type: 'date',
+      dateRange: true,
+    },
+  ]);
+
+  private creatorOptions = computed(() => {
+    const seen = new Map<string, string>();
+    for (const f of this.flows()) {
+      if (!seen.has(f.creator.id)) seen.set(f.creator.id, f.creator.name);
+    }
+    return Array.from(seen, ([value, label]) => ({ value, label }));
+  });
 
   private _viewMode: ViewMode = (localStorage.getItem('viewMode:flows') as ViewMode) ?? 'grid';
   get viewMode(): ViewMode { return this._viewMode; }
@@ -119,6 +170,8 @@ export class FlowsPage {
   set pageSize(value: number) { this._pageSize = value; localStorage.setItem('pageSize:flows', String(value)); }
 
   get first(): number { return this.page * this.pageSize; }
+
+  hasActiveFilters(): boolean { return this.filters.length > 0 || this._search.length > 0; }
 
   sortDefinitions: SortDefinition[] = [
     { id: 'name', label: 'Nom' },
@@ -136,24 +189,7 @@ export class FlowsPage {
   }
 
   displayedFlows(): Flow[] {
-    const q = this._search.toLowerCase();
-    let result = q
-      ? this.flows().filter((f) => f.name.toLowerCase().includes(q) || f.description.toLowerCase().includes(q))
-      : this.flows();
-
-    const statusOrder: Record<string, number> = { success: 0, warn: 1, danger: 2 };
-    for (const sort of this.sorts) {
-      const dir = sort.direction === 'asc' ? 1 : -1;
-      result = [...result].sort((a, b) => {
-        switch (sort.definitionId) {
-          case 'name': return dir * a.name.localeCompare(b.name);
-          case 'createdAt': return dir * (a.createdAt.getTime() - b.createdAt.getTime());
-          case 'status': return dir * ((statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0));
-          default: return 0;
-        }
-      });
-    }
-    return result;
+    return this.flows();
   }
 
   onFlowMenuOpen(event: MouseEvent, flow: Flow): void {
@@ -215,21 +251,44 @@ export class FlowsPage {
     });
   }
 
+  private readonly statusToApi: Record<string, string> = { success: 'active', warn: 'pending', danger: 'error' };
+
+  private buildListParams(): FlowListParams {
+    const p: FlowListParams = { page: this.page + 1, pageSize: this.pageSize };
+    if (this._search) p.search = this._search;
+    if (this._sorts.length > 0) {
+      p.sortBy = this._sorts[0].definitionId;
+      p.sortDir = this._sorts[0].direction;
+    }
+    for (const f of this._filters) {
+      switch (f.definitionId) {
+        case 'creator': p.creator = f.value as string[]; break;
+        case 'status': p.status = (f.value as string[]).map((s) => this.statusToApi[s] ?? s); break;
+        case 'origin': p.origin = f.value as 'original' | 'forked'; break;
+        case 'createdAt': {
+          const [start, end] = f.value as Date[];
+          p.createdFrom = start.toISOString();
+          if (end) p.createdTo = end.toISOString();
+          break;
+        }
+      }
+    }
+    return p;
+  }
+
   private load(): void {
     const orgId = this.contextSwitcher.selectedId();
     if (!orgId) return;
 
-    if (this.isSharedFacet) {
-      this.flowService.getSharedFlows(orgId).subscribe((res) => {
-        this.flows.set(res.items);
-        this.total.set(res.total);
-      });
-    } else {
-      this.flowService.getFlows(orgId, this.page + 1, this.pageSize).subscribe((res) => {
-        this.flows.set(res.items);
-        this.total.set(res.total);
-      });
-    }
+    const p = this.buildListParams();
+    const call = this.isSharedFacet
+      ? this.flowService.getSharedFlows(orgId, p)
+      : this.flowService.getFlows(orgId, p);
+
+    call.subscribe((res) => {
+      this.flows.set(res.items);
+      this.total.set(res.total);
+    });
   }
 
   onPageChange(event: PaginatorState): void {

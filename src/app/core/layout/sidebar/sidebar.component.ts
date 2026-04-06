@@ -169,8 +169,8 @@ export class SidebarComponent {
   readonly adminMenu: SidebarMenu = {
     title: 'Système',
     items: [
-      { label: 'Serveurs', icon: 'fa-regular fa-server', link: '/admin/servers' },
-      { label: 'Fine Tuning', icon: 'fa-regular fa-sliders', link: '/admin/fine-tuning' },
+      { label: 'Serveurs', icon: 'fa-regular fa-server', link: '/system/servers' },
+      { label: 'Fine Tuning', icon: 'fa-regular fa-sliders', link: '/system/fine-tuning' },
     ],
   };
 
