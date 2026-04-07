@@ -9,6 +9,8 @@ import { SidebarService } from '../sidebar/sidebar.service';
 import { Divider } from "primeng/divider";
 import { AuthService } from '../../services/auth.service';
 import { ContextSwitcherService } from '../context-switcher/context-switcher.service';
+import { GlobalSearchService } from '../global-search/global-search.service';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-header',
@@ -28,9 +30,24 @@ import { ContextSwitcherService } from '../context-switcher/context-switcher.ser
         <p-divider layout="vertical" />
         <app-breadcrumb [items]="breadcrumb()" />
       </div>
+      <button class="search-trigger" (click)="search.open()">
+        <i class="fa-regular fa-magnifying-glass"></i>
+        <span>Rechercher…</span>
+        <kbd>Ctrl K</kbd>
+      </button>
       <div class="header-user">
         <span class="header-notification-wrapper">
-          <p-button icon="fa-jelly-fill fa-regular fa-bell" severity="secondary" [text]="true" rounded size="small" aria-label="Notifications" />
+          <p-button
+            icon="fa-jelly-fill fa-regular fa-bell"
+            severity="secondary"
+            [text]="true"
+            rounded
+            size="small"
+            aria-label="Notifications"
+            [badge]="notif.unreadCount() > 0 ? notif.unreadCount().toString() : ''"
+            badgeSeverity="danger"
+            (onClick)="notif.toggle()"
+          />
         </span>
         <p-button class="user-button" severity="secondary" [text]="true" rounded size="small" (onClick)="router.navigate(['/user'])">
           <span class="header-avatar">
@@ -46,6 +63,7 @@ import { ContextSwitcherService } from '../context-switcher/context-switcher.ser
   `,
   styles: `
     .header {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -54,10 +72,66 @@ import { ContextSwitcherService } from '../context-switcher/context-switcher.ser
       border-bottom: 1px solid var(--surface-border);
     }
 
+    .header-left,
+    .header-user {
+      flex: 1;
+    }
+
+    .header-user {
+      justify-content: flex-end;
+    }
+
+    .search-trigger {
+      width: 280px;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.625rem;
+      background: var(--background-color-50);
+      border: 1px solid var(--surface-border);
+      border-radius: 99px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.75rem;
+      color: var(--p-text-muted-color);
+      transition: background 0.1s ease, border-color 0.1s ease;
+      white-space: nowrap;
+
+      span {
+        flex: 1;
+        text-align: left;
+      }
+
+      &:hover {
+        background: var(--background-color-100);
+        border-color: var(--p-primary-300);
+        color: var(--p-text-color);
+      }
+
+      i { font-size: 0.6875rem; }
+
+      kbd {
+        margin-left: auto;
+        font-family: inherit;
+        font-size: 0.5625rem;
+        font-weight: 600;
+        background: var(--background-color-100);
+        border: 1px solid var(--surface-border);
+        border-radius: 4px;
+        padding: 0.1rem 0.3rem;
+        letter-spacing: 0.02em;
+        margin-left: 0.25rem;
+      }
+    }
+
     .header-left {
       display: flex;
       align-items: center;
       gap: 0.25rem;
+      flex: 1;
 
       app-breadcrumb {
         margin-top: .125rem;
@@ -115,7 +189,9 @@ import { ContextSwitcherService } from '../context-switcher/context-switcher.ser
 export class HeaderComponent {
   sidebar = inject(SidebarService);
   router = inject(Router);
+  readonly search = inject(GlobalSearchService);
   readonly auth = inject(AuthService);
+  readonly notif = inject(NotificationService);
   private readonly contextSwitcher = inject(ContextSwitcherService);
 
   readonly userInitials = computed(() => {

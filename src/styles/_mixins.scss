@@ -58,7 +58,7 @@
     position: absolute;
     inset: 0;
     border-radius: var(--radius-l);
-    background: var(--background-color-100);
+    background: transparent;
     z-index: -1;
     transition: background .75s cubic-bezier(0.075, 0.82, 0.165, 1);
   }

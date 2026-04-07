@@ -158,7 +158,7 @@ interface FacetConfig {
             <div class="teams-panel">
               <app-team-panel
                 [team]="selectedTeam"
-                (close)="selectedTeam = null"
+                (close)="selectTeam(selectedTeam!)"
                 (teamChanged)="onTeamRenamed($event)"
                 (teamDeleted)="onTeamDeleted()"
                 (addSubTeam)="onAddSubTeam()"
@@ -474,7 +474,24 @@ export class SettingsPage {
   teamsPageSize = 10;
 
   selectTeam(team: Team): void {
-    this.selectedTeam = this.selectedTeam?.id === team.id ? null : team;
+    if (this.selectedTeam?.id === team.id) {
+      this.selectedTeam = null;
+      this.router.navigate([], { relativeTo: this.route, replaceUrl: true, queryParams: { select: null }, queryParamsHandling: 'merge' });
+    } else {
+      this.selectedTeam = team;
+      this.router.navigate([], { relativeTo: this.route, replaceUrl: true, queryParams: { select: team.id }, queryParamsHandling: 'merge' });
+    }
+  }
+
+  private findTeamById(teams: Team[], id: string): Team | null {
+    for (const t of teams) {
+      if (t.id === id) return t;
+      if (t.children) {
+        const found = this.findTeamById(t.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
   }
 
   private mapTeamNode(node: ApiTeamNode): Team {
@@ -493,8 +510,15 @@ export class SettingsPage {
     this.loadingTeams.set(true);
     this.teamService.getTeamTree(org.id).subscribe({
       next: (nodes) => {
-        this.teams.set(nodes.map((n) => this.mapTeamNode(n)));
+        const mapped = nodes.map((n) => this.mapTeamNode(n));
+        this.teams.set(mapped);
         this.loadingTeams.set(false);
+
+        const selectId = this.route.snapshot.queryParamMap.get('select');
+        if (selectId && !this.selectedTeam) {
+          const team = this.findTeamById(mapped, selectId);
+          if (team) this.selectedTeam = team;
+        }
       },
       error: () => this.loadingTeams.set(false),
     });
@@ -576,6 +600,7 @@ export class SettingsPage {
 
   onTeamDeleted(): void {
     this.selectedTeam = null;
+    this.router.navigate([], { relativeTo: this.route, replaceUrl: true, queryParams: { select: null }, queryParamsHandling: 'merge' });
     this.loadTeams();
   }
 
@@ -759,6 +784,7 @@ export class SettingsPage {
     this.pageFirst = 0;
     this.teamsPageFirst = 0;
     this.selectedTeam = null;
+    this.router.navigate([], { relativeTo: this.route, replaceUrl: true, queryParams: { select: null }, queryParamsHandling: 'merge' });
   }
 
   onPageChange(event: PaginatorState): void {

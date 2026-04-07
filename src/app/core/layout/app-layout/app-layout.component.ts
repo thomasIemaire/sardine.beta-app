@@ -1,14 +1,17 @@
-import { Component, inject } from '@angular/core';
+import { Component, HostListener, inject } from '@angular/core';
 import { ChildrenOutletContexts, RouterOutlet } from '@angular/router';
 import { trigger, transition, style, animate, query } from '@angular/animations';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { ContextSwitcherComponent } from '../context-switcher/context-switcher.component';
 import { ContextSwitcherService } from '../context-switcher/context-switcher.service';
+import { GlobalSearchComponent } from '../global-search/global-search.component';
+import { GlobalSearchService } from '../global-search/global-search.service';
+import { NotificationDrawerComponent } from '../notifications/notification-drawer.component';
 
 @Component({
   selector: 'app-app-layout',
-  imports: [RouterOutlet, HeaderComponent, SidebarComponent, ContextSwitcherComponent],
+  imports: [RouterOutlet, HeaderComponent, SidebarComponent, ContextSwitcherComponent, GlobalSearchComponent, NotificationDrawerComponent],
   template: `
     <div class="layout">
       <app-sidebar />
@@ -22,6 +25,10 @@ import { ContextSwitcherService } from '../context-switcher/context-switcher.ser
     @if (contextSwitcher.visible()) {
       <app-context-switcher />
     }
+    @if (search.isOpen()) {
+      <app-global-search />
+    }
+    <app-notification-drawer />
   `,
   animations: [
     trigger('routeAnimation', [
@@ -38,6 +45,10 @@ import { ContextSwitcherService } from '../context-switcher/context-switcher.ser
   ],
   styles: `
   ::ng-deep {
+    app-header {
+      z-index: 10;
+    }
+
     .layout {
       display: flex;
       height: 100vh;
@@ -67,9 +78,18 @@ import { ContextSwitcherService } from '../context-switcher/context-switcher.ser
 export class AppLayoutComponent {
   private contexts = inject(ChildrenOutletContexts);
   readonly contextSwitcher = inject(ContextSwitcherService);
+  readonly search = inject(GlobalSearchService);
 
   constructor() {
     this.contextSwitcher.loadOrganizations();
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+      event.preventDefault();
+      this.search.toggle();
+    }
   }
 
   getRouteUrl() {

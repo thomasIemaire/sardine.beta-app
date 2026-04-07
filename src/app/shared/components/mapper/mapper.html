@@ -8,9 +8,18 @@
         <app-text-field [(ngModel)]="node.label" placeholder="Clé" [disabled]="readonly" (focusout)="removeNodeIfEmpty(node); emitJson()" />
         }
 
+        @if (node.children.length && node.label) {
+        <app-select-field class="mapper__type" [options]="objectTypeOptions" [(ngModel)]="node.containerType"
+            optionLabel="label" optionValue="value" [disabled]="readonly" (ngModelChange)="emitJson()" />
+        }
+
         @if (!node.children.length && node.label) {
         <app-select-field class="mapper__type" [options]="typeOptions" [(ngModel)]="node.type"
             optionLabel="label" optionValue="value" placeholder="Type" [disabled]="readonly" (ngModelChange)="emitJson()" />
+        @if (node.type === 'list') {
+        <app-select-field class="mapper__type" [options]="itemTypeOptions" [(ngModel)]="node.itemType"
+            optionLabel="label" optionValue="value" placeholder="Type des éléments" [disabled]="readonly" (ngModelChange)="emitJson()" />
+        }
         <app-text-field class="mapper__desc" [(ngModel)]="node.description" placeholder="Description" [disabled]="readonly" (focusout)="emitJson()" />
         <app-requirements-editor class="mapper__req" [requirements]="node.requirements" [readonly]="readonly" (requirementsChange)="emitJson()" />
         @if (!readonly) {

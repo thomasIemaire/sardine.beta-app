@@ -16,6 +16,7 @@ interface ApiAgent {
   forked_from_id: string | null;
   forked_from_version_id: string | null;
   created_by: string;
+  created_by_name?: string;
   created_at: string;
   updated_at?: string;
 }
@@ -164,7 +165,7 @@ export class AgentService {
       const isMine = user && a.created_by === user.id;
       creator = isMine
         ? { id: user.id, name: `${user.first_name} ${user.last_name}`, initials: `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() }
-        : { id: a.created_by, name: 'Autre', initials: a.created_by.slice(0, 2).toUpperCase() };
+        : { id: a.created_by, name: a.created_by_name ?? 'Autre', initials: a.created_by_name ? a.created_by_name.trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase() : '?' };
     } else {
       const org = this.contextSwitcher.organizations().find((o) => o.id === a.organization_id);
       creator = org

@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { PageComponent } from '../../../shared/components/page/page.component';
-import { HeaderPageComponent } from '../../../shared/components/header-page/header-page.component';
+import { HeaderPageComponent, Facet } from '../../../shared/components/header-page/header-page.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 
 @Component({
@@ -8,13 +8,50 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
   imports: [PageComponent, HeaderPageComponent, EmptyStateComponent],
   template: `
     <app-page>
-      <app-header-page title="Fine-tuning" subtitle="Affinez les modèles de l'application" />
-      <app-empty-state
-        icon="fa-regular fa-sliders"
-        title="Aucun modèle fine-tuné"
-        subtitle="Lancez votre premier job de fine-tuning."
+      <app-header-page
+        title="Fine-tuning"
+        subtitle="Affinez les modèles de l'application"
+        [facets]="facets"
+        defaultFacetId="classification"
+        (facetChange)="onFacetChange($event)"
       />
+
+      @if (currentFacet === 'classification') {
+        <app-empty-state
+          icon="fa-regular fa-tags"
+          title="Aucun modèle de classification"
+          subtitle="Lancez votre premier job de fine-tuning pour la classification."
+        />
+      }
+
+      @if (currentFacet === 'determination') {
+        <app-empty-state
+          icon="fa-regular fa-bullseye-arrow"
+          title="Aucun modèle de détermination"
+          subtitle="Lancez votre premier job de fine-tuning pour la détermination."
+        />
+      }
+
+      @if (currentFacet === 'training') {
+        <app-empty-state
+          icon="fa-regular fa-dumbbell"
+          title="Aucun modèle d'entraînement"
+          subtitle="Lancez votre premier job d'entraînement."
+        />
+      }
     </app-page>
   `,
 })
-export class FineTuningPage {}
+export class FineTuningPage {
+  facets: Facet[] = [
+    { id: 'classification', label: 'Classification' },
+    { id: 'determination', label: 'Détermination' },
+    { id: 'training', label: 'Entraînement' },
+  ];
+
+  currentFacet = 'classification';
+
+  onFacetChange(facet: Facet): void {
+    this.currentFacet = facet.id;
+  }
+}

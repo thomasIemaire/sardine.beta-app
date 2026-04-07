@@ -9,10 +9,12 @@ import { TextFieldComponent } from '../text-field/text-field';
 import { SelectFieldComponent } from '../select-field/select-field';
 import { RequirementsEditorComponent, SchemaRequirement } from './requirements-editor';
 
-export type NodeValueType = 'string' | 'number' | 'boolean' | 'date';
+export type NodeValueType = 'string' | 'number' | 'boolean' | 'date' | 'list';
 
 export class MapperNode {
     type: NodeValueType = 'string';
+    itemType: NodeValueType = 'string';
+    containerType: 'object' | 'list' = 'object';
     description: string = '';
     requirements: SchemaRequirement[] = [];
 
@@ -42,11 +44,13 @@ function buildJson(nodes: MapperNode[]): JsonObj {
         const children = node.children ?? [];
         let value: unknown;
         if (children.length) {
-            value = buildJson(children);
+            const childJson = buildJson(children);
+            value = node.containerType === 'list' ? { _list: true, ...childJson } : childJson;
         } else {
             value = {
                 _key: node.key,
                 _type: node.type || 'string',
+                ...(node.type === 'list' ? { _item_type: node.itemType || 'string' } : {}),
                 _description: node.description || '',
                 _requirements: node.requirements.length > 0 ? [...node.requirements] : [],
             };
@@ -88,6 +92,19 @@ export class MapperComponent implements OnInit, OnChanges {
         { label: 'Nombre', value: 'number' },
         { label: 'Booléen', value: 'boolean' },
         { label: 'Date', value: 'date' },
+        { label: 'Liste', value: 'list' },
+    ];
+
+    itemTypeOptions = [
+        { label: 'Texte', value: 'string' },
+        { label: 'Nombre', value: 'number' },
+        { label: 'Booléen', value: 'boolean' },
+        { label: 'Date', value: 'date' },
+    ];
+
+    objectTypeOptions = [
+        { label: 'Objet', value: 'object' },
+        { label: 'Liste', value: 'list' },
     ];
 
     private readonly messageService = inject(MessageService);
@@ -127,6 +144,7 @@ export class MapperComponent implements OnInit, OnChanges {
             const node = new MapperNode(parent, key, [], this.root);
             if (this.isLeafValue(value)) {
                 node.type = (value['_type'] as NodeValueType) || 'string';
+                if (node.type === 'list') node.itemType = (value['_item_type'] as NodeValueType) || 'string';
                 node.description = (value['_description'] as string) || '';
                 const rawReqs = value['_requirements'];
                 if (Array.isArray(rawReqs)) {
@@ -135,7 +153,14 @@ export class MapperComponent implements OnInit, OnChanges {
                     node.requirements = [];
                 }
             } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-                node.children = this.buildMapper(value as Record<string, unknown>, node);
+                const obj = value as Record<string, unknown>;
+                if (obj['_list'] === true) {
+                    node.containerType = 'list';
+                    const { _list, ...rest } = obj;
+                    node.children = this.buildMapper(rest as Record<string, unknown>, node);
+                } else {
+                    node.children = this.buildMapper(obj, node);
+                }
             }
             return node;
         });

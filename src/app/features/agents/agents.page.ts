@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, signal, viewChild } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
 import { ContextMenu } from 'primeng/contextmenu';
@@ -50,7 +50,6 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
               [columns]="listColumns"
               [gridTemplate]="gridTpl"
               [listTemplate]="listTpl"
-              [displayedCount]="sortedAgents().length"
               emptyIcon="fa-regular fa-microchip-ai"
               [emptyTitle]="hasActiveFilters() ? 'Aucun résultat' : 'Aucun agent disponible'"
               [emptySubtitle]="hasActiveFilters() ? 'Aucun agent ne correspond à vos filtres.' : (isSharedFacet ? 'Aucun agent partagé avec votre organisation.' : 'Créez votre premier agent pour commencer.')"
@@ -95,7 +94,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
             <app-agent-config-panel
               [agent]="selectedAgent"
               [readonly]="!selectedAgent.isOwned"
-              (close)="selectedAgent = null; showVersionPanel = false"
+              (close)="clearSelection()"
               (toggleVersions)="showVersionPanel = !showVersionPanel"
               (agentUpdated)="onAgentUpdated($event)"
               (versionSaved)="onVersionCheckedOut()"
@@ -117,6 +116,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
 })
 export class AgentsPage {
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly agentService = inject(AgentService);
   private readonly contextSwitcher = inject(ContextSwitcherService);
   private readonly messageService = inject(MessageService);
@@ -221,19 +221,23 @@ export class AgentsPage {
     });
   }
 
-  sortedAgents(): Agent[] {
-    return this.agents();
+  readonly sortedAgents = computed(() => this.agents());
+
+  clearSelection(): void {
+    this.selectedAgent = null;
+    this.showVersionPanel = false;
+    this.router.navigate([], { replaceUrl: true, queryParams: { select: null }, queryParamsHandling: 'merge' });
   }
 
   selectAgent(agent: Agent): void {
     if (this.selectedAgent?.id === agent.id) {
-      this.selectedAgent = null;
-      this.showVersionPanel = false;
+      this.clearSelection();
       return;
     }
 
     this.selectedAgent = agent;
     this.showVersionPanel = false;
+    this.router.navigate([], { replaceUrl: true, queryParams: { select: agent.id }, queryParamsHandling: 'merge' });
 
     if (!agent.isOwned) return;
 
@@ -300,8 +304,7 @@ export class AgentsPage {
     this.agentService.deleteAgent(orgId, agent.id).subscribe({
       next: () => {
         if (this.selectedAgent?.id === agent.id) {
-          this.selectedAgent = null;
-          this.showVersionPanel = false;
+          this.clearSelection();
         }
         this.agents.update((list) => list.filter((a) => a.id !== agent.id));
         this.total.update((t) => t - 1);
@@ -319,8 +322,7 @@ export class AgentsPage {
 
   onFacetChange(facet: Facet): void {
     this.isSharedFacet = facet.id === 'shared';
-    this.selectedAgent = null;
-    this.showVersionPanel = false;
+    this.clearSelection();
     this.page = 0;
     this.load();
   }
@@ -374,6 +376,12 @@ export class AgentsPage {
     call.subscribe((res) => {
       this.agents.set(res.items);
       this.total.set(res.total);
+
+      const selectId = this.route.snapshot.queryParamMap.get('select');
+      if (selectId && !this.selectedAgent) {
+        const agent = res.items.find((a) => a.id === selectId);
+        if (agent) this.selectAgent(agent);
+      }
     });
   }
 }

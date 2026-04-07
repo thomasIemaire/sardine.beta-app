@@ -47,7 +47,7 @@ interface MemberEntry {
           <div class="manual-block">
           <div class="rows-header">
             <span class="col-label">Email</span>
-            <span class="col-label">Mot de passe</span>
+            <span class="col-label">Mot de passe <span class="col-optional">(optionnel si déjà inscrit)</span></span>
             <span class="col-spacer"></span>
           </div>
           <div class="rows-list">
@@ -65,7 +65,7 @@ interface MemberEntry {
                   pInputText
                   pSize="small"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Laisser vide si déjà inscrit"
                   [(ngModel)]="row.password"
                   [disabled]="loading()"
                 />
@@ -196,6 +196,11 @@ interface MemberEntry {
       font-size: 0.75rem;
       font-weight: 500;
       color: var(--p-text-muted-color);
+    }
+
+    .col-optional {
+      font-weight: 400;
+      font-style: italic;
     }
 
     .col-spacer { width: 2rem; }
@@ -353,7 +358,7 @@ export class InviteMembersDialogComponent {
 
   get validCount(): number {
     const list = this.mode === 'manual' ? this.rows() : this.csvRows();
-    return list.filter((r) => r.email.trim() && r.password.trim()).length;
+    return list.filter((r) => r.email.trim()).length;
   }
 
   get submitLabel(): string {
@@ -421,7 +426,7 @@ export class InviteMembersDialogComponent {
     const org = this.contextSwitcher.selectedOrganization();
     if (!org) return;
     const list = this.mode === 'manual' ? this.rows() : this.csvRows();
-    const members = list.filter((r) => r.email.trim() && r.password.trim());
+    const members = list.filter((r) => r.email.trim());
     if (!members.length) return;
     this.loading.set(true);
     this.error.set(null);
