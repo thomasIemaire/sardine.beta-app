@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, output, signal } from '@angular/core';
+import { Component, HostListener, inject, input, output, signal } from '@angular/core';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 
@@ -15,20 +15,20 @@ import { ToastModule } from 'primeng/toast';
             [class.is-uploading]="isUploading()"
             (click)="!isUploading() && fileInput.click()">
 
-            <input #fileInput type="file" multiple hidden (change)="onFileInput($event)" />
+            <input #fileInput type="file" [accept]="accept()" [multiple]="accept() === ''" hidden (change)="onFileInput($event)" />
 
             @if (isUploading()) {
                 <i class="fa-solid fa-spinner drop-zone__icon drop-zone__icon--spin"></i>
-                <span class="drop-zone__label">Envoi en cours...</span>
+                <span class="drop-zone__label">{{ uploadingLabel() }}</span>
                 <span class="drop-zone__hint">{{ files().length }} fichier{{ files().length > 1 ? 's' : '' }}</span>
             } @else if (files().length === 0) {
                 <i class="fa-regular fa-cloud-arrow-up drop-zone__icon"></i>
-                <span class="drop-zone__label">Déposer des fichiers</span>
-                <span class="drop-zone__hint">ou cliquer pour parcourir</span>
+                <span class="drop-zone__label">{{ label() }}</span>
+                <span class="drop-zone__hint">{{ hint() }}</span>
             } @else {
                 <i class="fa-regular fa-cloud-arrow-up drop-zone__icon"></i>
-                <span class="drop-zone__label">Déposer des fichiers</span>
-                <span class="drop-zone__hint">ou cliquer pour parcourir</span>
+                <span class="drop-zone__label">{{ label() }}</span>
+                <span class="drop-zone__hint">{{ hint() }}</span>
             }
         </div>
     `,
@@ -101,6 +101,10 @@ import { ToastModule } from 'primeng/toast';
 export class DropZoneComponent {
     private messageService = inject(MessageService);
 
+    readonly accept = input<string>('');
+    readonly label = input<string>('Déposer des fichiers');
+    readonly hint = input<string>('ou cliquer pour parcourir');
+    readonly uploadingLabel = input<string>('Envoi en cours...');
     readonly filesDropped = output<File[]>();
 
     readonly isDragOver = signal(false);

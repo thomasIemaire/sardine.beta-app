@@ -147,6 +147,21 @@ export class AgentService {
     );
   }
 
+  exportAgent(orgId: string, agentId: string) {
+    return this.http.get(`${this.base}/organizations/${orgId}/agents/${agentId}/export`, {
+      responseType: 'blob',
+      observe: 'response',
+    });
+  }
+
+  importAgent(orgId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http
+      .post<ApiAgent>(`${this.base}/organizations/${orgId}/agents/import`, formData)
+      .pipe(map((a) => this.mapAgent(a)));
+  }
+
   private mapPage(res: ApiPaginatedResponse<ApiAgent>): AgentPage {
     return {
       items: res.items.map((a) => this.mapAgent(a)),
