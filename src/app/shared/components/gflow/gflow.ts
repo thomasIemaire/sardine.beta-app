@@ -128,6 +128,7 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
     readonly readonly = input<boolean>(false);
     readonly saveFlow = output<FlowSavePayload>();
     readonly executeFlow = output<void>();
+    readonly exportFlow = output<void>();
     readonly close = output<void>();
     // State
 

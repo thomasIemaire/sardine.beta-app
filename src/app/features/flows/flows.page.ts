@@ -182,7 +182,12 @@ export class FlowsPage {
   constructor() {
     effect(() => {
       if (this.contextSwitcher.selectedId()) {
+        // Reset all filters, search, and sorting when organization changes
+        this._search = '';
+        this._filters = [];
+        this._sorts = [];
         this.page = 0;
+        this.isSharedFacet = false;
         this.load();
       }
     });
@@ -204,6 +209,7 @@ export class FlowsPage {
     } else {
       cm.model = [
         { label: 'Ouvrir', icon: 'fa-regular fa-arrow-up-right-from-square', command: () => this.navigate(flow) },
+        { label: 'Télécharger', icon: 'fa-regular fa-download', command: () => this.exportFlow(flow) },
         { label: 'Partager', icon: 'fa-regular fa-share-nodes', command: () => { this.shareTarget = flow; this.showShareDialog.set(true); } },
         { separator: true },
         { label: 'Supprimer', icon: 'fa-regular fa-trash', styleClass: 'p-danger', command: () => this.delete(flow) },
@@ -248,6 +254,25 @@ export class FlowsPage {
         this.messageService.add({ severity: 'success', summary: 'Flow supprimé', detail: `"${flow.name}" a été supprimé.` });
       },
       error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer ce flow.' }),
+    });
+  }
+
+  private exportFlow(flow: Flow): void {
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) return;
+    this.flowService.exportFlow(orgId, flow.id).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${flow.name}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.messageService.add({ severity: 'success', summary: 'Téléchargement réussi', detail: `"${flow.name}" a été téléchargé.` });
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de télécharger ce flow.' }),
     });
   }
 

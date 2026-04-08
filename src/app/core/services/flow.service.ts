@@ -158,6 +158,18 @@ export class FlowService {
       .pipe(map((f) => this.mapFlow(f)));
   }
 
+  exportFlow(orgId: string, flowId: string) {
+    return this.http.get(`${this.base}/organizations/${orgId}/flows/${flowId}/export`, { responseType: 'blob' });
+  }
+
+  importFlow(orgId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http
+      .post<ApiFlow>(`${this.base}/organizations/${orgId}/flows/import`, formData)
+      .pipe(map((f) => this.mapFlow(f)));
+  }
+
   private mapPage(res: ApiPaginatedResponse<ApiFlow>): FlowPage {
     return {
       items: res.items.map((f) => this.mapFlow(f)),
