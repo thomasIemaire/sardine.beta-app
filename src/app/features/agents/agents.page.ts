@@ -264,6 +264,7 @@ export class AgentsPage {
     } else {
       cm.model = [
         { label: 'Ouvrir', icon: 'fa-regular fa-arrow-up-right-from-square', command: () => this.selectAgent(agent) },
+        { label: 'Télécharger', icon: 'fa-regular fa-download', command: () => this.exportAgent(agent) },
         { label: 'Partager', icon: 'fa-regular fa-share-nodes', command: () => { this.shareTarget = agent; this.showShareDialog.set(true); } },
         { separator: true },
         { label: 'Supprimer', icon: 'fa-regular fa-trash', styleClass: 'p-danger', command: () => this.delete(agent) },
@@ -339,6 +340,27 @@ export class AgentsPage {
     this.agentService.getAgent(orgId, agentId).subscribe((fresh) => {
       this.selectedAgent = fresh;
       this.agents.update((list) => list.map((a) => (a.id === fresh.id ? fresh : a)));
+    });
+  }
+
+  private exportAgent(agent: Agent): void {
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) return;
+
+    this.agentService.exportAgent(orgId, agent.id).subscribe({
+      next: (response) => {
+        const blob = new Blob([response.body!], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${agent.name}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.messageService.add({ severity: 'success', summary: 'Téléchargement réussi', detail: `"${agent.name}" a été téléchargé.` });
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de télécharger l\'agent.' }),
     });
   }
 
