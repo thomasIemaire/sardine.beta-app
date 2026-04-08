@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import { ContextSwitcherService } from '../layout/context-switcher/context-switcher.service';
+import { FlowEventsBus } from './flow-events.bus';
 
 export interface AppNotification {
   id: string;
@@ -28,6 +29,7 @@ export class NotificationService {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
   private readonly contextSwitcher = inject(ContextSwitcherService);
+  private readonly flowEvents = inject(FlowEventsBus);
   private readonly base = `${environment.apiUrl}/notifications`;
   private readonly wsBase = environment.apiUrl.replace(/^http/, 'ws');
 
@@ -83,6 +85,14 @@ export class NotificationService {
     this.ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data as string);
+
+        // Évènements du Flow Engine — republication sur le bus interne pour
+        // que `gflow` / `exec-panel` puissent s'y abonner sans seconde WS.
+        if (typeof msg.event === 'string' && msg.event.startsWith('execution.')) {
+          this.flowEvents.publish(msg.event, msg.data);
+          return;
+        }
+
         if (msg.event === 'notification') {
           const notif: AppNotification = msg.data;
           const orgId = this.contextSwitcher.selectedId();

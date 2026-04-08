@@ -108,44 +108,41 @@ export class ExecPanelComponent {
             this.nodeLogsChange.emit(logs);
         });
 
-        // Temps réel : mise à jour des exécutions
-        this.ws.on('execution.update').pipe(
+        // Temps réel : à chaque changement d'état d'une exécution, on recharge
+        // la liste depuis l'API. Le moteur n'émet pas d'évènement "snapshot"
+        // complet sur le WS, donc on s'appuie sur les évènements terminaux
+        // (started/completed/failed) pour rafraîchir.
+        merge(
+            this.ws.on('execution.started'),
+            this.ws.on('execution.completed'),
+            this.ws.on('execution.failed'),
+        ).pipe(
             takeUntilDestroyed()
-        ).subscribe(execution => {
-            if (!execution?.id || execution.flow_id !== this.flowId()) return;
-            this.executions.update(list => {
-                const exists = list.some(e => e.id === execution.id);
-                if (exists) {
-                    return list.map(e => e.id === execution.id ? execution : e);
-                }
-                return [execution, ...list];
-            });
-            // Mettre à jour le détail si on regarde cette exécution
-            if (this.selectedExec()?.id === execution.id) {
-                this.selectedExec.set(execution);
-                this.refreshNodeLogs(execution.id);
+        ).subscribe(event => {
+            if (!event?.execution_id) return;
+            this.loadExecutions(this.orgId(), this.flowId());
+            // Si on est en train de regarder cette exécution, on rafraîchit
+            // aussi le détail (status + node logs).
+            if (this.selectedExec()?.id === event.execution_id) {
+                this.flowsService.getExecution(this.orgId(), this.flowId(), event.execution_id).pipe(
+                    catchError(() => EMPTY),
+                    takeUntilDestroyed(this.destroyRef)
+                ).subscribe(exec => this.selectedExec.set(exec));
+                this.refreshNodeLogs(event.execution_id);
             }
         });
 
-        // Temps réel : mise à jour granulaire des node logs
-        this.ws.on('execution.node.started').pipe(
+        // Temps réel : mise à jour granulaire des node logs sur tout évènement
+        // `execution.node.*` concernant l'exécution actuellement affichée.
+        merge(
+            this.ws.on('execution.node.started'),
+            this.ws.on('execution.node.completed'),
+            this.ws.on('execution.node.failed'),
+            this.ws.on('execution.node.waiting'),
+        ).pipe(
             takeUntilDestroyed()
         ).subscribe(event => {
-            if (this.selectedExec()?.id !== event.execution_id) return;
-            this.refreshNodeLogs(event.execution_id);
-        });
-
-        this.ws.on('execution.node.completed').pipe(
-            takeUntilDestroyed()
-        ).subscribe(event => {
-            if (this.selectedExec()?.id !== event.execution_id) return;
-            this.refreshNodeLogs(event.execution_id);
-        });
-
-        this.ws.on('execution.node.waiting').pipe(
-            takeUntilDestroyed()
-        ).subscribe(event => {
-            if (this.selectedExec()?.id !== event.execution_id) return;
+            if (!event?.execution_id || this.selectedExec()?.id !== event.execution_id) return;
             this.refreshNodeLogs(event.execution_id);
         });
     }
