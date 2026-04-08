@@ -154,6 +154,13 @@ export class AgentService {
     });
   }
 
+  exportSharedAgent(orgId: string, agentId: string) {
+    return this.http.get(`${this.base}/organizations/${orgId}/agents/shared/${agentId}/export`, {
+      responseType: 'blob',
+      observe: 'response',
+    });
+  }
+
   importAgent(orgId: string, file: File) {
     const formData = new FormData();
     formData.append('file', file);
