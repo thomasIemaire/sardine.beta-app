@@ -219,7 +219,17 @@ export class FlowService {
       .pipe(map((f) => this.mapFlow(f)));
   }
 
-  // ── Flow Engine — execution ──────────────────────────────────────────────
+  exportFlow(orgId: string, flowId: string) {
+    return this.http.get(`${this.base}/organizations/${orgId}/flows/${flowId}/export`, { responseType: 'blob' });
+  }
+
+  importFlow(orgId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http
+      .post<ApiFlow>(`${this.base}/organizations/${orgId}/flows/import`, formData)
+      .pipe(map((f) => this.mapFlow(f)));
+  }
 
   /** Lance une exécution. Retourne immédiatement avec status=pending. */
   executeFlow(orgId: string, flowId: string, inputData?: Record<string, unknown>): Observable<FlowExecutionRead> {

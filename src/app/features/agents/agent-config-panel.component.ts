@@ -41,6 +41,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
             <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" rounded size="small" pTooltip="Annuler" tooltipPosition="top" (onClick)="cancelEdit()" />
             <p-button icon="fa-regular fa-check" severity="success" [text]="true" rounded size="small" pTooltip="Sauvegarder" tooltipPosition="top" [loading]="savingMeta()" (onClick)="saveMeta()" />
           } @else {
+            <p-button icon="fa-regular fa-download" severity="secondary" [text]="true" rounded size="small" pTooltip="Télécharger" tooltipPosition="top" (onClick)="exportAgent()" />
             @if (!readonly()) {
               <p-button icon="fa-regular fa-pen" severity="secondary" [text]="true" rounded size="small" pTooltip="Modifier" tooltipPosition="top" (onClick)="startEdit()" />
               <p-button icon="fa-regular fa-code-branch" severity="secondary" [text]="true" rounded size="small" pTooltip="Versions" tooltipPosition="top" (onClick)="toggleVersions.emit()" />
@@ -189,6 +190,32 @@ export class AgentConfigPanelComponent {
         this.savingMeta.set(false);
         this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'La modification a échoué.' });
       },
+    });
+  }
+
+  exportAgent(): void {
+    const orgId = this.contextSwitcher.selectedId();
+    const agent = this.agent();
+    if (!orgId) return;
+
+    const exportCall = agent.isOwned
+      ? this.agentService.exportAgent(orgId, agent.id)
+      : this.agentService.exportSharedAgent(orgId, agent.id);
+
+    exportCall.subscribe({
+      next: (response) => {
+        const blob = new Blob([response.body!], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${agent.name}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.messageService.add({ severity: 'success', summary: 'Téléchargement réussi', detail: `"${agent.name}" a été téléchargé.` });
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de télécharger l\'agent.' }),
     });
   }
 

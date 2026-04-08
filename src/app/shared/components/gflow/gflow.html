@@ -29,6 +29,8 @@
             <app-presence-bar [users]="presenceUsers()" />
             @if (flowId()) {
             @if (!readonly()) {
+            <p-button icon="fa-solid fa-download" severity="secondary" size="small" rounded text
+                (click)="exportFlow.emit()" title="Exporter ce flow" />
             <p-button icon="fa-solid fa-code-branch" severity="secondary" size="small" rounded text
                 [outlined]="versionPanelOpen()" (click)="versionPanelOpen.set(!versionPanelOpen())" />
             }

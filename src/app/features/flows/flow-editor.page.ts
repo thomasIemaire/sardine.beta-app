@@ -48,6 +48,7 @@ import { ExecuteFlowDialogComponent, ExecuteFlowPayload } from './execute-flow-d
             [readonly]="isReadonly()"
             [navigateBack]="'/flows'"
             (saveFlow)="onSaveFlow($event)"
+            (exportFlow)="exportFlow()"
             (executeFlow)="onExecuteFlow()"
             (close)="onClose()" />
 
@@ -67,6 +68,22 @@ import { ExecuteFlowDialogComponent, ExecuteFlowPayload } from './execute-flow-d
         @keyframes gflow-enter {
             from { opacity: 0; transform: scale(0.97) translateY(12px); }
             to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .flow-loader {
+            position: absolute;
+            inset: 0;
+            z-index: 500;
+            background: var(--background-color-200);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: loader-in 0.15s ease both;
+        }
+
+        @keyframes loader-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
         }
 
         .flow-loader {
@@ -261,6 +278,28 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
             error: () => {
                 this.gflowRef()?.isDirty.set(true);
                 this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'La sauvegarde a échoué.' });
+            },
+        });
+    }
+
+    exportFlow(): void {
+        const { flowId, orgId } = this;
+        if (!flowId || !orgId) return;
+
+        this.flowService.exportFlow(orgId, flowId).subscribe({
+            next: (blob) => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${flowId}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                this.messageService.add({ severity: 'success', summary: 'Téléchargement réussi', detail: 'Le flow a été téléchargé.' });
+            },
+            error: () => {
+                this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de télécharger ce flow.' });
             },
         });
     }
