@@ -5,10 +5,11 @@ import { ToastModule } from 'primeng/toast';
 import { GflowComponent, FlowSavePayload } from '../../shared/components/gflow/gflow';
 import { FlowService } from '../../core/services/flow.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
+import { ExecuteFlowDialogComponent, ExecuteFlowPayload } from './execute-flow-dialog.component';
 
 @Component({
     selector: 'app-flow-editor',
-    imports: [GflowComponent, ToastModule],
+    imports: [GflowComponent, ToastModule, ExecuteFlowDialogComponent],
     providers: [MessageService],
     template: `
         <p-toast />
@@ -47,7 +48,12 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
             [readonly]="isReadonly()"
             [navigateBack]="'/flows'"
             (saveFlow)="onSaveFlow($event)"
+            (executeFlow)="onExecuteFlow()"
             (close)="onClose()" />
+
+        <app-execute-flow-dialog
+            [(visible)]="showExecuteDialog"
+            (execute)="onExecuteConfirmed($event)" />
     `,
     styles: [`
         :host {
@@ -138,6 +144,8 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
 
     readonly loading = signal(true);
     readonly isReadonly = signal(false);
+    readonly showExecuteDialog = signal(false);
+    readonly executing = signal(false);
     flowId: string | null = null;
     orgId: string | null = null;
 
@@ -170,6 +178,75 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
                 this.loading.set(false);
                 this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger le flow.' });
             },
+        });
+    }
+
+    onExecuteFlow(): void {
+        if (!this.flowId || !this.orgId) return;
+        // L'exécution requiert au moins un document : on passe par la dialog.
+        this.showExecuteDialog.set(true);
+    }
+
+    async onExecuteConfirmed(payload: ExecuteFlowPayload): Promise<void> {
+        const { flowId, orgId } = this;
+        if (!flowId || !orgId || this.executing()) return;
+        if (!payload.files.length) return;
+
+        this.executing.set(true);
+        try {
+            const files = await Promise.all(payload.files.map((f) => this.fileToInputEntry(f)));
+            const inputData = { files };
+
+            this.flowService.executeFlow(orgId, flowId, inputData).subscribe({
+                next: (exec) => {
+                    this.executing.set(false);
+                    this.messageService.add({
+                        severity: 'info',
+                        summary: 'Exécution lancée',
+                        detail: `Le flow a démarré (id ${exec.id.slice(0, 8)}).`,
+                    });
+                    this.gflowRef()?.openExecPanelWithExecution(exec.id);
+                },
+                error: () => {
+                    this.executing.set(false);
+                    this.messageService.add({
+                        severity: 'error',
+                        summary: 'Erreur',
+                        detail: "Impossible de lancer l'exécution.",
+                    });
+                },
+            });
+        } catch {
+            this.executing.set(false);
+            this.messageService.add({
+                severity: 'error',
+                summary: 'Erreur',
+                detail: "Impossible de lire les fichiers sélectionnés.",
+            });
+        }
+    }
+
+    /**
+     * Convertit un File en entrée `input_data.files` attendue par le moteur.
+     * Le noeud `start` extrait automatiquement le 1er fichier et le met dans
+     * `context.data.fileBase64` (+ fileName, fileMimeType, fileSize).
+     */
+    private fileToInputEntry(file: File): Promise<{ base64: string; name: string; mime_type: string; size: number }> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(reader.error);
+            reader.onload = () => {
+                const result = reader.result as string;
+                // data:<mime>;base64,<payload> → on ne garde que la partie base64.
+                const base64 = result.includes(',') ? result.split(',', 2)[1] : result;
+                resolve({
+                    base64,
+                    name: file.name,
+                    mime_type: file.type || 'application/octet-stream',
+                    size: file.size,
+                });
+            };
+            reader.readAsDataURL(file);
         });
     }
 

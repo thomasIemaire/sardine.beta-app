@@ -1,11 +1,72 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { map } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import { ContextSwitcherService } from '../layout/context-switcher/context-switcher.service';
 import type { Flow, FlowStatus } from '../../shared/components/flow-card/flow-card.component';
 import type { SerializedFlowData, SerializedLink } from '../../shared/components/gflow/core/gflow.types';
+
+// ── Flow Engine — execution & approval types ────────────────────────────────
+
+export type FlowExecutionStatus = 'pending' | 'running' | 'waiting' | 'completed' | 'failed' | 'cancelled';
+
+export interface FlowExecutionRead {
+  id: string;
+  flow_id: string;
+  organization_id: string;
+  status: FlowExecutionStatus;
+  trigger_type: string;
+  triggered_by?: string | { first_name: string; last_name: string } | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  error?: string | null;
+  execution_data?: Record<string, unknown> | null;
+  paused_at_node?: string | null;
+  parent_execution_id?: string | null;
+  parent_flow_id?: string | null;
+  created_at: string;
+}
+
+export interface NodeLogRead {
+  id: string;
+  execution_id: string;
+  node_id: string;
+  node_type: string;
+  node_name: string;
+  status: 'running' | 'completed' | 'failed' | 'waiting' | 'skipped';
+  output_port: number | null;
+  error?: string | null;
+  metadata?: Record<string, unknown> | null;
+  input_data?: Record<string, unknown> | null;
+  output_data?: Record<string, unknown> | null;
+  started_at: string;
+  completed_at?: string | null;
+  duration_ms?: number | null;
+  parent_node_id?: string | null;
+  loop_iteration?: number | null;
+  loop_total?: number | null;
+}
+
+export interface ApprovalTaskRead {
+  id: string;
+  flow_id: string;
+  execution_id: string;
+  node_id: string;
+  organization_id: string;
+  title: string;
+  message: string;
+  options: { label: string; value: string }[];
+  assignee_type: 'user' | 'team' | 'organization';
+  assignee_id: string;
+  status: 'pending' | 'responded' | 'expired';
+  response: string | null;
+  response_label: string | null;
+  responded_by: string | null;
+  responded_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
 
 type ApiFlowStatus = 'active' | 'error' | 'pending';
 
@@ -156,6 +217,70 @@ export class FlowService {
     return this.http
       .post<ApiFlow>(`${this.base}/organizations/${orgId}/flows/fork/${flowId}`, {})
       .pipe(map((f) => this.mapFlow(f)));
+  }
+
+  // ── Flow Engine — execution ──────────────────────────────────────────────
+
+  /** Lance une exécution. Retourne immédiatement avec status=pending. */
+  executeFlow(orgId: string, flowId: string, inputData?: Record<string, unknown>): Observable<FlowExecutionRead> {
+    return this.http.post<FlowExecutionRead>(
+      `${this.base}/organizations/${orgId}/flows/${flowId}/execute`,
+      { input_data: inputData ?? {} },
+    );
+  }
+
+  listExecutions(orgId: string, flowId: string, page = 1, pageSize = 50): Observable<FlowExecutionRead[]> {
+    const params = new HttpParams().set('page', page).set('page_size', pageSize);
+    return this.http
+      .get<ApiPaginatedResponse<FlowExecutionRead>>(
+        `${this.base}/organizations/${orgId}/flows/${flowId}/executions`,
+        { params },
+      )
+      .pipe(map((res) => res.items));
+  }
+
+  getExecution(orgId: string, flowId: string, execId: string): Observable<FlowExecutionRead> {
+    return this.http.get<FlowExecutionRead>(
+      `${this.base}/organizations/${orgId}/flows/${flowId}/executions/${execId}`,
+    );
+  }
+
+  stopExecution(orgId: string, flowId: string, execId: string): Observable<void> {
+    return this.http.post<void>(
+      `${this.base}/organizations/${orgId}/flows/${flowId}/executions/${execId}/stop`,
+      {},
+    );
+  }
+
+  getExecutionNodes(orgId: string, flowId: string, execId: string): Observable<NodeLogRead[]> {
+    return this.http.get<NodeLogRead[]>(
+      `${this.base}/organizations/${orgId}/flows/${flowId}/executions/${execId}/nodes`,
+    );
+  }
+
+  getNodeLog(orgId: string, flowId: string, execId: string, logId: string): Observable<NodeLogRead> {
+    return this.http.get<NodeLogRead>(
+      `${this.base}/organizations/${orgId}/flows/${flowId}/executions/${execId}/nodes/${logId}`,
+    );
+  }
+
+  // ── Flow Engine — approval tasks ─────────────────────────────────────────
+
+  listApprovalTasks(orgId: string, status?: 'pending' | 'responded' | 'expired'): Observable<ApprovalTaskRead[]> {
+    let params = new HttpParams();
+    if (status) params = params.set('status', status);
+    return this.http.get<ApprovalTaskRead[]>(
+      `${this.base}/organizations/${orgId}/approval-tasks`,
+      { params },
+    );
+  }
+
+  /** Répond à une approbation. `response` doit être une `value` parmi les options du noeud. */
+  respondToApprovalTask(orgId: string, taskId: string, response: string): Observable<ApprovalTaskRead> {
+    return this.http.post<ApprovalTaskRead>(
+      `${this.base}/organizations/${orgId}/approval-tasks/${taskId}/respond`,
+      { response },
+    );
   }
 
   private mapPage(res: ApiPaginatedResponse<ApiFlow>): FlowPage {
