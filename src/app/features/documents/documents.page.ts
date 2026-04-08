@@ -104,7 +104,6 @@ interface DocItem {
               severity="secondary"
               [rounded]="true"
               size="small"
-              [disabled]="!currentFolderId()"
               (onClick)="openCreateFolder()"
             />
             <p-button
@@ -184,7 +183,7 @@ interface DocItem {
             class="doc-card"
             [class.is-selected]="selectedIds.has(item.id)"
             (click)="onCardClick($event, item)"
-            (dblclick)="downloadItem(item)"
+            (dblclick)="openItem(item)"
             (contextmenu)="onContextMenu($event, item, cm)"
           >
             <i class="doc-card-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
@@ -247,7 +246,7 @@ interface DocItem {
             class="doc-row"
             [class.is-selected]="selectedIds.has(item.id)"
             (click)="onCardClick($event, item)"
-            (dblclick)="downloadItem(item)"
+            (dblclick)="openItem(item)"
             (contextmenu)="onContextMenu($event, item, cm)"
           >
             <div class="doc-row-main">
@@ -365,7 +364,8 @@ export class DocumentsPage implements OnInit, OnDestroy {
   // ── State ──────────────────────────────────────────────────────────────────
 
   readonly currentFolderId = signal<string | null>(null);
-  readonly rootFolderId = signal<string | null>(null);
+  /** Dossiers top-level accessibles (résultat de /folders/accessible). */
+  readonly topLevelFolders = signal<ApiFolder[]>([]);
   readonly breadcrumb = signal<{ id: string; name: string }[]>([]);
   readonly subfolders = signal<ApiFolder[]>([]);
   readonly rawFiles = signal<ApiFile[]>([]);
@@ -465,28 +465,37 @@ export class DocumentsPage implements OnInit, OnDestroy {
     const orgId = this.contextSwitcher.selectedId();
     if (!orgId) return;
 
+    // Toujours charger les top-level accessibles (nécessaire pour le retour au top).
+    this.loadTopLevel(orgId);
+
     const folderId = this.route.snapshot.queryParamMap.get('folder');
     if (folderId) {
       this.currentFolderId.set(folderId);
       this.docService.getBreadcrumb(orgId, folderId).subscribe({
-        next: (crumbs) => {
-          // breadcrumb includes root → skip first item (Documents)
-          this.breadcrumb.set(crumbs.slice(1));
-        },
+        next: (crumbs) => this.breadcrumb.set(crumbs),
       });
       this.loadFolder(orgId, folderId);
-    } else {
-      this.docService.getRootFolder(orgId).subscribe({
-        next: (folder) => {
-          this.rootFolderId.set(folder.id);
-          this.currentFolderId.set(folder.id);
-          this.loadFolder(orgId, folder.id);
-        },
-        error: () => {
-          this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger le dossier racine.' });
-        },
-      });
     }
+  }
+
+  private loadTopLevel(orgId: string): void {
+    const atTop = this.currentFolderId() === null;
+    if (atTop) this.loading.set(true);
+    this.docService.getAccessibleFolders(orgId).subscribe({
+      next: (folders) => {
+        this.topLevelFolders.set(folders);
+        if (this.currentFolderId() === null) {
+          this.subfolders.set(folders);
+          this.rawFiles.set([]);
+          this.breadcrumb.set([]);
+          this.loading.set(false);
+        }
+      },
+      error: () => {
+        if (this.currentFolderId() === null) this.loading.set(false);
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger vos dossiers.' });
+      },
+    });
   }
 
   ngOnDestroy(): void {
@@ -519,13 +528,14 @@ export class DocumentsPage implements OnInit, OnDestroy {
   navigateToRoot(): void {
     const orgId = this.contextSwitcher.selectedId();
     if (!orgId) return;
-    const rootId = this.rootFolderId();
-    if (!rootId) return;
     this.breadcrumb.set([]);
-    this.currentFolderId.set(rootId);
+    this.currentFolderId.set(null);
+    this.subfolders.set(this.topLevelFolders());
+    this.rawFiles.set([]);
     this.clearSelection();
     this.updateUrl(null);
-    this.loadFolder(orgId, rootId);
+    // Rafraîchir les top-level en arrière-plan (au cas où).
+    this.loadTopLevel(orgId);
   }
 
   navigateToBreadcrumb(index: number): void {
@@ -542,14 +552,25 @@ export class DocumentsPage implements OnInit, OnDestroy {
   }
 
   openItem(item: DocItem): void {
-    if (!item.isFolder) return;
     const orgId = this.contextSwitcher.selectedId();
     if (!orgId) return;
-    this.breadcrumb.update(crumbs => [...crumbs, { id: item.id, name: item.name }]);
-    this.currentFolderId.set(item.id);
-    this.clearSelection();
-    this.updateUrl(item.id);
-    this.loadFolder(orgId, item.id);
+
+    if (item.isFolder) {
+      this.breadcrumb.update(crumbs => [...crumbs, { id: item.id, name: item.name }]);
+      this.currentFolderId.set(item.id);
+      this.clearSelection();
+      this.updateUrl(item.id);
+      this.loadFolder(orgId, item.id);
+      return;
+    }
+
+    // Fichier → ouvrir le viewer en transmettant la donnée complète via state.
+    const file = this.rawFiles().find(f => f.id === item.id);
+    const folderId = this.currentFolderId();
+    this.router.navigate(['/documents/files', item.id], {
+      queryParams: folderId ? { folder: folderId } : {},
+      state: file ? { file } : undefined,
+    });
   }
 
   private updateUrl(folderId: string | null): void {
@@ -570,12 +591,16 @@ export class DocumentsPage implements OnInit, OnDestroy {
 
   createFolder(): void {
     const orgId = this.contextSwitcher.selectedId();
-    const folderId = this.currentFolderId();
-    if (!orgId || !folderId || !this.newFolderName.trim()) return;
+    if (!orgId || !this.newFolderName.trim()) return;
+    // parent_id null = créer au top niveau.
+    const parentId = this.currentFolderId();
     this.creatingFolder = true;
-    this.docService.createFolder(orgId, this.newFolderName.trim(), folderId).subscribe({
+    this.docService.createFolder(orgId, this.newFolderName.trim(), parentId).subscribe({
       next: (folder) => {
         this.subfolders.update(list => [...list, folder]);
+        if (parentId === null) {
+          this.topLevelFolders.update(list => [...list, folder]);
+        }
         this.showCreateFolder = false;
         this.creatingFolder = false;
         this.messageService.add({ severity: 'success', summary: 'Dossier créé', detail: folder.name });
@@ -729,6 +754,7 @@ export class DocumentsPage implements OnInit, OnDestroy {
       next: () => {
         if (item.isFolder) {
           this.subfolders.update(list => list.filter(f => f.id !== item.id));
+          this.topLevelFolders.update(list => list.filter(f => f.id !== item.id));
         } else {
           this.rawFiles.update(list => list.filter(f => f.id !== item.id));
         }
@@ -758,6 +784,7 @@ export class DocumentsPage implements OnInit, OnDestroy {
       next: (result) => {
         this.rawFiles.update(list => list.filter(f => !fileIds.includes(f.id)));
         this.subfolders.update(list => list.filter(f => !folderIds.includes(f.id)));
+        this.topLevelFolders.update(list => list.filter(f => !folderIds.includes(f.id)));
         this.clearSelection();
         const total = result.files_deleted + result.folders_deleted;
         this.messageService.add({ severity: 'success', summary: `${total} élément${total > 1 ? 's' : ''} déplacé${total > 1 ? 's' : ''} dans la corbeille` });
@@ -853,10 +880,10 @@ export class DocumentsPage implements OnInit, OnDestroy {
     return result;
   }
 
-  folderMeta(item: DocItem): string {
-    const count = this.subfolders().filter(f => f.parent_id === item.id).length
-      + this.rawFiles().filter(f => f.folder_id === item.id).length;
-    return count === 0 ? 'Vide' : count === 1 ? '1 élément' : `${count} éléments`;
+  folderMeta(_item: DocItem): string {
+    // Plus de comptage local : parent_id des dossiers retournés par /accessible
+    // ne reflète pas forcément un parent accessible (cf. API dossiers v2).
+    return 'Dossier';
   }
 
   sizeLabel(size: number): string {

@@ -8,9 +8,13 @@ export interface ApiFolder {
   id: string;
   name: string;
   organization_id: string;
+  /**
+   * Arborescence réelle en base. Ne pas l'utiliser pour reconstruire
+   * la navigation côté front : un dossier accessible peut avoir un
+   * parent_id qui pointe sur un dossier invisible pour l'utilisateur.
+   * Utiliser /contents et /breadcrumb à la place.
+   */
   parent_id: string | null;
-  is_root: boolean;
-  is_trash: boolean;
   created_at: string;
 }
 
@@ -107,8 +111,14 @@ export class DocumentService {
 
   // ── Folders ──────────────────────────────────────────────────────────────
 
-  getRootFolder(orgId: string): Observable<ApiFolder> {
-    return this.http.get<ApiFolder>(`${this.base}/organizations/${orgId}/folders/root`);
+  /**
+   * Dossiers "top-level" accessibles à l'utilisateur.
+   * Remplace l'ancien /folders/root + /contents au démarrage.
+   * Pour un membre standard, ces dossiers peuvent être nichés profondément
+   * dans l'arborescence réelle (leur parent_id n'est alors pas fiable).
+   */
+  getAccessibleFolders(orgId: string): Observable<ApiFolder[]> {
+    return this.http.get<ApiFolder[]>(`${this.base}/organizations/${orgId}/folders/accessible`);
   }
 
   getFolderContents(orgId: string, folderId: string): Observable<ApiFolder[]> {
@@ -119,7 +129,8 @@ export class DocumentService {
     return this.http.get<{ id: string; name: string }[]>(`${this.base}/organizations/${orgId}/folders/${folderId}/breadcrumb`);
   }
 
-  createFolder(orgId: string, name: string, parentId: string): Observable<ApiFolder> {
+  /** parent_id null = dossier de premier niveau. */
+  createFolder(orgId: string, name: string, parentId: string | null): Observable<ApiFolder> {
     return this.http.post<ApiFolder>(`${this.base}/organizations/${orgId}/folders/`, { name, parent_id: parentId });
   }
 
@@ -127,7 +138,8 @@ export class DocumentService {
     return this.http.patch<ApiFolder>(`${this.base}/organizations/${orgId}/folders/${folderId}/rename`, { name });
   }
 
-  moveFolder(orgId: string, folderId: string, targetParentId: string): Observable<void> {
+  /** target_parent_id null = remonter au top niveau. */
+  moveFolder(orgId: string, folderId: string, targetParentId: string | null): Observable<void> {
     return this.http.patch<void>(`${this.base}/organizations/${orgId}/folders/${folderId}/move`, { target_parent_id: targetParentId });
   }
 
@@ -195,6 +207,11 @@ export class DocumentService {
 
   moveFile(orgId: string, fileId: string, targetFolderId: string): Observable<ApiFile> {
     return this.http.patch<ApiFile>(`${this.base}/organizations/${orgId}/files/${fileId}/move`, { target_folder_id: targetFolderId });
+  }
+
+  /** Récupère le fichier comme blob (pour prévisualisation inline via URL.createObjectURL). */
+  getFileBlob(orgId: string, fileId: string): Observable<Blob> {
+    return this.http.get(`${this.base}/organizations/${orgId}/files/${fileId}/download`, { responseType: 'blob' });
   }
 
   downloadFile(orgId: string, fileId: string, filename: string): void {
