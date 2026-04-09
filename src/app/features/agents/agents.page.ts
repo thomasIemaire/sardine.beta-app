@@ -62,9 +62,6 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
               @if (!isSharedFacet) {
                 <p-button label="Nouvel agent" icon="fa-regular fa-plus" rounded size="small" toolbar-actions (onClick)="showCreateDialog.set(true)" />
               }
-              @if (!isSharedFacet) {
-                <p-button icon="fa-regular fa-trash" severity="secondary" [text]="true" rounded size="small" toolbar-actions pTooltip="Corbeille" tooltipPosition="bottom" (onClick)="openTrash()" />
-              }
             </app-data-list>
 
             <ng-template #gridTpl>
@@ -381,10 +378,6 @@ export class AgentsPage {
     this.clearSelection();
     this.page = 0;
     this.load();
-  }
-
-  openTrash(): void {
-    this.router.navigate(['/corbeille'], { queryParams: { facet: 'agents' } });
   }
 
   openDocs(): void {
