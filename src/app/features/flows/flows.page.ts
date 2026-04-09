@@ -182,12 +182,10 @@ export class FlowsPage {
   constructor() {
     effect(() => {
       if (this.contextSwitcher.selectedId()) {
-        // Reset all filters, search, and sorting when organization changes
         this._search = '';
         this._filters = [];
         this._sorts = [];
         this.page = 0;
-        this.isSharedFacet = false;
         this.load();
       }
     });
