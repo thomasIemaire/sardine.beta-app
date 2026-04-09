@@ -20,6 +20,7 @@ interface ApiAgent {
   created_at: string;
   updated_at?: string;
   deleted_at?: string | null;
+  used_in_flows?: boolean;
 }
 
 export interface ApiAgentVersion {
@@ -224,6 +225,7 @@ export class AgentService {
       createdAt: new Date(a.created_at),
       creator,
       deletedAt: a.deleted_at ?? null,
+      usedInFlows: a.used_in_flows ?? true,
     };
   }
 }

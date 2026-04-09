@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, signal, viewChild } from '@angular
 import { Router, ActivatedRoute } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
+import { DialogModule } from 'primeng/dialog';
 import { ContextMenu } from 'primeng/contextmenu';
 import { PaginatorState } from 'primeng/paginator';
 import { MessageService, MenuItem } from 'primeng/api';
@@ -19,7 +20,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
 
 @Component({
   selector: 'app-agents',
-  imports: [ButtonModule, ToastModule, ContextMenu, HeaderPageComponent, DataListComponent, AgentCardComponent, AgentConfigPanelComponent, AgentVersionPanelComponent, CreateAgentDialogComponent, ShareDialogComponent],
+  imports: [ButtonModule, ToastModule, DialogModule, ContextMenu, HeaderPageComponent, DataListComponent, AgentCardComponent, AgentConfigPanelComponent, AgentVersionPanelComponent, CreateAgentDialogComponent, ShareDialogComponent],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="3000" />
@@ -114,6 +115,32 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
 
     <app-create-agent-dialog [(visible)]="showCreateDialog" (created)="onAgentCreated($event)" />
     <app-share-dialog [(visible)]="showShareDialog" itemType="agents" [itemId]="shareTarget?.id ?? ''" [itemName]="shareTarget?.name ?? ''" />
+
+    <p-dialog
+      [(visible)]="showDeleteConfirm"
+      header="Supprimer l'agent"
+      [modal]="true"
+      [draggable]="false"
+      [resizable]="false"
+      [style]="{ width: '420px' }"
+    >
+      <div style="display:flex; flex-direction:column; gap:.75rem; padding:.25rem 0">
+        <div style="display:flex; align-items:flex-start; gap:.75rem">
+          <i class="fa-regular fa-triangle-exclamation" style="font-size:1.25rem; color:var(--p-orange-500); flex-shrink:0; margin-top:.1rem"></i>
+          <div>
+            <p style="margin:0 0 .375rem; font-weight:600">Cet agent est utilisé dans un flow actif.</p>
+            <p style="margin:0; font-size:.875rem; line-height:1.6; color:var(--p-text-muted-color)">
+              Supprimer <strong>{{ agentToDelete?.name }}</strong> le retirera de tous les flows qui l'utilisent.
+              Cette action est réversible depuis la corbeille pendant 30 jours.
+            </p>
+          </div>
+        </div>
+      </div>
+      <ng-template pTemplate="footer">
+        <p-button label="Annuler" severity="secondary" size="small" [text]="true" rounded (onClick)="showDeleteConfirm = false" />
+        <p-button label="Supprimer quand même" severity="danger" size="small" rounded (onClick)="confirmDelete()" />
+      </ng-template>
+    </p-dialog>
   `,
   styleUrl: './agents.page.scss',
 })
@@ -128,6 +155,9 @@ export class AgentsPage {
   readonly showCreateDialog = signal(false);
   readonly showShareDialog = signal(false);
   shareTarget: Agent | null = null;
+
+  showDeleteConfirm = false;
+  agentToDelete: Agent | null = null;
 
   facets: Facet[] = [
     { id: 'my-agents', label: 'Mes agents' },
@@ -309,6 +339,22 @@ export class AgentsPage {
   }
 
   private delete(agent: Agent): void {
+    if (agent.usedInFlows) {
+      this.agentToDelete = agent;
+      this.showDeleteConfirm = true;
+      return;
+    }
+    this.executeDelete(agent);
+  }
+
+  confirmDelete(): void {
+    if (!this.agentToDelete) return;
+    this.showDeleteConfirm = false;
+    this.executeDelete(this.agentToDelete);
+    this.agentToDelete = null;
+  }
+
+  private executeDelete(agent: Agent): void {
     const orgId = this.contextSwitcher.selectedId();
     if (!orgId) return;
     this.agentService.deleteAgent(orgId, agent.id).subscribe({
