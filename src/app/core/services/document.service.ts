@@ -155,6 +155,10 @@ export class DocumentService {
     return this.http.post<void>(`${this.base}/organizations/${orgId}/folders/${folderId}/restore`, {});
   }
 
+  purgeFolder(orgId: string, folderId: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.base}/organizations/${orgId}/folders/${folderId}/purge`);
+  }
+
   emptyTrashFolders(orgId: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/organizations/${orgId}/folders/trash/empty`);
   }
@@ -262,6 +266,10 @@ export class DocumentService {
 
   restoreFile(orgId: string, fileId: string): Observable<void> {
     return this.http.post<void>(`${this.base}/organizations/${orgId}/files/${fileId}/restore`, {});
+  }
+
+  purgeFile(orgId: string, fileId: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.base}/organizations/${orgId}/files/${fileId}/purge`);
   }
 
   getFileVersions(orgId: string, fileId: string): Observable<ApiFileVersion[]> {

@@ -7,6 +7,8 @@ export interface Agent extends ItemCardData {
   forkedFromId: string | null;
   schemaData: Record<string, unknown> | null;
   activeVersionId: string | null;
+  deletedAt?: string | null;
+  usedInFlows: boolean;
 }
 
 @Component({
@@ -24,6 +26,9 @@ export interface Agent extends ItemCardData {
       @if (agent().forkedFromId) {
         <span class="fork-badge" pTooltip="Forké depuis un agent partagé" tooltipPosition="top">fork</span>
       }
+      @if (!agent().usedInFlows) {
+        <span class="unused-badge" pTooltip="Cet agent n'est utilisé dans aucun flow" tooltipPosition="top">inutilisé</span>
+      }
       <span class="card-percentage" [attr.data-severity]="percentageSeverity()" pTooltip="Réussite d'extraction" tooltipPosition="right">{{ agent().percentage }}%</span>
     </ng-template>
   `,
@@ -38,6 +43,19 @@ export interface Agent extends ItemCardData {
       background: var(--primary-color-100);
       color: var(--primary-color-700);
       border: 1px solid var(--primary-color-200);
+      line-height: 1.4;
+    }
+
+    .unused-badge {
+      font-size: 0.5625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      background: var(--p-surface-200);
+      color: var(--p-text-muted-color);
+      border: 1px solid var(--p-surface-300);
       line-height: 1.4;
     }
   `,

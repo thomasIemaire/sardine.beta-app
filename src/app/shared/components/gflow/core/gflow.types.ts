@@ -33,7 +33,7 @@ export type NodeType =
     | 'http'
     | 'notification'
     | 'container'
-    | 'ranger'
+    | 'save_file'
     | 'flow'
     | 'for'
     | 'while'
@@ -132,8 +132,9 @@ export interface ApprovalConfig {
     assigneeType: 'user' | 'team' | 'role' | 'executor';
     assigneeId: string;
     assigneeEmail: string;
+    notifyChannels?: NotificationChannel[];
     timeout?: number;
-    timeoutAction?: string; // option value or 'skip'
+    timeoutAction?: string;
 }
 
 export interface HttpHeader {
@@ -152,23 +153,20 @@ export interface HttpConfig {
     outputPath?: string;
 }
 
-export type NotificationChannel = 'app' | 'email' | 'sms';
-export type NotificationTargetType = 'executor' | 'user' | 'team' | 'organization' | 'role';
+export type NotificationChannel = 'inapp' | 'email';
+export type NotificationTargetType = 'executor' | 'user' | 'team' | 'organization';
 
 export interface NotificationTarget {
     type: NotificationTargetType;
-    id: string;
-    name: string;
+    id?: string;
+    email?: string;
 }
 
 export interface NotificationConfig {
     title: string;
     message: string;
-    channel: NotificationChannel;
-    targets: NotificationTarget[];
-    priority: 'low' | 'normal' | 'high' | 'urgent';
-    actionUrl?: string;
-    actionLabel?: string;
+    channels?: NotificationChannel[];
+    targets?: NotificationTarget[];
 }
 
 export interface ContainerAgent {
@@ -189,9 +187,7 @@ export interface FlowRefConfig {
 
 export interface RangerConfig {
     operation: 'archive' | 'move' | 'delete';
-    folderId: string;
-    folderName: string;
-    folderPath: string;
+    path: string;
 }
 
 export interface ForConfig {

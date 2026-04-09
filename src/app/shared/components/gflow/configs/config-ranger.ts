@@ -1,25 +1,16 @@
 import { Component, EventEmitter, inject, input, OnInit, Output } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
+import { AutoCompleteModule } from 'primeng/autocomplete';
+import { Observable, catchError, of, switchMap, tap } from 'rxjs';
 import { GFlowNode, RangerConfig } from '../core/gflow.types';
-import { FoldersService, UserService } from '../core/gflow-stubs';
-import { FolderResponse } from '../core/gflow-stubs';
-
-interface FolderTreeNode {
-    id: string;
-    name: string;
-    path: string;
-    children: FolderTreeNode[];
-    expanded: boolean;
-    loaded: boolean;
-}
+import { DocumentService, ApiFolder } from '../../../../core/services/document.service';
+import { ContextSwitcherService } from '../../../../core/layout/context-switcher/context-switcher.service';
 
 const OPERATIONS = [
-    { label: 'Ranger dans un dossier', value: 'archive', icon: 'fa-solid fa-folder-arrow-down' },
-    { label: 'Déplacer vers un dossier', value: 'move',    icon: 'fa-solid fa-folder-open' },
-    { label: 'Supprimer le document',   value: 'delete',  icon: 'fa-solid fa-trash' },
+    { label: 'Ranger dans un dossier', value: 'archive' },
+    { label: 'Déplacer vers un dossier', value: 'move' },
+    { label: 'Supprimer le document',   value: 'delete' },
 ] as const;
 
 const NODE_ICON: Record<string, string> = {
@@ -28,15 +19,9 @@ const NODE_ICON: Record<string, string> = {
     delete:  'fa-solid fa-file-slash',
 };
 
-const DEFAULT_NODE_NAME: Record<string, string> = {
-    archive: 'Fichier',
-    move:    'Fichier',
-    delete:  'Supprimer',
-};
-
 @Component({
     selector: 'app-config-ranger',
-    imports: [CommonModule, FormsModule, ButtonModule, SelectModule],
+    imports: [FormsModule, SelectModule, AutoCompleteModule],
     template: `
         <div class="config-fields">
 
@@ -59,56 +44,27 @@ const DEFAULT_NODE_NAME: Record<string, string> = {
                 </div>
             } @else {
                 <div class="config-field">
-                    <label class="config-label">{{ operation === 'move' ? 'Dossier de destination' : 'Dossier de rangement' }}</label>
+                    <label class="config-label">
+                        {{ operation === 'move' ? 'Dossier de destination' : 'Dossier de rangement' }}
+                    </label>
 
-                    @if (selectedPath) {
-                        <div class="selected-folder">
-                            <i class="fa-solid fa-folder"></i>
-                            <span>{{ selectedPath }}</span>
-                            <p-button
-                                icon="fa-solid fa-xmark"
-                                severity="secondary"
-                                text
-                                rounded
-                                size="small"
-                                (onClick)="clearSelection()" />
-                        </div>
-                    }
+                    <p-autocomplete
+                        [(ngModel)]="path"
+                        [suggestions]="suggestions"
+                        (completeMethod)="onSearch($event)"
+                        (onSelect)="onPathConfirm()"
+                        (onBlur)="onPathConfirm()"
+                        [placeholder]="'/dossier/sous-dossier/'"
+                        size="small"
+                        appendTo="body"
+                        [forceSelection]="false"
+                        styleClass="w-full path-input"
+                    />
 
-                    <div class="folder-tree">
-                        <div class="folder-tree__item folder-tree__item--root"
-                             [class.selected]="selectedId === ''"
-                             (click)="selectFolder('', '/', '/')">
-                            <i class="fa-solid fa-house"></i>
-                            <span>Racine</span>
-                        </div>
-                        @for (folder of rootFolders; track folder.id) {
-                            <ng-container *ngTemplateOutlet="folderNode; context: { $implicit: folder, depth: 1 }"></ng-container>
-                        }
+                    <div class="config-hint">
+                        <i class="fa-regular fa-circle-info"></i>
+                        Les dossiers absents seront créés automatiquement.
                     </div>
-
-                    <ng-template #folderNode let-folder let-depth="depth">
-                        <div class="folder-tree__item"
-                             [style.paddingLeft.px]="depth * 20"
-                             [class.selected]="selectedId === folder.id"
-                             (click)="selectFolder(folder.id, folder.name, folder.path)">
-                            <button class="folder-tree__toggle"
-                                    (click)="$event.stopPropagation(); toggleFolder(folder)">
-                                <i [class]="folder.expanded ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-right'"></i>
-                            </button>
-                            <i class="fa-solid fa-folder"></i>
-                            <span>{{ folder.name }}</span>
-                        </div>
-                        @if (folder.expanded) {
-                            @for (child of folder.children; track child.id) {
-                                <ng-container *ngTemplateOutlet="folderNode; context: { $implicit: child, depth: depth + 1 }"></ng-container>
-                            }
-                        }
-                    </ng-template>
-
-                    <small class="config-hint">
-                        {{ operation === 'move' ? 'Sélectionnez le dossier vers lequel déplacer le document.' : 'Sélectionnez le dossier dans lequel ranger le document.' }}
-                    </small>
                 </div>
             }
         </div>
@@ -117,118 +73,157 @@ const DEFAULT_NODE_NAME: Record<string, string> = {
         .config-fields { display: flex; flex-direction: column; gap: 1rem; }
         .config-field { display: flex; flex-direction: column; gap: .375rem; }
         .config-label { font-size: .8125rem; font-weight: 500; color: var(--p-text-color); }
-        .config-hint { font-size: .6875rem; color: var(--p-text-muted-color); }
+
+        .config-hint {
+            display: flex; align-items: center; gap: .375rem;
+            font-size: .6875rem; color: var(--p-text-muted-color);
+            i { font-size: .625rem; }
+        }
+
         .delete-warning {
             display: flex; align-items: flex-start; gap: .625rem; padding: .75rem;
             background: color-mix(in srgb, var(--p-red-500) 10%, transparent);
             border: 1px solid color-mix(in srgb, var(--p-red-500) 30%, transparent);
-            border-radius: .375rem; font-size: .8125rem;
-            color: var(--p-red-600);
+            border-radius: .375rem; font-size: .8125rem; color: var(--p-red-600);
+            i { margin-top: 2px; flex-shrink: 0; }
         }
-        .delete-warning i { margin-top: 2px; flex-shrink: 0; }
-        .selected-folder {
-            display: flex; align-items: center; gap: .5rem; padding: .375rem .625rem;
-            background: var(--background-color-400); border: 1px solid var(--background-color-200);
-            border-radius: .375rem; font-size: .8125rem; color: var(--background-color-800);
+
+        :host ::ng-deep .path-input {
+            width: 100%;
+
+            input {
+                width: 100%;
+                font-family: var(--font-mono, ui-monospace, monospace);
+                font-size: .8125rem;
+                letter-spacing: -.01em;
+            }
         }
-        .selected-folder span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .folder-tree {
-            max-height: 220px; overflow-y: auto;
-            border: 1px solid var(--background-color-200); border-radius: .375rem; padding: .25rem;
-        }
-        .folder-tree__item {
-            display: flex; align-items: center; gap: .375rem; padding: .375rem .5rem;
-            border-radius: .25rem; cursor: pointer; font-size: .8125rem; user-select: none;
-        }
-        .folder-tree__item:hover { background: var(--background-color-100); }
-        .folder-tree__item.selected { background: var(--background-color-400); color: var(--background-color-800); }
-        .folder-tree__toggle {
-            display: flex; align-items: center; justify-content: center;
-            width: 16px; height: 16px; border: none; background: none; cursor: pointer;
-            padding: 0; color: var(--p-text-muted-color); font-size: .625rem;
+
+        :host ::ng-deep .p-autocomplete-overlay .p-autocomplete-option {
+            font-family: var(--font-mono, ui-monospace, monospace);
+            font-size: .8125rem;
         }
     `]
 })
 export class ConfigRangerComponent implements OnInit {
     node = input.required<GFlowNode>();
-
     @Output() configChange = new EventEmitter<void>();
 
-    private foldersService = inject(FoldersService);
-    private userService = inject(UserService);
+    private readonly docService = inject(DocumentService);
+    private readonly contextSwitcher = inject(ContextSwitcherService);
 
     operationOptions = OPERATIONS as unknown as { label: string; value: string }[];
-    rootFolders: FolderTreeNode[] = [];
+    suggestions: string[] = [];
+
+    // Cache null = racine, string = id du dossier parent
+    private readonly childrenCache = new Map<string | null, ApiFolder[]>();
 
     get config(): RangerConfig { return this.node().config as RangerConfig; }
-    get operation(): string { return this.config.operation || 'archive'; }
-    set operation(value: string) { this.config.operation = value as RangerConfig['operation']; }
-    get selectedId(): string { return this.config.folderId || ''; }
-    get selectedPath(): string { return this.config.folderPath || ''; }
 
-    ngOnInit(): void { this.loadRootFolders(); }
+    get operation(): string { return this.config.operation || 'archive'; }
+    set operation(v: string) { this.config.operation = v as RangerConfig['operation']; }
+
+    get path(): string { return this.config.path || ''; }
+    set path(v: string) { this.config.path = v; }
+
+    ngOnInit(): void {
+        // Préchargement des dossiers racines pour des suggestions instantanées
+        this.loadChildren(null).subscribe();
+    }
 
     onOperationChange(): void {
         const node = this.node();
-        node.icon = { icon: NODE_ICON[this.operation] || NODE_ICON['archive'] };
+        node.icon = { icon: NODE_ICON[this.operation] ?? NODE_ICON['archive'] };
         if (this.operation === 'delete') {
-            this.config.folderId = '';
-            this.config.folderName = '';
-            this.config.folderPath = '';
+            this.config.path = '';
             node.name = 'Supprimer';
             node.configured = true;
         } else {
-            node.name = DEFAULT_NODE_NAME[this.operation];
+            this.syncNodeState();
+        }
+        this.configChange.emit();
+    }
+
+    onSearch(event: { query: string }): void {
+        this.buildSuggestions(event.query).subscribe(s => this.suggestions = s);
+    }
+
+    onPathConfirm(): void {
+        this.syncNodeState();
+        if (this.config.path) this.configChange.emit();
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+
+    private syncNodeState(): void {
+        const node = this.node();
+        const p = this.config.path ?? '';
+        const segments = p.split('/').filter(s => s.length > 0);
+        if (segments.length > 0) {
+            node.name = segments[segments.length - 1];
+            node.configured = true;
+        } else {
+            node.name = 'Fichier';
             node.configured = false;
         }
-        this.configChange.emit();
     }
 
-    selectFolder(id: string, name: string, path: string): void {
-        this.config.folderId = id;
-        this.config.folderName = name;
-        this.config.folderPath = path;
-        this.node().name = name;
-        this.node().configured = true;
-        this.configChange.emit();
+    private buildSuggestions(input: string) {
+        // Normalise : ajoute un / en début si absent
+        const normalized = input.startsWith('/') ? input : '/' + input;
+
+        // Détermine le préfixe parent et le filtre courant
+        const endsWithSlash = normalized.endsWith('/') || normalized === '/';
+        const parts = normalized.split('/').filter(s => s.length > 0);
+        const parentSegments = endsWithSlash ? parts : parts.slice(0, -1);
+        const filter = endsWithSlash ? '' : (parts.at(-1) ?? '');
+        const parentPrefix = parentSegments.length === 0
+            ? '/'
+            : '/' + parentSegments.join('/') + '/';
+
+        return this.resolveFolderId(parentSegments).pipe(
+            switchMap(parentId => this.loadChildren(parentId)),
+            switchMap(children => {
+                const matched = filter
+                    ? children.filter(f => f.name.toLowerCase().startsWith(filter.toLowerCase()))
+                    : children;
+                return of(matched.map(f => parentPrefix + f.name + '/'));
+            }),
+            catchError(() => of([])),
+        );
     }
 
-    clearSelection(): void {
-        this.config.folderId = '';
-        this.config.folderName = '';
-        this.config.folderPath = '';
-        this.node().name = DEFAULT_NODE_NAME[this.operation] || 'Fichier';
-        this.node().configured = false;
-        this.configChange.emit();
+    /** Résout l'id du dossier correspondant à un tableau de segments de chemin. */
+    private resolveFolderId(segments: string[]) {
+        if (segments.length === 0) return of<string | null>(null);
+        return this.loadChildren(null).pipe(
+            switchMap(roots => this.walkTree(roots, segments))
+        );
     }
 
-    toggleFolder(folder: FolderTreeNode): void {
-        if (!folder.loaded) {
-            this.loadSubfolders(folder);
-        } else {
-            folder.expanded = !folder.expanded;
-        }
+    private walkTree(folders: ApiFolder[], segments: string[]): Observable<string | null> {
+        const match = folders.find(f => f.name.toLowerCase() === segments[0].toLowerCase());
+        if (!match) return of(null);
+        if (segments.length === 1) return of(match.id);
+        return this.loadChildren(match.id).pipe(
+            switchMap(children => this.walkTree(children, segments.slice(1)))
+        );
     }
 
-    private loadRootFolders(): void {
-        const orgId = this.userService.getCurrentOrgId();
-        if (!orgId) return;
-        this.foldersService.listRoot(orgId).subscribe(folders => {
-            this.rootFolders = folders.map(f => this.toTreeNode(f));
-        });
-    }
+    private loadChildren(folderId: string | null): Observable<ApiFolder[]> {
+        const cached = this.childrenCache.get(folderId);
+        if (cached !== undefined) return of(cached);
 
-    private loadSubfolders(parent: FolderTreeNode): void {
-        const orgId = this.userService.getCurrentOrgId();
-        if (!orgId) return;
-        this.foldersService.getContents(orgId, parent.id).subscribe(contents => {
-            parent.children = contents.subfolders.map((f: FolderResponse) => this.toTreeNode(f));
-            parent.loaded = true;
-            parent.expanded = true;
-        });
-    }
+        const orgId = this.contextSwitcher.selectedId();
+        if (!orgId) return of<ApiFolder[]>([]);
 
-    private toTreeNode(f: FolderResponse): FolderTreeNode {
-        return { id: f.id, name: f.name, path: f.path, children: [], expanded: false, loaded: false };
+        const call = folderId === null
+            ? this.docService.getAccessibleFolders(orgId)
+            : this.docService.getFolderContents(orgId, folderId);
+
+        return call.pipe(
+            tap(folders => this.childrenCache.set(folderId, folders)),
+            catchError(() => of<ApiFolder[]>([])),
+        );
     }
 }

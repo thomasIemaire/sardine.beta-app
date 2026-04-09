@@ -28,7 +28,7 @@ export class GflowNodeComponent {
     readonly isEndNode = computed(() => this.item().type === 'end');
     readonly isContainerNode = computed(() => this.item().type === 'container');
     readonly isFlowNode = computed(() => this.item().type === 'flow');
-    readonly isRangerNode = computed(() => this.item().type === 'ranger');
+    readonly isRangerNode = computed(() => this.item().type === 'save_file');
     readonly isTextNode = computed(() => this.item().type === 'text');
     readonly isZoneNode = computed(() => this.item().type === 'for' || this.item().type === 'while' || this.item().type === 'do-while');
 
@@ -96,7 +96,7 @@ export class GflowNodeComponent {
     );
 
     readonly rangerPath = computed(() =>
-        (this.item().config as RangerConfig)?.folderPath || ''
+        (this.item().config as RangerConfig)?.path || ''
     );
 
     readonly textContent = linkedSignal(() => (this.item().config as TextConfig)?.text || '');
