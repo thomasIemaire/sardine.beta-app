@@ -66,8 +66,10 @@ interface DocItem {
         class="docs-body"
         [class.is-dragging]="isDragging"
         (click)="clearSelection()"
+        (dragenter)="onDragEnter($event)"
         (dragover)="onDragOver($event)"
         (dragleave)="onDragLeave($event)"
+        (dragend)="resetDrag()"
         (drop)="onDrop($event)"
       >
         @if (uploadProgress() !== null) {
@@ -620,13 +622,26 @@ export class DocumentsPage implements OnInit, OnDestroy {
     (event.target as HTMLInputElement).value = '';
   }
 
-  onDragOver(event: DragEvent): void {
+  onDragEnter(event: DragEvent): void {
+    // On ne compte QUE les dragenter (pas les dragover qui fire en continu),
+    // sinon le compteur explose et l'overlay ne se ferme jamais.
+    if (!this.hasFiles(event) || this.isOverToolbar(event)) return;
     event.preventDefault();
     this.dragCounter++;
     this.isDragging = true;
   }
 
-  onDragLeave(_event: DragEvent): void {
+  onDragOver(event: DragEvent): void {
+    // Obligatoire pour autoriser le drop. Si on est au-dessus de la toolbar
+    // on ne preventDefault PAS → le navigateur refusera le drop sur cette
+    // zone (sinon un fichier lâché sur la searchbar serait quand même
+    // capté par notre handler `onDrop` au niveau du docs-body).
+    if (!this.hasFiles(event) || this.isOverToolbar(event)) return;
+    event.preventDefault();
+  }
+
+  onDragLeave(event: DragEvent): void {
+    if (!this.hasFiles(event) || this.isOverToolbar(event)) return;
     this.dragCounter--;
     if (this.dragCounter <= 0) {
       this.dragCounter = 0;
@@ -634,10 +649,25 @@ export class DocumentsPage implements OnInit, OnDestroy {
     }
   }
 
+  resetDrag(): void {
+    this.dragCounter = 0;
+    this.isDragging = false;
+  }
+
+  private hasFiles(event: DragEvent): boolean {
+    return Array.from(event.dataTransfer?.types ?? []).includes('Files');
+  }
+
+  private isOverToolbar(event: DragEvent): boolean {
+    const target = event.target as HTMLElement | null;
+    return !!target?.closest('.data-list-toolbar');
+  }
+
   onDrop(event: DragEvent): void {
     event.preventDefault();
     this.isDragging = false;
     this.dragCounter = 0;
+    if (this.isOverToolbar(event)) return;
     const files = Array.from(event.dataTransfer?.files ?? []);
     if (files.length) this.uploadFiles(files);
   }
