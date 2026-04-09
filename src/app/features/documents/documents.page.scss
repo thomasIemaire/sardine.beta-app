@@ -301,28 +301,54 @@
 /* ── Drag overlay ── */
 .docs-drag-overlay {
   position: absolute;
-  inset: 0;
+  /* Les insets évitent : toolbar (~64 px en haut), paginateur (~2.75rem
+     en bas) et laissent une petite marge esthétique sur les côtés. */
+  top: 4.5rem;
+  left: calc(1rem);
+  right: calc(1rem);
+  /* paginateur (~2.75rem) + même gap que les côtés (1.25rem - 1px). */
+  bottom: calc(4.5rem);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
-  background: color-mix(in srgb, var(--p-primary-color) 8%, var(--background-color-0));
-  border: 2px dashed var(--p-primary-color);
-  border-radius: 8px;
+  gap: 1rem;
+  background: color-mix(in srgb, var(--p-primary-color) 10%, color-mix(in srgb, var(--background-color-0) 85%, transparent));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1.5px dashed color-mix(in srgb, var(--p-primary-color) 60%, transparent);
+  border-radius: 14px;
   z-index: 20;
   pointer-events: none;
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--p-primary-color);
+  animation: docs-drag-overlay-in 0.18s ease-out both;
 }
 
 .docs-drag-icon {
-  font-size: 2.5rem;
+  font-size: 2.25rem;
+  width: 4.5rem;
+  height: 4.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--p-primary-color) 15%, transparent);
+  color: var(--p-primary-color);
+  animation: docs-drag-icon-float 1.8s ease-in-out infinite;
+}
+
+@keyframes docs-drag-overlay-in {
+  from { opacity: 0; transform: scale(0.985); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes docs-drag-icon-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
 }
 
 .docs-body.is-dragging {
-  outline: 2px dashed var(--p-primary-color);
-  outline-offset: -4px;
-  border-radius: 8px;
+  position: relative;
 }
