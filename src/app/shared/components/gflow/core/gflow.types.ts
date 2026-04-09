@@ -33,7 +33,7 @@ export type NodeType =
     | 'http'
     | 'notification'
     | 'container'
-    | 'ranger'
+    | 'save_file'
     | 'flow'
     | 'for'
     | 'while'
@@ -189,9 +189,7 @@ export interface FlowRefConfig {
 
 export interface RangerConfig {
     operation: 'archive' | 'move' | 'delete';
-    folderId: string;
-    folderName: string;
-    folderPath: string;
+    path: string;
 }
 
 export interface ForConfig {

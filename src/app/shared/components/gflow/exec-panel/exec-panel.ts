@@ -238,7 +238,7 @@ export class ExecPanelComponent {
     // ---- Ranger ----
 
     hasRangerFile(log: ExecutionNodeLog): boolean {
-        return log.node_type === 'ranger' && log.status === 'completed' && !!log.metadata?.['file_id'];
+        return log.node_type === 'save_file' && log.status === 'completed' && !!log.metadata?.['file_id'];
     }
 
     openRangerFile(log: ExecutionNodeLog): void {

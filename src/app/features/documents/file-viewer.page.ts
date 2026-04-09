@@ -232,7 +232,11 @@ export class FileViewerPage implements OnInit, OnDestroy {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (blob) => {
-          this.objectUrl = URL.createObjectURL(blob);
+          // Force le MIME type correct — le serveur peut renvoyer
+          // application/octet-stream ou Content-Disposition: attachment,
+          // ce qui déclencherait un téléchargement au lieu d'un aperçu.
+          const typed = new Blob([blob], { type: file.mime_type });
+          this.objectUrl = URL.createObjectURL(typed);
           this.previewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl));
           this.loading.set(false);
         },

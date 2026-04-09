@@ -383,7 +383,7 @@ const NODE_DEFINITIONS_LIST: NodeDefinition[] = [
     },
 
     {
-        type: 'ranger',
+        type: 'save_file',
         label: 'Fichier',
         icon: { icon: 'fa-solid fa-file-arrow-down' },
         color: 'var(--p-gray-300)',
@@ -392,18 +392,19 @@ const NODE_DEFINITIONS_LIST: NodeDefinition[] = [
             name: 'Fichier',
             inputs: [createPort()],
             outputs: [createPort(undefined, {
-                file: {
-                    id: 'file-1',
-                    name: 'document.pdf',
-                    path: '/dossier/2024/',
+                savedFile: {
+                    fileId: 'file-1',
                     folderId: 'folder-1',
+                    path: '/dossier/2024/',
+                    name: 'document.pdf',
                     size: 204800,
+                    mimeType: 'application/pdf',
                 },
             })],
             entries: [],
             exits: [],
             configured: false,
-            config: { operation: 'archive', folderId: '', folderName: '', folderPath: '' } as RangerConfig,
+            config: { operation: 'archive', path: '' } as RangerConfig,
             configComponent: ConfigRangerComponent,
         }),
     },
