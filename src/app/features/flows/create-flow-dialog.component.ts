@@ -109,7 +109,7 @@ export class CreateFlowDialogComponent {
   private readonly contextSwitcher = inject(ContextSwitcherService);
 
   readonly visible = model(false);
-  readonly created = output<Flow>();
+  readonly created = output<Flow | Flow[]>();
 
   name = '';
   description = '';
@@ -125,10 +125,10 @@ export class CreateFlowDialogComponent {
 
     if (this.importedFile()) {
       this.flowService.importFlow(orgId, this.importedFile()!).subscribe({
-        next: (flow) => {
+        next: (flows) => {
           this.loading.set(false);
+          this.created.emit(flows);
           this.visible.set(false);
-          this.created.emit(flow);
         },
         error: () => this.loading.set(false),
       });
@@ -137,8 +137,8 @@ export class CreateFlowDialogComponent {
       this.flowService.createFlow(orgId, this.name.trim(), this.description.trim()).subscribe({
         next: (flow) => {
           this.loading.set(false);
-          this.visible.set(false);
           this.created.emit(flow);
+          this.visible.set(false);
         },
         error: () => this.loading.set(false),
       });

@@ -227,8 +227,8 @@ export class FlowService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http
-      .post<ApiFlow>(`${this.base}/organizations/${orgId}/flows/import`, formData)
-      .pipe(map((f) => this.mapFlow(f)));
+      .post<ApiFlow[]>(`${this.base}/organizations/${orgId}/flows/import`, formData)
+      .pipe(map((res) => res.map((f) => this.mapFlow(f))));
   }
 
   /** Lance une exécution. Retourne immédiatement avec status=pending. */

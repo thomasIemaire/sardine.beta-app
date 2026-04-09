@@ -216,10 +216,20 @@ export class FlowsPage {
     cm.show(event);
   }
 
-  onFlowCreated(flow: Flow): void {
-    this.flows.update((list) => [flow, ...list]);
-    this.total.update((t) => t + 1);
-    this.messageService.add({ severity: 'success', summary: 'Flow créé', detail: `"${flow.name}" a été créé avec succès.` });
+  onFlowCreated(result: Flow | Flow[]): void {
+    if (Array.isArray(result)) {
+      // Import : recharge depuis l'API pour être certain d'avoir tous les flows créés
+      this.load();
+      const main = result[result.length - 1];
+      const detail = result.length === 1
+        ? `"${main.name}" importé avec succès.`
+        : `"${main.name}" importé avec succès (+ ${result.length - 1} sous-flow(s)).`;
+      this.messageService.add({ severity: 'success', summary: 'Import réussi', detail });
+    } else {
+      this.flows.update((list) => [result, ...list]);
+      this.total.update((t) => t + 1);
+      this.messageService.add({ severity: 'success', summary: 'Flow créé', detail: `"${result.name}" a été créé avec succès.` });
+    }
   }
 
   private navigate(_flow: Flow): void {
