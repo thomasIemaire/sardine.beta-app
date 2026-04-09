@@ -41,8 +41,11 @@ import type { Flow } from '../../shared/components/flow-card/flow-card.component
           <div class="import-zone">
             @if (importedFile()) {
               <div class="file-info">
-                <i class="fa-regular fa-file-code"></i>
-                <span>{{ importedFile()!.name }}</span>
+                <span class="file-info__icon"><i class="fa-regular fa-file-code"></i></span>
+                <div class="file-info__meta">
+                  <span class="file-info__name">{{ importedFile()!.name }}</span>
+                  <span class="file-info__size">{{ formatSize(importedFile()!.size) }}</span>
+                </div>
                 <button type="button" class="remove-file" (click)="removeFile($event)">
                   <i class="fa-regular fa-xmark"></i>
                 </button>
@@ -76,26 +79,61 @@ import type { Flow } from '../../shared/components/flow-card/flow-card.component
     .file-info {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem;
-      background: var(--p-surface-100);
-      border-radius: 6px;
+      gap: 0.625rem;
+      padding: 0.625rem 0.75rem;
+      background: var(--p-surface-ground);
+      border: 1px solid var(--p-surface-border);
+      border-radius: 8px;
       width: 100%;
+      box-sizing: border-box;
     }
-    .file-info i {
-      color: var(--p-primary-color);
+    .file-info__icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--p-primary-500) 12%, transparent);
+      color: var(--p-primary-500);
+      font-size: 0.875rem;
+      flex-shrink: 0;
+    }
+    .file-info__meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+      min-width: 0;
+    }
+    .file-info__name {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--p-text-color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-info__size {
+      font-size: 0.6875rem;
+      color: var(--p-text-muted-color);
     }
     .remove-file {
       margin-left: auto;
       background: none;
       border: none;
-      color: var(--p-danger-color);
+      color: var(--p-text-muted-color);
       cursor: pointer;
       padding: 0.25rem;
       border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
     }
     .remove-file:hover {
-      background: var(--p-danger-50);
+      background: color-mix(in srgb, var(--p-red-500) 12%, transparent);
+      color: var(--p-red-500);
     }
     .divider-text {
       font-size: 0.75rem;
@@ -154,6 +192,12 @@ export class CreateFlowDialogComponent {
   removeFile(event: Event): void {
     event.preventDefault();
     this.importedFile.set(null);
+  }
+
+  formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} o`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
   }
 
   reset(): void {

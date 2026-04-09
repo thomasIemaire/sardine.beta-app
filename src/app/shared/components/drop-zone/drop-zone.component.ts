@@ -52,12 +52,12 @@ import { ToastModule } from 'primeng/toast';
 
             &:hover:not(.is-uploading) {
                 border-color: var(--p-primary-400);
-                background: var(--primary-color-50);
+                background: color-mix(in srgb, var(--p-primary-500) 8%, transparent);
             }
 
             &.is-over {
                 border-color: var(--p-primary-500);
-                background: var(--primary-color-50);
+                background: color-mix(in srgb, var(--p-primary-500) 10%, transparent);
                 scale: 1.02;
             }
 
@@ -65,7 +65,7 @@ import { ToastModule } from 'primeng/toast';
                 cursor: default;
                 border-color: var(--p-primary-300);
                 border-style: solid;
-                background: var(--primary-color-50);
+                background: color-mix(in srgb, var(--p-primary-500) 8%, transparent);
             }
         }
 
