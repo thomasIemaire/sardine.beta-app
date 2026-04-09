@@ -1,11 +1,12 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, viewChild } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { DialogModule } from 'primeng/dialog';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { ContextMenu } from 'primeng/contextmenu';
+import { MessageService, MenuItem } from 'primeng/api';
 import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../shared/components/header-page/header-page.component';
 import { DataListComponent, ListColumn } from '../../shared/components/data-list/data-list.component';
@@ -21,7 +22,7 @@ import { FlowService } from '../../core/services/flow.service';
 import { AgentService } from '../../core/services/agent.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
-type TrashCategory = 'fichiers' | 'agents' | 'flows';
+type TrashCategory = 'documents' | 'agents' | 'flows';
 
 interface TrashItem {
   id: string;
@@ -42,26 +43,27 @@ interface SoftTrashItem {
 @Component({
   selector: 'app-corbeille',
   imports: [
-    DatePipe, ButtonModule, TooltipModule, DialogModule, ToastModule,
+    DatePipe, ButtonModule, TooltipModule, DialogModule, ToastModule, ContextMenu,
     PageComponent, HeaderPageComponent, DataListComponent,
   ],
   providers: [MessageService],
   template: `
     <p-toast />
+    <p-contextmenu #cm />
 
     <app-page>
       <app-header-page
         title="Corbeille"
         subtitle="Éléments supprimés — conservés 30 jours"
         [facets]="facets"
-        defaultFacetId="fichiers"
+        defaultFacetId="documents"
         (facetChange)="onCategoryChange($event)"
       />
 
       <div class="docs-body">
 
         <!-- ── Fichiers ── -->
-        @if (activeCategory() === 'fichiers') {
+        @if (activeCategory() === 'documents') {
           <app-data-list
             gridMinWidth="155px"
             gridGap="0.5rem"
@@ -135,7 +137,8 @@ interface SoftTrashItem {
     <ng-template #fileGridTpl>
       @if (displayedFileFolders().length > 0) {
         @for (item of displayedFileFolders(); track item.id) {
-          <div class="doc-card doc-card--folder" [class.is-expiring]="isExpiringSoon(item)">
+          <div class="doc-card doc-card--folder" [class.is-expiring]="isExpiringSoon(item)"
+               (contextmenu)="onFileContextMenu($event, item)">
             <i class="doc-card-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
             <div class="doc-card-info">
               <span class="doc-card-name" [title]="item.name">{{ item.name }}</span>
@@ -144,9 +147,11 @@ interface SoftTrashItem {
                 @if (isExpiringSoon(item)) { <span class="expiring-dot"></span> }
               </span>
             </div>
-            <div class="doc-card-action">
+            <div class="doc-card-action soft-actions">
               <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
                 severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreFile(item)" />
+              <p-button icon="fa-regular fa-trash" pTooltip="Supprimer définitivement" tooltipPosition="left"
+                severity="danger" [text]="true" [rounded]="true" size="small" (onClick)="purgeFileItem(item)" />
             </div>
           </div>
         }
@@ -157,7 +162,8 @@ interface SoftTrashItem {
           <span class="docs-section-count">{{ displayedFileFiles().length }}</span>
         </div>
         @for (item of displayedFileFiles(); track item.id) {
-          <div class="doc-card" [class.is-expiring]="isExpiringSoon(item)">
+          <div class="doc-card" [class.is-expiring]="isExpiringSoon(item)"
+               (contextmenu)="onFileContextMenu($event, item)">
             <i class="doc-card-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
             <div class="doc-card-info">
               <span class="doc-card-name" [title]="item.name">{{ item.name }}</span>
@@ -179,7 +185,8 @@ interface SoftTrashItem {
     <ng-template #fileListTpl>
       @if (displayedFileFolders().length > 0) {
         @for (item of displayedFileFolders(); track item.id) {
-          <div class="doc-row doc-row--folder" [class.is-expiring]="isExpiringSoon(item)">
+          <div class="doc-row doc-row--folder" [class.is-expiring]="isExpiringSoon(item)"
+               (contextmenu)="onFileContextMenu($event, item)">
             <div class="doc-row-main">
               <i class="doc-row-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
               <div class="doc-row-text">
@@ -189,8 +196,12 @@ interface SoftTrashItem {
             </div>
             <span class="doc-row-date">{{ item.deletedAt | date:'dd/MM/yy' }}</span>
             <span class="doc-row-date" [class.doc-row-date--warn]="isExpiringSoon(item)">{{ item.expiresAt | date:'dd/MM/yy' }}</span>
-            <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
-              severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreFile(item)" />
+            <div class="soft-actions">
+              <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
+                severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreFile(item)" />
+              <p-button icon="fa-regular fa-trash" pTooltip="Supprimer définitivement" tooltipPosition="left"
+                severity="danger" [text]="true" [rounded]="true" size="small" (onClick)="purgeFileItem(item)" />
+            </div>
           </div>
         }
       }
@@ -200,7 +211,8 @@ interface SoftTrashItem {
           <span class="docs-section-count">{{ displayedFileFiles().length }}</span>
         </div>
         @for (item of displayedFileFiles(); track item.id) {
-          <div class="doc-row" [class.is-expiring]="isExpiringSoon(item)">
+          <div class="doc-row" [class.is-expiring]="isExpiringSoon(item)"
+               (contextmenu)="onFileContextMenu($event, item)">
             <div class="doc-row-main">
               <i class="doc-row-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
               <div class="doc-row-text">
@@ -220,7 +232,7 @@ interface SoftTrashItem {
     <!-- ══ Agent grid template ══ -->
     <ng-template #agentGridTpl>
       @for (item of displayedAgentItems(); track item.id) {
-        <div class="doc-card">
+        <div class="doc-card" (contextmenu)="onSoftContextMenu($event, item, 'agent')">
           <i class="doc-card-icon fa-regular fa-robot" data-type="agent"></i>
           <div class="doc-card-info">
             <span class="doc-card-name" [title]="item.name">{{ item.name }}</span>
@@ -239,7 +251,7 @@ interface SoftTrashItem {
     <!-- ══ Agent list template ══ -->
     <ng-template #agentListTpl>
       @for (item of displayedAgentItems(); track item.id) {
-        <div class="doc-row">
+        <div class="doc-row" (contextmenu)="onSoftContextMenu($event, item, 'agent')">
           <div class="doc-row-main">
             <i class="doc-row-icon fa-regular fa-robot" data-type="agent"></i>
             <div class="doc-row-text">
@@ -260,7 +272,7 @@ interface SoftTrashItem {
     <!-- ══ Flow grid template ══ -->
     <ng-template #flowGridTpl>
       @for (item of displayedFlowItems(); track item.id) {
-        <div class="doc-card">
+        <div class="doc-card" (contextmenu)="onSoftContextMenu($event, item, 'flow')">
           <i class="doc-card-icon fa-regular fa-chart-diagram" data-type="flow"></i>
           <div class="doc-card-info">
             <span class="doc-card-name" [title]="item.name">{{ item.name }}</span>
@@ -279,7 +291,7 @@ interface SoftTrashItem {
     <!-- ══ Flow list template ══ -->
     <ng-template #flowListTpl>
       @for (item of displayedFlowItems(); track item.id) {
-        <div class="doc-row">
+        <div class="doc-row" (contextmenu)="onSoftContextMenu($event, item, 'flow')">
           <div class="doc-row-main">
             <i class="doc-row-icon fa-regular fa-chart-diagram" data-type="flow"></i>
             <div class="doc-row-text">
@@ -356,11 +368,12 @@ export class CorbeillePage implements OnInit {
   private readonly agentService = inject(AgentService);
   private readonly contextSwitcher = inject(ContextSwitcherService);
   private readonly messageService = inject(MessageService);
+  private readonly cm = viewChild<ContextMenu>('cm');
 
-  readonly activeCategory = signal<TrashCategory>('fichiers');
+  readonly activeCategory = signal<TrashCategory>('documents');
 
   readonly facets: Facet[] = [
-    { id: 'fichiers', label: 'Fichiers' },
+    { id: 'documents', label: 'Documents' },
     { id: 'agents', label: 'Agents' },
     { id: 'flows', label: 'Flows' },
   ];
@@ -458,7 +471,7 @@ export class CorbeillePage implements OnInit {
 
   onCategoryChange(facet: Facet): void {
     this.activeCategory.set(facet.id as TrashCategory);
-    if (facet.id === 'fichiers' && this.fileItems().length === 0 && !this.fileLoading()) {
+    if (facet.id === 'documents' && this.fileItems().length === 0 && !this.fileLoading()) {
       this.loadFiles();
     }
     if (facet.id === 'agents' && this.agentItems().length === 0 && !this.agentLoading()) {
@@ -467,6 +480,35 @@ export class CorbeillePage implements OnInit {
     if (facet.id === 'flows' && this.flowItems().length === 0 && !this.flowLoading()) {
       this.loadFlows();
     }
+  }
+
+  // ── Context menus ─────────────────────────────────────────────────────────
+
+  onFileContextMenu(event: MouseEvent, item: TrashItem): void {
+    const menu = this.cm();
+    if (!menu) return;
+    const model: MenuItem[] = [
+      { label: 'Restaurer', icon: 'fa-regular fa-rotate-left', command: () => this.restoreFile(item) },
+    ];
+    model.push(
+      { separator: true },
+      { label: 'Supprimer définitivement', icon: 'fa-regular fa-trash', styleClass: 'p-danger', command: () => this.purgeFileItem(item) },
+    );
+    menu.model = model;
+    menu.show(event);
+  }
+
+  onSoftContextMenu(event: MouseEvent, item: SoftTrashItem, kind: 'agent' | 'flow'): void {
+    const menu = this.cm();
+    if (!menu) return;
+    const restore = kind === 'agent' ? () => this.restoreAgent(item) : () => this.restoreFlow(item);
+    const purge   = kind === 'agent' ? () => this.purgeAgent(item)   : () => this.purgeFlow(item);
+    menu.model = [
+      { label: 'Restaurer', icon: 'fa-regular fa-rotate-left', command: restore },
+      { separator: true },
+      { label: 'Supprimer définitivement', icon: 'fa-regular fa-trash', styleClass: 'p-danger', command: purge },
+    ] as MenuItem[];
+    menu.show(event);
   }
 
   // ── Fichiers methods ──────────────────────────────────────────────────────
@@ -522,6 +564,22 @@ export class CorbeillePage implements OnInit {
         this.messageService.add({ severity: 'success', summary: 'Restauré', detail: item.name });
       },
       error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de restaurer.' }),
+    });
+  }
+
+  purgeFileItem(item: TrashItem): void {
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) return;
+    const obs = item.isFolder
+      ? this.docService.purgeFolder(orgId, item.id)
+      : this.docService.purgeFile(orgId, item.id);
+    obs.subscribe({
+      next: () => {
+        this.fileItems.update(list => list.filter(i => i.id !== item.id));
+        const label = item.isFolder ? 'Dossier supprimé' : 'Fichier supprimé';
+        this.messageService.add({ severity: 'success', summary: label, detail: `"${item.name}" a été supprimé définitivement.` });
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer définitivement cet élément.' }),
     });
   }
 

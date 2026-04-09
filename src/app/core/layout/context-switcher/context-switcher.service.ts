@@ -67,6 +67,7 @@ export class ContextSwitcherService {
         const first = mapped.find((o) => !o.locked);
         if (first) {
           this.selectedId.set(first.id);
+          localStorage.setItem(STORAGE_KEY, first.id);
           // Show switcher only if multiple orgs and no stored default
           if (!this.storedDefault && mapped.filter((o) => !o.locked).length > 1) this.visible.set(true);
         }
@@ -91,8 +92,8 @@ export class ContextSwitcherService {
   select(org: CtxOrganization, saveAsDefault: boolean): void {
     if (org.locked) return;
     this.selectedId.set(org.id);
+    localStorage.setItem(STORAGE_KEY, org.id);
     if (saveAsDefault) {
-      localStorage.setItem(STORAGE_KEY, org.id);
       this.defaultOrgId.set(org.id);
     }
   }
