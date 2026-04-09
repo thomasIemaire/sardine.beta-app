@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { forkJoin } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { DialogModule } from 'primeng/dialog';
@@ -7,9 +8,15 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { PageComponent } from '../../shared/components/page/page.component';
 import { HeaderPageComponent } from '../../shared/components/header-page/header-page.component';
-import { ToolbarComponent } from '../../shared/components/toolbar/toolbar.component';
-import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
-import { DocumentService, ApiTrashFolder, ApiTrashFile, fileTypeFromMime, formatFileSize, DocFileType } from '../../core/services/document.service';
+import { DataListComponent, ListColumn } from '../../shared/components/data-list/data-list.component';
+import type { ViewMode } from '../../shared/components/toolbar/toolbar.component';
+import type { ActiveSort, SortDefinition } from '../../shared/components/toolbar/models/filter.models';
+import {
+  DocumentService,
+  fileTypeFromMime,
+  formatFileSize,
+  DocFileType,
+} from '../../core/services/document.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
 interface TrashItem {
@@ -26,7 +33,7 @@ interface TrashItem {
   selector: 'app-corbeille',
   imports: [
     DatePipe, ButtonModule, TooltipModule, DialogModule, ToastModule,
-    PageComponent, HeaderPageComponent, ToolbarComponent, EmptyStateComponent,
+    PageComponent, HeaderPageComponent, DataListComponent,
   ],
   providers: [MessageService],
   template: `
@@ -35,78 +42,168 @@ interface TrashItem {
     <app-page>
       <app-header-page title="Corbeille" subtitle="Éléments supprimés — conservés 30 jours" />
 
-      <div class="corbeille-toolbar">
-        <app-toolbar
+      <div class="docs-body">
+        <app-data-list
+          gridMinWidth="155px"
+          gridGap="0.5rem"
+          gridPadding="0.75rem 1rem 1rem"
           searchPlaceholder="Rechercher dans la corbeille..."
+          [sortDefinitions]="sortDefs"
+          [columns]="columns"
           [(search)]="search"
+          [(sorts)]="activeSorts"
+          [(viewMode)]="viewMode"
+          emptyIcon="fa-regular fa-trash"
+          emptyTitle="La corbeille est vide"
+          emptySubtitle="Les éléments supprimés apparaîtront ici pendant 30 jours."
+          [totalRecords]="displayedItems().length"
+          [gridTemplate]="gridTpl"
+          [listTemplate]="listTpl"
         >
           <p-button
+            toolbar-actions
             label="Vider la corbeille"
             icon="fa-regular fa-trash"
             severity="danger"
-            rounded
+            [rounded]="true"
             size="small"
             [disabled]="items().length === 0 || loading()"
             (onClick)="showEmptyConfirm = true"
           />
-        </app-toolbar>
+        </app-data-list>
       </div>
+    </app-page>
 
-      @if (loading()) {
-        <div class="corbeille-loading">
-          <i class="fa-regular fa-spinner fa-spin"></i>
-        </div>
-      } @else if (filteredItems().length === 0) {
-        <app-empty-state
-          icon="fa-regular fa-trash"
-          title="La corbeille est vide"
-          subtitle="Les éléments supprimés apparaîtront ici pendant 30 jours."
-        />
-      } @else {
-        <div class="corbeille-list">
-          <!-- Header -->
-          <div class="corbeille-row corbeille-row--header">
-            <span class="cr-name">Nom</span>
-            <span class="cr-date">Supprimé le</span>
-            <span class="cr-date">Expire le</span>
-            <span class="cr-actions"></span>
-          </div>
-
-          @for (item of filteredItems(); track item.id) {
-            <div class="corbeille-row" [class.corbeille-row--expiring]="isExpiringSoon(item)">
-              <div class="cr-name">
-                <i class="cr-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
-                <div class="cr-info">
-                  <span class="cr-item-name">{{ item.name }}</span>
-                  @if (!item.isFolder && item.size) {
-                    <span class="cr-meta">{{ sizeLabel(item.size) }}</span>
-                  }
-                  @if (isExpiringSoon(item)) {
-                    <span class="cr-expiring-badge">Expire bientôt</span>
-                  }
-                </div>
-              </div>
-              <span class="cr-date">{{ item.deletedAt | date:'dd/MM/yy HH:mm' }}</span>
-              <span class="cr-date" [class.cr-date--warn]="isExpiringSoon(item)">
-                {{ item.expiresAt | date:'dd/MM/yy' }}
+    <!-- Grid template -->
+    <ng-template #gridTpl>
+      @if (displayedFolders().length > 0) {
+        @for (item of displayedFolders(); track item.id) {
+          <div
+            class="doc-card doc-card--folder"
+            [class.is-expiring]="isExpiringSoon(item)"
+          >
+            <i class="doc-card-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
+            <div class="doc-card-info">
+              <span class="doc-card-name" [title]="item.name">{{ item.name }}</span>
+              <span class="doc-card-meta">
+                Expire {{ item.expiresAt | date:'dd/MM/yy' }}
+                @if (isExpiringSoon(item)) { <span class="expiring-dot"></span> }
               </span>
-              <div class="cr-actions">
-                <p-button
-                  icon="fa-regular fa-rotate-left"
-                  pTooltip="Restaurer"
-                  tooltipPosition="left"
-                  [text]="true"
-                  severity="secondary"
-                  size="small"
-                  rounded
-                  (onClick)="restore(item)"
-                />
+            </div>
+            <div class="doc-card-action">
+              <p-button
+                icon="fa-regular fa-rotate-left"
+                pTooltip="Restaurer"
+                tooltipPosition="left"
+                severity="secondary"
+                [text]="true"
+                [rounded]="true"
+                size="small"
+                (onClick)="restore(item)"
+              />
+            </div>
+          </div>
+        }
+      }
+      @if (displayedFiles().length > 0) {
+        <div class="docs-section-header">
+          <span class="docs-section-label">Fichiers</span>
+          <span class="docs-section-count">{{ displayedFiles().length }}</span>
+        </div>
+        @for (item of displayedFiles(); track item.id) {
+          <div class="doc-card" [class.is-expiring]="isExpiringSoon(item)">
+            <i class="doc-card-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
+            <div class="doc-card-info">
+              <span class="doc-card-name" [title]="item.name">{{ item.name }}</span>
+              <span class="doc-card-meta">
+                {{ item.size ? sizeLabel(item.size) + ' · ' : '' }}Expire {{ item.expiresAt | date:'dd/MM/yy' }}
+                @if (isExpiringSoon(item)) { <span class="expiring-dot"></span> }
+              </span>
+            </div>
+            <div class="doc-card-action">
+              <p-button
+                icon="fa-regular fa-rotate-left"
+                pTooltip="Restaurer"
+                tooltipPosition="left"
+                severity="secondary"
+                [text]="true"
+                [rounded]="true"
+                size="small"
+                (onClick)="restore(item)"
+              />
+            </div>
+          </div>
+        }
+      }
+    </ng-template>
+
+    <!-- List template -->
+    <ng-template #listTpl>
+      @if (displayedFolders().length > 0) {
+        @for (item of displayedFolders(); track item.id) {
+          <div class="doc-row doc-row--folder" [class.is-expiring]="isExpiringSoon(item)">
+            <div class="doc-row-main">
+              <i class="doc-row-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
+              <div class="doc-row-text">
+                <span class="doc-row-name">{{ item.name }}</span>
+                <span class="doc-row-meta">
+                  Dossier
+                  @if (isExpiringSoon(item)) { · <span class="expiring-badge">Expire bientôt</span> }
+                </span>
               </div>
             </div>
-          }
-        </div>
+            <span class="doc-row-date">{{ item.deletedAt | date:'dd/MM/yy' }}</span>
+            <span class="doc-row-date" [class.doc-row-date--warn]="isExpiringSoon(item)">
+              {{ item.expiresAt | date:'dd/MM/yy' }}
+            </span>
+            <p-button
+              icon="fa-regular fa-rotate-left"
+              pTooltip="Restaurer"
+              tooltipPosition="left"
+              severity="secondary"
+              [text]="true"
+              [rounded]="true"
+              size="small"
+              (onClick)="restore(item)"
+            />
+          </div>
+        }
       }
-    </app-page>
+      @if (displayedFiles().length > 0) {
+        <div class="docs-section-row-header">
+          <span class="docs-section-label">Fichiers</span>
+          <span class="docs-section-count">{{ displayedFiles().length }}</span>
+        </div>
+        @for (item of displayedFiles(); track item.id) {
+          <div class="doc-row" [class.is-expiring]="isExpiringSoon(item)">
+            <div class="doc-row-main">
+              <i class="doc-row-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
+              <div class="doc-row-text">
+                <span class="doc-row-name">{{ item.name }}</span>
+                <span class="doc-row-meta">
+                  {{ item.size ? sizeLabel(item.size) : '' }}
+                  @if (isExpiringSoon(item)) { · <span class="expiring-badge">Expire bientôt</span> }
+                </span>
+              </div>
+            </div>
+            <span class="doc-row-date">{{ item.deletedAt | date:'dd/MM/yy' }}</span>
+            <span class="doc-row-date" [class.doc-row-date--warn]="isExpiringSoon(item)">
+              {{ item.expiresAt | date:'dd/MM/yy' }}
+            </span>
+            <p-button
+              icon="fa-regular fa-rotate-left"
+              pTooltip="Restaurer"
+              tooltipPosition="left"
+              severity="secondary"
+              [text]="true"
+              [rounded]="true"
+              size="small"
+              (onClick)="restore(item)"
+            />
+          </div>
+        }
+      }
+    </ng-template>
 
     <!-- Empty trash confirm -->
     <p-dialog
@@ -127,135 +224,43 @@ interface TrashItem {
       </ng-template>
     </p-dialog>
   `,
-  styles: `
-    .corbeille-toolbar {
-      padding: 1rem 1rem 0;
+  // Réutilise les styles de la page Documents pour obtenir exactement la
+  // même apparence (cartes, lignes, sections, icônes typées…).
+  styleUrl: '../documents/documents.page.scss',
+  styles: [`
+    /* ── Surcharges spécifiques corbeille ─────────────────────────────── */
+
+    .doc-card.is-expiring,
+    .doc-row.is-expiring {
+      background: color-mix(in srgb, var(--p-orange-500, #f97316) 6%, transparent);
     }
 
-    .corbeille-loading {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4rem;
-      font-size: 1.5rem;
-      color: var(--p-text-muted-color);
+    .expiring-dot {
+      display: inline-block;
+      width: .4rem;
+      height: .4rem;
+      border-radius: 999px;
+      background: var(--p-orange-500, #f97316);
+      vertical-align: middle;
+      margin-left: .25rem;
     }
 
-    .corbeille-list {
-      padding: 0.75rem 1rem;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .corbeille-row {
-      display: grid;
-      grid-template-columns: 1fr 9rem 9rem 3rem;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 0.625rem 0.75rem;
-      border-radius: 6px;
-      transition: background 0.1s;
-
-      &:hover:not(&--header) { background: var(--background-color-50); }
-
-      &--header {
-        padding: 0.375rem 0.75rem;
-        margin-bottom: 0.25rem;
-        border-bottom: 1px solid var(--surface-border);
-        border-radius: 0;
-      }
-
-      &--expiring { background: color-mix(in srgb, var(--p-orange-500, #f97316) 5%, transparent); }
-    }
-
-    .cr-name {
-      display: flex;
-      align-items: center;
-      gap: 0.625rem;
-      min-width: 0;
-      font-size: 0.6875rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--p-text-muted-color);
-
-      .corbeille-row:not(.corbeille-row--header) & {
-        font-size: 0.8125rem;
-        font-weight: normal;
-        text-transform: none;
-        letter-spacing: normal;
-        color: var(--p-text-color);
-      }
-    }
-
-    .cr-icon {
-      font-size: 1rem;
-      width: 1.25rem;
-      text-align: center;
-      flex-shrink: 0;
-
-      &[data-type='folder'] { color: var(--yellow-color-500, #f59e0b); }
-      &[data-type='pdf']    { color: #e74c3c; }
-      &[data-type='docx']   { color: #2980b9; }
-      &[data-type='xlsx']   { color: #27ae60; }
-      &[data-type='png'],
-      &[data-type='jpg']    { color: #8e44ad; }
-      &[data-type='txt']    { color: var(--p-text-muted-color); }
-      &[data-type='csv']    { color: #16a085; }
-    }
-
-    .cr-info {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      gap: 0.1rem;
-    }
-
-    .cr-item-name {
-      font-size: 0.8125rem;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .cr-meta {
-      font-size: 0.6875rem;
-      color: var(--p-text-muted-color);
-    }
-
-    .cr-expiring-badge {
+    .expiring-badge {
       font-size: 0.6rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       color: var(--p-orange-500, #f97316);
       background: color-mix(in srgb, var(--p-orange-500, #f97316) 12%, transparent);
-      padding: 0.1rem 0.35rem;
+      padding: .1rem .35rem;
       border-radius: 99px;
-      width: fit-content;
     }
 
-    .cr-date {
-      font-size: 0.75rem;
-      color: var(--p-text-muted-color);
-      white-space: nowrap;
-
-      &--warn { color: var(--p-orange-500, #f97316); font-weight: 600; }
-
-      .corbeille-row--header & {
-        font-size: 0.6875rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
+    .doc-row-date--warn {
+      color: var(--p-orange-500, #f97316);
+      font-weight: 600;
     }
-
-    .cr-actions {
-      display: flex;
-      justify-content: flex-end;
-    }
-  `,
+  `],
 })
 export class CorbeillePage implements OnInit {
   private readonly docService = inject(DocumentService);
@@ -269,11 +274,30 @@ export class CorbeillePage implements OnInit {
   showEmptyConfirm = false;
   emptying = false;
 
-  readonly filteredItems = computed(() => {
-    const q = this.search.trim().toLowerCase();
-    if (!q) return this.items();
-    return this.items().filter(i => i.name.toLowerCase().includes(q));
-  });
+  private _viewMode: ViewMode = (localStorage.getItem('viewMode:corbeille') as ViewMode) ?? 'grid';
+  get viewMode(): ViewMode { return this._viewMode; }
+  set viewMode(v: ViewMode) { this._viewMode = v; localStorage.setItem('viewMode:corbeille', v); }
+
+  activeSorts: ActiveSort[] = [];
+
+  readonly sortDefs: SortDefinition[] = [
+    { id: 'name', label: 'Nom' },
+    { id: 'deletedAt', label: 'Supprimé le' },
+    { id: 'expiresAt', label: 'Expire le' },
+    { id: 'size', label: 'Taille' },
+  ];
+
+  readonly columns: ListColumn[] = [
+    { label: 'Nom', cssClass: 'col-flex' },
+    { label: 'Supprimé le', cssClass: 'col-date' },
+    { label: 'Expire le', cssClass: 'col-date' },
+    { label: '', cssClass: 'col-actions' },
+  ];
+
+  readonly displayedItems = computed(() => this.applyFiltersAndSort(this.items()));
+
+  readonly displayedFolders = computed(() => this.displayedItems().filter(i => i.isFolder));
+  readonly displayedFiles = computed(() => this.displayedItems().filter(i => !i.isFolder));
 
   ngOnInit(): void {
     this.loadTrash();
@@ -284,33 +308,35 @@ export class CorbeillePage implements OnInit {
     if (!orgId) return;
     this.loading.set(true);
 
-    // Load both trash lists in parallel
-    Promise.all([
-      this.docService.getTrashFolders(orgId).toPromise(),
-      this.docService.getTrashFiles(orgId).toPromise(),
-    ]).then(([folders, files]) => {
-      const folderItems: TrashItem[] = (folders ?? []).map(f => ({
-        id: f.id,
-        name: f.name,
-        isFolder: true,
-        type: 'folder' as DocFileType,
-        deletedAt: new Date(f.deleted_at),
-        expiresAt: new Date(f.expires_at),
-      }));
-      const fileItems: TrashItem[] = (files ?? []).map(f => ({
-        id: f.id,
-        name: f.name,
-        isFolder: false,
-        type: fileTypeFromMime(f.mime_type, f.name),
-        size: f.size,
-        deletedAt: new Date(f.deleted_at),
-        expiresAt: new Date(f.expires_at),
-      }));
-      this.items.set([...folderItems, ...fileItems].sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime()));
-      this.loading.set(false);
-    }).catch(() => {
-      this.loading.set(false);
-      this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger la corbeille.' });
+    forkJoin({
+      folders: this.docService.getTrashFolders(orgId),
+      files: this.docService.getTrashFiles(orgId),
+    }).subscribe({
+      next: ({ folders, files }) => {
+        const folderItems: TrashItem[] = (folders ?? []).map(f => ({
+          id: f.id,
+          name: f.name,
+          isFolder: true,
+          type: 'folder' as DocFileType,
+          deletedAt: new Date(f.deleted_at),
+          expiresAt: new Date(f.expires_at),
+        }));
+        const fileItems: TrashItem[] = (files ?? []).map(f => ({
+          id: f.id,
+          name: f.name,
+          isFolder: false,
+          type: fileTypeFromMime(f.mime_type, f.name),
+          size: f.size,
+          deletedAt: new Date(f.deleted_at),
+          expiresAt: new Date(f.expires_at),
+        }));
+        this.items.set([...folderItems, ...fileItems]);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.loading.set(false);
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger la corbeille.' });
+      },
     });
   }
 
@@ -372,5 +398,34 @@ export class CorbeillePage implements OnInit {
       case 'csv':    return 'fa-regular fa-file-csv';
       default:       return 'fa-regular fa-file';
     }
+  }
+
+  private applyFiltersAndSort(items: TrashItem[]): TrashItem[] {
+    let result = [...items];
+
+    if (this.search.trim()) {
+      const q = this.search.toLowerCase();
+      result = result.filter(i => i.name.toLowerCase().includes(q));
+    }
+
+    for (const s of this.activeSorts) {
+      const dir = s.direction === 'asc' ? 1 : -1;
+      result.sort((a, b) => {
+        switch (s.definitionId) {
+          case 'name':      return dir * a.name.localeCompare(b.name);
+          case 'deletedAt': return dir * (a.deletedAt.getTime() - b.deletedAt.getTime());
+          case 'expiresAt': return dir * (a.expiresAt.getTime() - b.expiresAt.getTime());
+          case 'size':      return dir * ((a.size ?? 0) - (b.size ?? 0));
+          default:          return 0;
+        }
+      });
+    }
+
+    if (!this.activeSorts.length) {
+      // Tri par défaut : expiration la plus proche en premier.
+      result.sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
+    }
+
+    return result;
   }
 }

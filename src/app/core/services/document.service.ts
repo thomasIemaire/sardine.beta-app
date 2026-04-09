@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpRequest, HttpEventType, HttpParams } from '@angular/common/http';
-import { Observable, filter, map } from 'rxjs';
+import { Observable, catchError, filter, forkJoin, map, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 
@@ -155,8 +155,24 @@ export class DocumentService {
     return this.http.post<void>(`${this.base}/organizations/${orgId}/folders/${folderId}/restore`, {});
   }
 
-  emptyTrash(orgId: string): Observable<void> {
+  emptyTrashFolders(orgId: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/organizations/${orgId}/folders/trash/empty`);
+  }
+
+  emptyTrashFiles(orgId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/organizations/${orgId}/files/trash/empty`);
+  }
+
+  /**
+   * Vide complètement la corbeille (fichiers ET dossiers). Les deux
+   * endpoints sont appelés en parallèle, les échecs individuels sont
+   * tolérés pour permettre une vidange partielle.
+   */
+  emptyTrash(orgId: string): Observable<void> {
+    return forkJoin({
+      folders: this.emptyTrashFolders(orgId).pipe(catchError(() => of(void 0))),
+      files: this.emptyTrashFiles(orgId).pipe(catchError(() => of(void 0))),
+    }).pipe(map(() => void 0));
   }
 
   // ── Files ─────────────────────────────────────────────────────────────────
