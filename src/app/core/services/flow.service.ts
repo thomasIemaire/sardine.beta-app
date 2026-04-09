@@ -91,6 +91,7 @@ interface ApiFlow {
   created_by: string;
   created_by_name?: string;
   created_at: string;
+  deleted_at?: string | null;
 }
 
 export type FlowDataPartial = Omit<SerializedFlowData, 'viewport'> & { viewport?: SerializedFlowData['viewport'] };
@@ -210,7 +211,23 @@ export class FlowService {
   }
 
   deleteFlow(orgId: string, flowId: string) {
-    return this.http.delete(`${this.base}/organizations/${orgId}/flows/${flowId}`);
+    return this.http.delete<{ message: string }>(`${this.base}/organizations/${orgId}/flows/${flowId}`);
+  }
+
+  getTrashFlows(orgId: string) {
+    return this.http
+      .get<ApiFlow[]>(`${this.base}/organizations/${orgId}/flows/trash`)
+      .pipe(map((items) => items.map((f) => this.mapFlow(f))));
+  }
+
+  restoreFlow(orgId: string, flowId: string) {
+    return this.http
+      .post<ApiFlow>(`${this.base}/organizations/${orgId}/flows/${flowId}/restore`, {})
+      .pipe(map((f) => this.mapFlow(f)));
+  }
+
+  purgeFlow(orgId: string, flowId: string) {
+    return this.http.delete<{ message: string }>(`${this.base}/organizations/${orgId}/flows/${flowId}/purge`);
   }
 
   forkFlow(orgId: string, flowId: string) {
@@ -329,6 +346,7 @@ export class FlowService {
       forkedFromId: f.forked_from_id,
       createdAt: new Date(f.created_at),
       creator,
+      deletedAt: f.deleted_at ?? null,
     };
   }
 }

@@ -14,6 +14,7 @@ import { FlowService, FlowListParams } from '../../core/services/flow.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 import { CreateFlowDialogComponent } from './create-flow-dialog.component';
 import { ShareDialogComponent } from '../../shared/components/share-dialog/share-dialog.component';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-flows',
@@ -55,6 +56,9 @@ import { ShareDialogComponent } from '../../shared/components/share-dialog/share
         @if (!isSharedFacet) {
           <p-button label="Nouveau flow" icon="fa-regular fa-plus" rounded size="small" toolbar-actions (onClick)="showCreateDialog.set(true)" />
         }
+        @if (!isSharedFacet) {
+          <p-button icon="fa-regular fa-trash" severity="secondary" [text]="true" rounded size="small" toolbar-actions pTooltip="Corbeille" tooltipPosition="bottom" (onClick)="openTrash()" />
+        }
       </app-data-list>
 
       <ng-template #gridTpl>
@@ -78,6 +82,7 @@ export class FlowsPage {
   private readonly flowService = inject(FlowService);
   private readonly contextSwitcher = inject(ContextSwitcherService);
   private readonly messageService = inject(MessageService);
+  private readonly router = inject(Router);
   private readonly flowCm = viewChild<ContextMenu>('flowCm');
 
   readonly showCreateDialog = signal(false);
@@ -259,10 +264,14 @@ export class FlowsPage {
       next: () => {
         this.flows.update((list) => list.filter((f) => f.id !== flow.id));
         this.total.update((t) => t - 1);
-        this.messageService.add({ severity: 'success', summary: 'Flow supprimé', detail: `"${flow.name}" a été supprimé.` });
+        this.messageService.add({ severity: 'success', summary: 'Flow déplacé dans la corbeille', detail: `"${flow.name}" a été mis dans la corbeille.` });
       },
       error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer ce flow.' }),
     });
+  }
+
+  openTrash(): void {
+    this.router.navigate(['/corbeille'], { queryParams: { facet: 'flows' } });
   }
 
   private exportFlow(flow: Flow): void {

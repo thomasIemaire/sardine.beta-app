@@ -9,6 +9,7 @@ export interface Flow extends ItemCardData {
   status: FlowStatus;
   forkedFromId: string | null;
   organizationId: string;
+  deletedAt?: string | null;
 }
 
 @Component({
