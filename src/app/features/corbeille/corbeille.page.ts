@@ -18,6 +18,7 @@ import {
   DocFileType,
 } from '../../core/services/document.service';
 import { FlowService } from '../../core/services/flow.service';
+import { AgentService } from '../../core/services/agent.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
 type TrashCategory = 'fichiers' | 'agents' | 'flows';
@@ -32,7 +33,7 @@ interface TrashItem {
   expiresAt: Date;
 }
 
-interface FlowTrashItem {
+interface SoftTrashItem {
   id: string;
   name: string;
   deletedAt: Date;
@@ -93,10 +94,20 @@ interface FlowTrashItem {
 
         <!-- ── Agents ── -->
         @if (activeCategory() === 'agents') {
-          <div class="trash-empty-state">
-            <i class="fa-regular fa-robot"></i>
-            <span>La corbeille des agents est vide.</span>
-          </div>
+          <app-data-list
+            searchPlaceholder="Rechercher un agent..."
+            [sortDefinitions]="agentSortDefs"
+            [columns]="agentColumns"
+            [(search)]="agentSearch"
+            [(sorts)]="agentActiveSorts"
+            [(viewMode)]="agentViewMode"
+            emptyIcon="fa-regular fa-robot"
+            emptyTitle="La corbeille des agents est vide"
+            emptySubtitle="Les agents supprimés apparaîtront ici pendant 30 jours."
+            [totalRecords]="displayedAgentItems().length"
+            [gridTemplate]="agentGridTpl"
+            [listTemplate]="agentListTpl"
+          />
         }
 
         <!-- ── Flows ── -->
@@ -134,16 +145,8 @@ interface FlowTrashItem {
               </span>
             </div>
             <div class="doc-card-action">
-              <p-button
-                icon="fa-regular fa-rotate-left"
-                pTooltip="Restaurer"
-                tooltipPosition="left"
-                severity="secondary"
-                [text]="true"
-                [rounded]="true"
-                size="small"
-                (onClick)="restoreFile(item)"
-              />
+              <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
+                severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreFile(item)" />
             </div>
           </div>
         }
@@ -164,16 +167,8 @@ interface FlowTrashItem {
               </span>
             </div>
             <div class="doc-card-action">
-              <p-button
-                icon="fa-regular fa-rotate-left"
-                pTooltip="Restaurer"
-                tooltipPosition="left"
-                severity="secondary"
-                [text]="true"
-                [rounded]="true"
-                size="small"
-                (onClick)="restoreFile(item)"
-              />
+              <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
+                severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreFile(item)" />
             </div>
           </div>
         }
@@ -189,26 +184,13 @@ interface FlowTrashItem {
               <i class="doc-row-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
               <div class="doc-row-text">
                 <span class="doc-row-name">{{ item.name }}</span>
-                <span class="doc-row-meta">
-                  Dossier
-                  @if (isExpiringSoon(item)) { · <span class="expiring-badge">Expire bientôt</span> }
-                </span>
+                <span class="doc-row-meta">Dossier @if (isExpiringSoon(item)) { · <span class="expiring-badge">Expire bientôt</span> }</span>
               </div>
             </div>
             <span class="doc-row-date">{{ item.deletedAt | date:'dd/MM/yy' }}</span>
-            <span class="doc-row-date" [class.doc-row-date--warn]="isExpiringSoon(item)">
-              {{ item.expiresAt | date:'dd/MM/yy' }}
-            </span>
-            <p-button
-              icon="fa-regular fa-rotate-left"
-              pTooltip="Restaurer"
-              tooltipPosition="left"
-              severity="secondary"
-              [text]="true"
-              [rounded]="true"
-              size="small"
-              (onClick)="restoreFile(item)"
-            />
+            <span class="doc-row-date" [class.doc-row-date--warn]="isExpiringSoon(item)">{{ item.expiresAt | date:'dd/MM/yy' }}</span>
+            <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
+              severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreFile(item)" />
           </div>
         }
       }
@@ -223,28 +205,55 @@ interface FlowTrashItem {
               <i class="doc-row-icon {{ iconClass(item.type) }}" [attr.data-type]="item.type"></i>
               <div class="doc-row-text">
                 <span class="doc-row-name">{{ item.name }}</span>
-                <span class="doc-row-meta">
-                  {{ item.size ? sizeLabel(item.size) : '' }}
-                  @if (isExpiringSoon(item)) { · <span class="expiring-badge">Expire bientôt</span> }
-                </span>
+                <span class="doc-row-meta">{{ item.size ? sizeLabel(item.size) : '' }} @if (isExpiringSoon(item)) { · <span class="expiring-badge">Expire bientôt</span> }</span>
               </div>
             </div>
             <span class="doc-row-date">{{ item.deletedAt | date:'dd/MM/yy' }}</span>
-            <span class="doc-row-date" [class.doc-row-date--warn]="isExpiringSoon(item)">
-              {{ item.expiresAt | date:'dd/MM/yy' }}
-            </span>
-            <p-button
-              icon="fa-regular fa-rotate-left"
-              pTooltip="Restaurer"
-              tooltipPosition="left"
-              severity="secondary"
-              [text]="true"
-              [rounded]="true"
-              size="small"
-              (onClick)="restoreFile(item)"
-            />
+            <span class="doc-row-date" [class.doc-row-date--warn]="isExpiringSoon(item)">{{ item.expiresAt | date:'dd/MM/yy' }}</span>
+            <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
+              severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreFile(item)" />
           </div>
         }
+      }
+    </ng-template>
+
+    <!-- ══ Agent grid template ══ -->
+    <ng-template #agentGridTpl>
+      @for (item of displayedAgentItems(); track item.id) {
+        <div class="doc-card">
+          <i class="doc-card-icon fa-regular fa-robot" data-type="agent"></i>
+          <div class="doc-card-info">
+            <span class="doc-card-name" [title]="item.name">{{ item.name }}</span>
+            <span class="doc-card-meta">Supprimé le {{ item.deletedAt | date:'dd/MM/yy' }}</span>
+          </div>
+          <div class="doc-card-action soft-actions">
+            <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
+              severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreAgent(item)" />
+            <p-button icon="fa-regular fa-trash" pTooltip="Supprimer définitivement" tooltipPosition="left"
+              severity="danger" [text]="true" [rounded]="true" size="small" (onClick)="purgeAgent(item)" />
+          </div>
+        </div>
+      }
+    </ng-template>
+
+    <!-- ══ Agent list template ══ -->
+    <ng-template #agentListTpl>
+      @for (item of displayedAgentItems(); track item.id) {
+        <div class="doc-row">
+          <div class="doc-row-main">
+            <i class="doc-row-icon fa-regular fa-robot" data-type="agent"></i>
+            <div class="doc-row-text">
+              <span class="doc-row-name">{{ item.name }}</span>
+            </div>
+          </div>
+          <span class="doc-row-date">{{ item.deletedAt | date:'dd/MM/yy' }}</span>
+          <div class="soft-actions">
+            <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
+              severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreAgent(item)" />
+            <p-button icon="fa-regular fa-trash" pTooltip="Supprimer définitivement" tooltipPosition="left"
+              severity="danger" [text]="true" [rounded]="true" size="small" (onClick)="purgeAgent(item)" />
+          </div>
+        </div>
       }
     </ng-template>
 
@@ -257,27 +266,11 @@ interface FlowTrashItem {
             <span class="doc-card-name" [title]="item.name">{{ item.name }}</span>
             <span class="doc-card-meta">Supprimé le {{ item.deletedAt | date:'dd/MM/yy' }}</span>
           </div>
-          <div class="doc-card-action flow-actions">
-            <p-button
-              icon="fa-regular fa-rotate-left"
-              pTooltip="Restaurer"
-              tooltipPosition="left"
-              severity="secondary"
-              [text]="true"
-              [rounded]="true"
-              size="small"
-              (onClick)="restoreFlow(item)"
-            />
-            <p-button
-              icon="fa-regular fa-trash"
-              pTooltip="Supprimer définitivement"
-              tooltipPosition="left"
-              severity="danger"
-              [text]="true"
-              [rounded]="true"
-              size="small"
-              (onClick)="purgeFlow(item)"
-            />
+          <div class="doc-card-action soft-actions">
+            <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
+              severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreFlow(item)" />
+            <p-button icon="fa-regular fa-trash" pTooltip="Supprimer définitivement" tooltipPosition="left"
+              severity="danger" [text]="true" [rounded]="true" size="small" (onClick)="purgeFlow(item)" />
           </div>
         </div>
       }
@@ -294,27 +287,11 @@ interface FlowTrashItem {
             </div>
           </div>
           <span class="doc-row-date">{{ item.deletedAt | date:'dd/MM/yy' }}</span>
-          <div class="flow-actions">
-            <p-button
-              icon="fa-regular fa-rotate-left"
-              pTooltip="Restaurer"
-              tooltipPosition="left"
-              severity="secondary"
-              [text]="true"
-              [rounded]="true"
-              size="small"
-              (onClick)="restoreFlow(item)"
-            />
-            <p-button
-              icon="fa-regular fa-trash"
-              pTooltip="Supprimer définitivement"
-              tooltipPosition="left"
-              severity="danger"
-              [text]="true"
-              [rounded]="true"
-              size="small"
-              (onClick)="purgeFlow(item)"
-            />
+          <div class="soft-actions">
+            <p-button icon="fa-regular fa-rotate-left" pTooltip="Restaurer" tooltipPosition="left"
+              severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="restoreFlow(item)" />
+            <p-button icon="fa-regular fa-trash" pTooltip="Supprimer définitivement" tooltipPosition="left"
+              severity="danger" [text]="true" [rounded]="true" size="small" (onClick)="purgeFlow(item)" />
           </div>
         </div>
       }
@@ -341,15 +318,7 @@ interface FlowTrashItem {
   `,
   styleUrl: '../documents/documents.page.scss',
   styles: [`
-    .trash-empty-state {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: .75rem; padding: 4rem 0;
-      color: var(--p-text-muted-color);
-      i { font-size: 2rem; }
-      span { font-size: .9375rem; }
-    }
-
-    .flow-actions {
+    .soft-actions {
       display: flex; align-items: center; gap: .125rem;
     }
 
@@ -384,6 +353,7 @@ interface FlowTrashItem {
 export class CorbeillePage implements OnInit {
   private readonly docService = inject(DocumentService);
   private readonly flowService = inject(FlowService);
+  private readonly agentService = inject(AgentService);
   private readonly contextSwitcher = inject(ContextSwitcherService);
   private readonly messageService = inject(MessageService);
 
@@ -428,10 +398,36 @@ export class CorbeillePage implements OnInit {
   readonly displayedFileFolders = computed(() => this.displayedFileItems().filter(i => i.isFolder));
   readonly displayedFileFiles = computed(() => this.displayedFileItems().filter(i => !i.isFolder));
 
+  // ── Agents ────────────────────────────────────────────────────────────────
+
+  readonly agentLoading = signal(false);
+  readonly agentItems = signal<SoftTrashItem[]>([]);
+
+  agentSearch = '';
+
+  private _agentViewMode: ViewMode = (localStorage.getItem('viewMode:corbeille-agents') as ViewMode) ?? 'list';
+  get agentViewMode(): ViewMode { return this._agentViewMode; }
+  set agentViewMode(v: ViewMode) { this._agentViewMode = v; localStorage.setItem('viewMode:corbeille-agents', v); }
+
+  agentActiveSorts: ActiveSort[] = [];
+
+  readonly agentSortDefs: SortDefinition[] = [
+    { id: 'name', label: 'Nom' },
+    { id: 'deletedAt', label: 'Supprimé le' },
+  ];
+
+  readonly agentColumns: ListColumn[] = [
+    { label: 'Nom', cssClass: 'col-flex' },
+    { label: 'Supprimé le', cssClass: 'col-date' },
+    { label: '', cssClass: 'col-actions' },
+  ];
+
+  readonly displayedAgentItems = computed(() => this.applySoftFiltersAndSort(this.agentItems(), this.agentSearch, this.agentActiveSorts));
+
   // ── Flows ─────────────────────────────────────────────────────────────────
 
   readonly flowLoading = signal(false);
-  readonly flowItems = signal<FlowTrashItem[]>([]);
+  readonly flowItems = signal<SoftTrashItem[]>([]);
 
   flowSearch = '';
 
@@ -452,7 +448,7 @@ export class CorbeillePage implements OnInit {
     { label: '', cssClass: 'col-actions' },
   ];
 
-  readonly displayedFlowItems = computed(() => this.applyFlowFiltersAndSort(this.flowItems()));
+  readonly displayedFlowItems = computed(() => this.applySoftFiltersAndSort(this.flowItems(), this.flowSearch, this.flowActiveSorts));
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -464,6 +460,9 @@ export class CorbeillePage implements OnInit {
     this.activeCategory.set(facet.id as TrashCategory);
     if (facet.id === 'fichiers' && this.fileItems().length === 0 && !this.fileLoading()) {
       this.loadFiles();
+    }
+    if (facet.id === 'agents' && this.agentItems().length === 0 && !this.agentLoading()) {
+      this.loadAgents();
     }
     if (facet.id === 'flows' && this.flowItems().length === 0 && !this.flowLoading()) {
       this.loadFlows();
@@ -522,9 +521,7 @@ export class CorbeillePage implements OnInit {
         this.fileItems.update(list => list.filter(i => i.id !== item.id));
         this.messageService.add({ severity: 'success', summary: 'Restauré', detail: item.name });
       },
-      error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de restaurer.' });
-      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de restaurer.' }),
     });
   }
 
@@ -543,6 +540,53 @@ export class CorbeillePage implements OnInit {
         this.emptying = false;
         this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de vider la corbeille.' });
       },
+    });
+  }
+
+  // ── Agents methods ────────────────────────────────────────────────────────
+
+  private loadAgents(): void {
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) return;
+    this.agentLoading.set(true);
+
+    this.agentService.getTrashAgents(orgId).subscribe({
+      next: (agents) => {
+        this.agentItems.set(agents.map(a => ({
+          id: a.id,
+          name: a.name,
+          deletedAt: a.deletedAt ? new Date(a.deletedAt) : new Date(),
+        })));
+        this.agentLoading.set(false);
+      },
+      error: () => {
+        this.agentLoading.set(false);
+        this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger la corbeille des agents.' });
+      },
+    });
+  }
+
+  restoreAgent(item: SoftTrashItem): void {
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) return;
+    this.agentService.restoreAgent(orgId, item.id).subscribe({
+      next: () => {
+        this.agentItems.update(list => list.filter(a => a.id !== item.id));
+        this.messageService.add({ severity: 'success', summary: 'Agent restauré', detail: `"${item.name}" a été restauré.` });
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de restaurer cet agent.' }),
+    });
+  }
+
+  purgeAgent(item: SoftTrashItem): void {
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) return;
+    this.agentService.purgeAgent(orgId, item.id).subscribe({
+      next: () => {
+        this.agentItems.update(list => list.filter(a => a.id !== item.id));
+        this.messageService.add({ severity: 'success', summary: 'Agent supprimé', detail: `"${item.name}" a été supprimé définitivement.` });
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer définitivement cet agent.' }),
     });
   }
 
@@ -569,7 +613,7 @@ export class CorbeillePage implements OnInit {
     });
   }
 
-  restoreFlow(item: FlowTrashItem): void {
+  restoreFlow(item: SoftTrashItem): void {
     const orgId = this.contextSwitcher.selectedId();
     if (!orgId) return;
     this.flowService.restoreFlow(orgId, item.id).subscribe({
@@ -581,7 +625,7 @@ export class CorbeillePage implements OnInit {
     });
   }
 
-  purgeFlow(item: FlowTrashItem): void {
+  purgeFlow(item: SoftTrashItem): void {
     const orgId = this.contextSwitcher.selectedId();
     if (!orgId) return;
     this.flowService.purgeFlow(orgId, item.id).subscribe({
@@ -646,15 +690,15 @@ export class CorbeillePage implements OnInit {
     return result;
   }
 
-  private applyFlowFiltersAndSort(items: FlowTrashItem[]): FlowTrashItem[] {
+  private applySoftFiltersAndSort(items: SoftTrashItem[], search: string, sorts: ActiveSort[]): SoftTrashItem[] {
     let result = [...items];
 
-    if (this.flowSearch.trim()) {
-      const q = this.flowSearch.toLowerCase();
+    if (search.trim()) {
+      const q = search.toLowerCase();
       result = result.filter(i => i.name.toLowerCase().includes(q));
     }
 
-    for (const s of this.flowActiveSorts) {
+    for (const s of sorts) {
       const dir = s.direction === 'asc' ? 1 : -1;
       result.sort((a, b) => {
         switch (s.definitionId) {
@@ -665,7 +709,7 @@ export class CorbeillePage implements OnInit {
       });
     }
 
-    if (!this.flowActiveSorts.length) {
+    if (!sorts.length) {
       result.sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
     }
 

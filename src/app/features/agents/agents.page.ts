@@ -61,6 +61,9 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
               @if (!isSharedFacet) {
                 <p-button label="Nouvel agent" icon="fa-regular fa-plus" rounded size="small" toolbar-actions (onClick)="showCreateDialog.set(true)" />
               }
+              @if (!isSharedFacet) {
+                <p-button icon="fa-regular fa-trash" severity="secondary" [text]="true" rounded size="small" toolbar-actions pTooltip="Corbeille" tooltipPosition="bottom" (onClick)="openTrash()" />
+              }
             </app-data-list>
 
             <ng-template #gridTpl>
@@ -315,7 +318,7 @@ export class AgentsPage {
         }
         this.agents.update((list) => list.filter((a) => a.id !== agent.id));
         this.total.update((t) => t - 1);
-        this.messageService.add({ severity: 'success', summary: 'Agent supprimé', detail: `"${agent.name}" a été supprimé.` });
+        this.messageService.add({ severity: 'success', summary: 'Agent déplacé dans la corbeille', detail: `"${agent.name}" a été mis dans la corbeille.` });
       },
       error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer cet agent.' }),
     });
@@ -332,6 +335,10 @@ export class AgentsPage {
     this.clearSelection();
     this.page = 0;
     this.load();
+  }
+
+  openTrash(): void {
+    this.router.navigate(['/corbeille'], { queryParams: { facet: 'agents' } });
   }
 
   openDocs(): void {

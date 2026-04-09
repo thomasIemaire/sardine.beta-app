@@ -7,6 +7,7 @@ export interface Agent extends ItemCardData {
   forkedFromId: string | null;
   schemaData: Record<string, unknown> | null;
   activeVersionId: string | null;
+  deletedAt?: string | null;
 }
 
 @Component({

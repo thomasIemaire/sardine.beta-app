@@ -19,6 +19,7 @@ interface ApiAgent {
   created_by_name?: string;
   created_at: string;
   updated_at?: string;
+  deleted_at?: string | null;
 }
 
 export interface ApiAgentVersion {
@@ -108,6 +109,22 @@ export class AgentService {
 
   deleteAgent(orgId: string, agentId: string) {
     return this.http.delete(`${this.base}/organizations/${orgId}/agents/${agentId}`);
+  }
+
+  getTrashAgents(orgId: string) {
+    return this.http
+      .get<ApiAgent[]>(`${this.base}/organizations/${orgId}/agents/trash`)
+      .pipe(map((items) => items.map((a) => this.mapAgent(a))));
+  }
+
+  restoreAgent(orgId: string, agentId: string) {
+    return this.http
+      .post<ApiAgent>(`${this.base}/organizations/${orgId}/agents/${agentId}/restore`, {})
+      .pipe(map((a) => this.mapAgent(a)));
+  }
+
+  purgeAgent(orgId: string, agentId: string) {
+    return this.http.delete<{ message: string }>(`${this.base}/organizations/${orgId}/agents/${agentId}/purge`);
   }
 
   updateAgent(orgId: string, agentId: string, name: string, description: string) {
@@ -206,6 +223,7 @@ export class AgentService {
       activeVersionId: a.active_version_id ?? null,
       createdAt: new Date(a.created_at),
       creator,
+      deletedAt: a.deleted_at ?? null,
     };
   }
 }
