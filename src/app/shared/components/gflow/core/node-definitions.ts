@@ -374,9 +374,8 @@ const NODE_DEFINITIONS_LIST: NodeDefinition[] = [
             config: {
                 title: '',
                 message: '',
-                channel: 'app',
-                targets: [{ type: 'executor', id: '', name: '' }],
-                priority: 'normal',
+                channels: ['inapp'],
+                targets: [{ type: 'executor', id: '' }],
             } as NotificationConfig,
             configComponent: ConfigNotificationComponent,
         }),
