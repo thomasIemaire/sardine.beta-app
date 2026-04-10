@@ -5,6 +5,8 @@ import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
 import { Dialog } from 'primeng/dialog';
 import { DividerModule } from 'primeng/divider';
+import { ToastModule } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
 import { AgentService } from '../../core/services/agent.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 import { DropZoneComponent } from '../../shared/components/drop-zone/drop-zone.component';
@@ -12,8 +14,10 @@ import type { Agent } from '../../shared/components/agent-card/agent-card.compon
 
 @Component({
   selector: 'app-create-agent-dialog',
-  imports: [FormsModule, ButtonModule, InputTextModule, TextareaModule, Dialog, DividerModule, DropZoneComponent],
+  imports: [FormsModule, ButtonModule, InputTextModule, TextareaModule, Dialog, DividerModule, ToastModule, DropZoneComponent],
+  providers: [MessageService],
   template: `
+    <p-toast position="bottom-right" [life]="4000" />
     <p-dialog
       header="Nouvel agent"
       [(visible)]="visible"
@@ -133,6 +137,7 @@ import type { Agent } from '../../shared/components/agent-card/agent-card.compon
 export class CreateAgentDialogComponent {
   private readonly agentService = inject(AgentService);
   private readonly contextSwitcher = inject(ContextSwitcherService);
+  private readonly messageService = inject(MessageService);
 
   readonly visible = model(false);
   readonly created = output<Agent>();
@@ -155,7 +160,11 @@ export class CreateAgentDialogComponent {
           this.visible.set(false);
           this.created.emit(agent);
         },
-        error: () => this.loading.set(false),
+        error: (err) => {
+          this.loading.set(false);
+          const detail = err?.error?.detail ?? err?.error?.message ?? 'Le fichier JSON est invalide ou corrompu.';
+          this.messageService.add({ severity: 'error', summary: 'Échec de l\'importation', detail });
+        },
       });
     } else {
       if (!this.name.trim()) return;
@@ -166,7 +175,11 @@ export class CreateAgentDialogComponent {
           this.visible.set(false);
           this.created.emit(agent);
         },
-        error: () => this.loading.set(false),
+        error: (err) => {
+          this.loading.set(false);
+          const detail = err?.error?.detail ?? err?.error?.message ?? 'Impossible de créer l\'agent.';
+          this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+        },
       });
     }
   }

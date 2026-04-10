@@ -135,6 +135,7 @@ import type { Flow } from '../../shared/components/flow-card/flow-card.component
 export class CreateFlowDialogComponent {
   private readonly flowService = inject(FlowService);
   private readonly contextSwitcher = inject(ContextSwitcherService);
+  private readonly messageService = inject(MessageService);
 
   readonly visible = model(false);
   readonly created = output<Flow | Flow[]>();
@@ -158,7 +159,11 @@ export class CreateFlowDialogComponent {
           this.created.emit(flows);
           this.visible.set(false);
         },
-        error: () => this.loading.set(false),
+        error: (err) => {
+          this.loading.set(false);
+          const detail = err?.error?.detail ?? err?.error?.message ?? 'Le fichier JSON est invalide ou corrompu.';
+          this.messageService.add({ severity: 'error', summary: 'Échec de l\'importation', detail });
+        },
       });
     } else {
       if (!this.name.trim()) return;
@@ -168,7 +173,11 @@ export class CreateFlowDialogComponent {
           this.created.emit(flow);
           this.visible.set(false);
         },
-        error: () => this.loading.set(false),
+        error: (err) => {
+          this.loading.set(false);
+          const detail = err?.error?.detail ?? err?.error?.message ?? 'Impossible de créer le flow.';
+          this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+        },
       });
     }
   }
