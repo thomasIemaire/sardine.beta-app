@@ -1,4 +1,4 @@
-import { Component, inject, model, output, signal, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, model, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -46,9 +46,9 @@ import type { Agent } from '../../shared/components/agent-card/agent-card.compon
                   <span class="file-info__name">{{ importedFile()!.name }}</span>
                   <span class="file-info__size">{{ formatSize(importedFile()!.size) }}</span>
                 </div>
-                <button type="button" class="remove-file" (click)="removeFile($event)">
-                  <i class="fa-regular fa-xmark"></i>
-                </button>
+                <span class="remove-file-wrap">
+                  <p-button icon="fa-regular fa-xmark" severity="secondary" [text]="true" [rounded]="true" size="small" (onClick)="removeFile($event)" />
+                </span>
               </div>
             } @else {
               <app-drop-zone 
@@ -117,23 +117,9 @@ import type { Agent } from '../../shared/components/agent-card/agent-card.compon
       font-size: 0.6875rem;
       color: var(--p-text-muted-color);
     }
-    .remove-file {
+    .remove-file-wrap {
       margin-left: auto;
-      background: none;
-      border: none;
-      color: var(--p-text-muted-color);
-      cursor: pointer;
-      padding: 0.25rem;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       flex-shrink: 0;
-      transition: background 0.15s, color 0.15s;
-    }
-    .remove-file:hover {
-      background: color-mix(in srgb, var(--p-red-500) 12%, transparent);
-      color: var(--p-red-500);
     }
     .divider-text {
       font-size: 0.75rem;
