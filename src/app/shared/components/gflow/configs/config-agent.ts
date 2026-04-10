@@ -219,19 +219,19 @@ export class ConfigAgentComponent implements OnInit {
 
     /**
      * Met à jour la sortie du nœud pour exposer le schéma de l'agent
-     * sélectionné sous `agentsResult.<agentKey>`. Les données entrantes
+     * sélectionné sous `agentResult`. Les données entrantes
      * des nœuds en aval agrégeront ainsi le résultat de tous les agents
-     * qui les précèdent sous une même clé racine `agentsResult`.
+     * qui les précèdent sous une même clé racine `agentResult`.
      */
     private applyOutputMap(agent: AgentOption): void {
         const node = this.node();
         const cleaned = this.simplifySchema(agent.schemaData ?? {});
 
-        // Le schéma nettoyé est exposé sous `agentsResult`. Si plusieurs
+        // Le schéma nettoyé est exposé sous `agentResult`. Si plusieurs
         // agents en amont écrivent les mêmes clés, les valeurs les plus
         // profondes écrasent les précédentes via le mergeJson du state.
         const outputMap: JsonValue = {
-            agentsResult: cleaned,
+            agentResult: cleaned,
         };
 
         if (!node.outputs || node.outputs.length === 0) {
@@ -342,7 +342,7 @@ export class ConfigAgentComponent implements OnInit {
 
                 // Reconstruit la sortie du noeud à partir du schéma actuel
                 // de l'agent, pour que les noeuds en aval reçoivent
-                // `agentsResult` dès le chargement du flow — sans avoir à
+                // `agentResult` dès le chargement du flow — sans avoir à
                 // déselectionner/resélectionner l'agent. On ne passe PAS
                 // par configChange : pas de dirty flag au load.
                 if (this.selectedAgent) {
