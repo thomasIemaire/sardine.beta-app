@@ -118,7 +118,6 @@ export function entriesToObject(entries: AgentResultEntry[]): AgentResultObject 
       align-items: center;
       justify-content: space-between;
       gap: 0.5rem;
-      padding-left: 0.5rem;
     }
 
     .art-key {
@@ -130,10 +129,7 @@ export function entriesToObject(entries: AgentResultEntry[]): AgentResultObject 
       white-space: nowrap;
     }
 
-    .art-input {
-      width: 100%;
-      font-size: 0.8125rem !important;
-    }
+    .art-input { width: 100%; }
 
     .art-feedback {
       display: flex;
@@ -195,9 +191,6 @@ export function entriesToObject(entries: AgentResultEntry[]): AgentResultObject 
     }
 
     .art-children {
-      padding-left: 1rem;
-      border-left: 2px solid var(--p-surface-border);
-      margin-left: 0.375rem;
       margin-bottom: 0.25rem;
     }
   `,
