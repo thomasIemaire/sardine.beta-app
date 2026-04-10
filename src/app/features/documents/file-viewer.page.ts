@@ -124,7 +124,7 @@ interface AgentResultSection {
       <aside class="fv-right" [class.is-collapsed]="!rightOpen()">
         <button
           class="fv-right-toggle"
-          (click)="toggleRight()"
+          (click)="toggleRight(); $event.stopPropagation()"
           [pTooltip]="rightOpen() ? 'Réduire' : 'Ouvrir'"
           tooltipPosition="left"
         >
