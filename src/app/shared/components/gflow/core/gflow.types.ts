@@ -188,6 +188,7 @@ export interface FlowRefConfig {
 export interface RangerConfig {
     operation: 'archive' | 'move' | 'delete';
     path: string;
+    saveFields?: string[];
 }
 
 export interface ForConfig {

@@ -4,7 +4,8 @@ import { TagModule } from 'primeng/tag';
 import { ItemCardComponent, ItemCardData } from '../item-card/item-card.component';
 
 export interface Agent extends ItemCardData {
-  percentage: number;
+  /** null = aucune statistique disponible */
+  percentage: number | null;
   forkedFromId: string | null;
   schemaData: Record<string, unknown> | null;
   activeVersionId: string | null;
@@ -30,7 +31,9 @@ export interface Agent extends ItemCardData {
       @if (!agent().usedInFlows) {
         <p-tag value="inutilisé" severity="warn" [rounded]="true" class="badge-xs" pTooltip="Cet agent n'est utilisé dans aucun flow" tooltipPosition="top" />
       }
-      <p-tag [value]="agent().percentage + '%'" [severity]="percentageSeverity()" [rounded]="true" class="badge-xs" pTooltip="Réussite d'extraction" tooltipPosition="right" />
+      @if (agent().percentage !== null) {
+        <p-tag [value]="agent().percentage + '%'" [severity]="percentageSeverity()" [rounded]="true" class="badge-xs" pTooltip="Taux de réussite d'extraction" tooltipPosition="right" />
+      }
     </ng-template>
   `,
   styles: `
@@ -51,7 +54,7 @@ export class AgentCardComponent {
   menuOpen = output<MouseEvent>();
 
   percentageSeverity = computed(() => {
-    const p = this.agent().percentage;
+    const p = this.agent().percentage ?? 0;
     if (p >= 70) return 'success';
     if (p >= 40) return 'warn';
     return 'danger';

@@ -406,11 +406,18 @@ export class DocumentsPage implements OnInit, OnDestroy {
 
   // ── View state ─────────────────────────────────────────────────────────────
 
-  search = '';
+  readonly searchSig = signal('');
+  readonly sortsSig = signal<ActiveSort[]>([]);
+
+  get search(): string { return this.searchSig(); }
+  set search(v: string) { this.searchSig.set(v); this.syncSearchToUrl(); }
+
+  get activeSorts(): ActiveSort[] { return this.sortsSig(); }
+  set activeSorts(v: ActiveSort[]) { this.sortsSig.set(v); this.syncSearchToUrl(); }
+
   private _viewMode: ViewMode = (localStorage.getItem('viewMode:documents') as ViewMode) ?? 'grid';
   get viewMode(): ViewMode { return this._viewMode; }
   set viewMode(v: ViewMode) { this._viewMode = v; localStorage.setItem('viewMode:documents', v); }
-  activeSorts: ActiveSort[] = [];
 
   readonly sortDefs: SortDefinition[] = [
     { id: 'name', label: 'Nom' },
@@ -470,7 +477,18 @@ export class DocumentsPage implements OnInit, OnDestroy {
     // Toujours charger les top-level accessibles (nécessaire pour le retour au top).
     this.loadTopLevel(orgId);
 
-    const folderId = this.route.snapshot.queryParamMap.get('folder');
+    const params = this.route.snapshot.queryParamMap;
+    const folderId = params.get('folder');
+    const q = params.get('q');
+    const sort = params.get('sort');
+    const dir = params.get('dir') as 'asc' | 'desc' | null;
+
+    if (q) this.searchSig.set(q);
+    if (sort && dir) {
+      const def = this.sortDefs.find(d => d.id === sort);
+      if (def) this.sortsSig.set([{ definitionId: sort, label: def.label, direction: dir }]);
+    }
+
     if (folderId) {
       this.currentFolderId.set(folderId);
       this.docService.getBreadcrumb(orgId, folderId).subscribe({
@@ -478,6 +496,20 @@ export class DocumentsPage implements OnInit, OnDestroy {
       });
       this.loadFolder(orgId, folderId);
     }
+  }
+
+  private syncSearchToUrl(): void {
+    const sort = this.sortsSig()[0];
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        q: this.searchSig() || null,
+        sort: sort?.definitionId || null,
+        dir: sort?.direction || null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private loadTopLevel(orgId: string): void {
@@ -569,8 +601,13 @@ export class DocumentsPage implements OnInit, OnDestroy {
     // Fichier → ouvrir le viewer en transmettant la donnée complète via state.
     const file = this.rawFiles().find(f => f.id === item.id);
     const folderId = this.currentFolderId();
+    const sort = this.sortsSig()[0];
     this.router.navigate(['/documents/files', item.id], {
-      queryParams: folderId ? { folder: folderId } : {},
+      queryParams: {
+        ...(folderId ? { folder: folderId } : {}),
+        ...(this.searchSig() ? { q: this.searchSig() } : {}),
+        ...(sort ? { sort: sort.definitionId, dir: sort.direction } : {}),
+      },
       state: file ? { file } : undefined,
     });
   }
@@ -891,11 +928,9 @@ export class DocumentsPage implements OnInit, OnDestroy {
 
   private applyFiltersAndSort(items: DocItem[]): DocItem[] {
     let result = [...items];
-    if (this.search.trim()) {
-      const q = this.search.toLowerCase();
-      result = result.filter(d => d.name.toLowerCase().includes(q));
-    }
-    for (const s of this.activeSorts) {
+    const q = this.searchSig().trim().toLowerCase();
+    if (q) result = result.filter(d => d.name.toLowerCase().includes(q));
+    for (const s of this.sortsSig()) {
       const dir = s.direction === 'asc' ? 1 : -1;
       result.sort((a, b) => {
         if (s.definitionId === 'name') return dir * a.name.localeCompare(b.name);

@@ -2,6 +2,8 @@ import { Component, EventEmitter, inject, input, OnInit, Output } from '@angular
 import { FormsModule } from '@angular/forms';
 import { SelectModule } from 'primeng/select';
 import { AutoCompleteModule } from 'primeng/autocomplete';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
 import { Observable, catchError, of, switchMap, tap } from 'rxjs';
 import { GFlowNode, RangerConfig } from '../core/gflow.types';
 import { DocumentService, ApiFolder } from '../../../../core/services/document.service';
@@ -21,7 +23,7 @@ const NODE_ICON: Record<string, string> = {
 
 @Component({
     selector: 'app-config-ranger',
-    imports: [FormsModule, SelectModule, AutoCompleteModule],
+    imports: [FormsModule, SelectModule, AutoCompleteModule, ButtonModule, InputTextModule],
     template: `
         <div class="config-fields">
 
@@ -66,6 +68,19 @@ const NODE_ICON: Record<string, string> = {
                         Les dossiers absents seront créés automatiquement.
                     </div>
                 </div>
+
+                <div class="config-field">
+                    <label class="config-label">Données à enregistrer</label>
+                    <div class="save-fields-list">
+                        @for (field of saveFields; track $index; let i = $index) {
+                            <div class="save-field-item">
+                                <input pInputText [(ngModel)]="saveFields[i]" placeholder="ex: data.agentResult" pSize="small" class="save-field-input" (ngModelChange)="syncFields()" />
+                                <p-button icon="fa-solid fa-trash" severity="danger" text size="small" (onClick)="removeField(i)" />
+                            </div>
+                        }
+                    </div>
+                    <p-button label="Ajouter un champ" icon="fa-solid fa-plus" size="small" text (onClick)="addField()" />
+                </div>
             }
         </div>
     `,
@@ -103,6 +118,10 @@ const NODE_ICON: Record<string, string> = {
             font-family: var(--font-mono, ui-monospace, monospace);
             font-size: .8125rem;
         }
+
+        .save-fields-list { display: flex; flex-direction: column; gap: .5rem; }
+        .save-field-item { display: flex; align-items: center; gap: .5rem; }
+        .save-field-input { flex: 1; }
     `]
 })
 export class ConfigRangerComponent implements OnInit {
@@ -126,7 +145,11 @@ export class ConfigRangerComponent implements OnInit {
     get path(): string { return this.config.path || ''; }
     set path(v: string) { this.config.path = v; }
 
+    saveFields: string[] = [];
+    newField = '';
+
     ngOnInit(): void {
+        this.saveFields = this.config.saveFields ? [...this.config.saveFields] : [];
         // Préchargement des dossiers racines pour des suggestions instantanées
         this.loadChildren(null).subscribe();
     }
@@ -151,6 +174,20 @@ export class ConfigRangerComponent implements OnInit {
     onPathConfirm(): void {
         this.syncNodeState();
         if (this.config.path) this.configChange.emit();
+    }
+
+    addField(): void {
+        this.saveFields.push('');
+    }
+
+    removeField(index: number): void {
+        this.saveFields = this.saveFields.filter((_, i) => i !== index);
+        this.syncFields();
+    }
+
+    syncFields(): void {
+        this.config.saveFields = this.saveFields.filter(f => f.trim().length > 0);
+        this.configChange.emit();
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

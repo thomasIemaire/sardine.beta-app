@@ -34,7 +34,9 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
           } @else {
             <span class="panel-title">{{ agent().name }}</span>
           }
-          <span class="panel-badge" [attr.data-severity]="percentageSeverity()">{{ agent().percentage }}%</span>
+          @if (agent().percentage !== null) {
+            <span class="panel-badge" [attr.data-severity]="percentageSeverity()">{{ agent().percentage }}%</span>
+          }
         </div>
         <div class="panel-header-actions">
           @if (editingMeta()) {
@@ -147,7 +149,7 @@ export class AgentConfigPanelComponent {
   );
 
   percentageSeverity = computed(() => {
-    const p = this.agent().percentage;
+    const p = this.agent().percentage ?? 0;
     if (p >= 70) return 'success';
     if (p >= 40) return 'warn';
     return 'danger';
