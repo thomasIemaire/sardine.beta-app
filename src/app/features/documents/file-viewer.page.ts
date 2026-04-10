@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -8,14 +8,19 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TooltipModule } from 'primeng/tooltip';
 
-import { ApiFile, DocFileType, DocumentService, fileTypeFromMime, formatFileSize } from '../../core/services/document.service';
+import { ApiFile, ApiFileDetail, DocFileType, DocumentService, fileTypeFromMime, formatFileSize } from '../../core/services/document.service';
+import { MessageService } from 'primeng/api';
+import { ToastModule } from 'primeng/toast';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
+import { AgentResultTreeComponent, AgentResultEntry, toEntries, entriesToObject } from './agent-result-tree.component';
 
 @Component({
   selector: 'app-file-viewer',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonModule, InputTextModule, TooltipModule],
+  providers: [MessageService],
+  imports: [CommonModule, FormsModule, ButtonModule, InputTextModule, TooltipModule, ToastModule, AgentResultTreeComponent],
   template: `
+    <p-toast position="bottom-right" [life]="3000" />
     <div class="fv-layout" [class.fv-right-collapsed]="!rightOpen()">
       <!-- Left panel : données du fichier -->
       <aside class="fv-left">
@@ -51,7 +56,21 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
         </div>
 
         <div class="fv-left-body">
-          <!-- Zone données du fichier — à remplir plus tard -->
+          @if (agentResultEntries().length) {
+            <div class="fv-results">
+              <span class="fv-section-title">RÉSULTATS D'EXTRACTION</span>
+              <app-agent-result-tree [entries]="agentResultEntries()" (change)="onResultsChange()" />
+              <p-button
+                label="Sauvegarder"
+                icon="fa-regular fa-floppy-disk"
+                size="small"
+                [rounded]="true"
+                [loading]="savingResults()"
+                (onClick)="saveResults()"
+                styleClass="fv-save-btn"
+              />
+            </div>
+          }
         </div>
       </aside>
 
@@ -139,7 +158,7 @@ import { ContextSwitcherService } from '../../core/layout/context-switcher/conte
   `,
   styleUrl: './file-viewer.page.scss',
 })
-export class FileViewerPage implements OnInit, OnDestroy {
+export class FileViewerPage implements OnInit {
   private readonly docService = inject(DocumentService);
   private readonly contextSwitcher = inject(ContextSwitcherService);
   private readonly route = inject(ActivatedRoute);
@@ -153,9 +172,13 @@ export class FileViewerPage implements OnInit, OnDestroy {
   readonly previewUrl = signal<SafeResourceUrl | null>(null);
   readonly previewKind = signal<'pdf' | 'image' | 'other'>('other');
   readonly rightOpen = signal(true);
+  readonly agentResultEntries = signal<AgentResultEntry[]>([]);
+  readonly savingResults = signal(false);
+  readonly resultsDirty = signal(false);
+  private readonly messageService = inject(MessageService);
+  private agentResultKey: 'agentResult' | 'agentResults' = 'agentResults';
 
   newComment = '';
-  private objectUrl: string | null = null;
 
   fileType(): DocFileType | null {
     const f = this.file();
@@ -171,53 +194,41 @@ export class FileViewerPage implements OnInit, OnDestroy {
       return;
     }
 
-    // File passé via navigation state (ouverture depuis /documents).
-    const stateFile = (history.state as { file?: ApiFile } | null)?.file ?? null;
-
     const fileId = this.route.snapshot.paramMap.get('fileId');
-    const folderId = this.route.snapshot.queryParamMap.get('folder');
-
-    if (stateFile && (!fileId || stateFile.id === fileId)) {
-      this.file.set(stateFile);
-      this.loadPreview(orgId, stateFile);
+    if (!fileId) {
+      this.error.set("Fichier introuvable.");
+      this.loading.set(false);
       return;
     }
 
-    // Fallback (refresh F5) : on charge les fichiers du dossier et on trouve l'id.
-    if (fileId && folderId) {
-      this.docService.getFiles(orgId, folderId, { pageSize: 200 })
-        .pipe(takeUntilDestroyed(this.destroyRef))
-        .subscribe({
-          next: (page) => {
-            const f = (page.items ?? []).find(x => x.id === fileId);
-            if (!f) {
-              this.error.set("Fichier introuvable.");
-              this.loading.set(false);
-              return;
-            }
-            this.file.set(f);
-            this.loadPreview(orgId, f);
-          },
-          error: () => {
-            this.error.set("Impossible de charger le fichier.");
-            this.loading.set(false);
-          },
-        });
-    } else {
-      this.error.set("Fichier introuvable.");
-      this.loading.set(false);
-    }
+    this.docService.getFile(orgId, fileId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (detail) => {
+          this.file.set(detail);
+          const results = detail.flow_execution_results as any;
+          let agentsResult = results?.agentResults ?? results?.data?.agentResults;
+          if (agentsResult) {
+            this.agentResultKey = 'agentResults';
+          } else {
+            agentsResult = results?.agentResult ?? results?.data?.agentResult;
+            if (agentsResult) this.agentResultKey = 'agentResult';
+          }
+          if (agentsResult && typeof agentsResult === 'object') {
+            this.agentResultEntries.set(toEntries(agentsResult));
+          }
+          this.loadPreview(detail);
+        },
+        error: () => {
+          this.error.set("Impossible de charger le fichier.");
+          this.loading.set(false);
+        },
+      });
   }
 
-  ngOnDestroy(): void {
-    if (this.objectUrl) {
-      URL.revokeObjectURL(this.objectUrl);
-      this.objectUrl = null;
-    }
-  }
+  private loadPreview(detail: ApiFileDetail): void {
+    const type = fileTypeFromMime(detail.content_mime_type, detail.name);
 
-  private loadPreview(orgId: string, file: ApiFile): void {
-    const type = fileTypeFromMime(file.mime_type, file.name);
     if (type === 'pdf') {
       this.previewKind.set('pdf');
     } else if (type === 'png' || type === 'jpg') {
@@ -228,23 +239,9 @@ export class FileViewerPage implements OnInit, OnDestroy {
       return;
     }
 
-    this.docService.getFileBlob(orgId, file.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (blob) => {
-          // Force le MIME type correct — le serveur peut renvoyer
-          // application/octet-stream ou Content-Disposition: attachment,
-          // ce qui déclencherait un téléchargement au lieu d'un aperçu.
-          const typed = new Blob([blob], { type: file.mime_type });
-          this.objectUrl = URL.createObjectURL(typed);
-          this.previewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.objectUrl));
-          this.loading.set(false);
-        },
-        error: () => {
-          this.error.set("Impossible de charger l'aperçu.");
-          this.loading.set(false);
-        },
-      });
+    const dataUrl = `data:${detail.content_mime_type};base64,${detail.content_base64}`;
+    this.previewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(dataUrl));
+    this.loading.set(false);
   }
 
   toggleRight(): void {
@@ -256,6 +253,34 @@ export class FileViewerPage implements OnInit, OnDestroy {
     this.router.navigate(['/documents'], {
       queryParams: folderId ? { folder: folderId } : {},
     });
+  }
+
+  onResultsChange(): void {
+    this.resultsDirty.set(true);
+  }
+
+  saveResults(): void {
+    const orgId = this.contextSwitcher.selectedId();
+    const f = this.file();
+    if (!orgId || !f) return;
+
+    this.savingResults.set(true);
+    const updated = entriesToObject(this.agentResultEntries());
+    const payload = { [this.agentResultKey]: updated };
+
+    this.docService.updateExecutionResults(orgId, f.id, payload)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.savingResults.set(false);
+          this.resultsDirty.set(false);
+          this.messageService.add({ severity: 'success', summary: 'Sauvegardé', detail: 'Résultats mis à jour.' });
+        },
+        error: () => {
+          this.savingResults.set(false);
+          this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de sauvegarder les résultats.' });
+        },
+      });
   }
 
   download(): void {

@@ -238,14 +238,20 @@ export class ExecPanelComponent {
     // ---- Ranger ----
 
     hasRangerFile(log: ExecutionNodeLog): boolean {
-        return log.node_type === 'save_file' && log.status === 'completed' && !!log.metadata?.['file_id'];
+        return log.node_type === 'save_file' && log.status === 'completed' && !!this.getRangerFileId(log);
     }
 
     openRangerFile(log: ExecutionNodeLog): void {
-        const fileId = log.metadata?.['file_id'] as string;
+        const fileId = this.getRangerFileId(log);
         if (fileId) {
-            this.router.navigate(['/documents/file', fileId]);
+            this.router.navigate(['/documents/files', fileId]);
         }
+    }
+
+    private getRangerFileId(log: ExecutionNodeLog): string | null {
+        return (log.output_data as any)?.savedFile?.fileId
+            ?? (log.metadata as any)?.['file_id']
+            ?? null;
     }
 
     // ---- Sous-flows ----

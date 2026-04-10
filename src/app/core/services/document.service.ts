@@ -65,6 +65,12 @@ export interface ApiFileVersion {
   created_at: string;
 }
 
+export interface ApiFileDetail extends ApiFile {
+  flow_execution_results?: unknown;
+  content_base64: string;
+  content_mime_type: string;
+}
+
 export interface ApiFilePage {
   items: ApiFile[];
   total: number;
@@ -189,6 +195,16 @@ export class DocumentService {
     if (params?.sortBy) httpParams = httpParams.set('sort_by', params.sortBy);
     if (params?.sortOrder) httpParams = httpParams.set('sort_order', params.sortOrder);
     return this.http.get<ApiFilePage>(`${this.base}/organizations/${orgId}/files/folders/${folderId}`, { params: httpParams });
+  }
+
+  updateExecutionResults(orgId: string, fileId: string, flowExecutionResults: unknown): Observable<void> {
+    return this.http.patch<void>(`${this.base}/organizations/${orgId}/files/${fileId}/execution-results`, { flow_execution_results: flowExecutionResults });
+  }
+
+  getFile(orgId: string, fileId: string, versionId?: string): Observable<ApiFileDetail> {
+    let params = new HttpParams();
+    if (versionId) params = params.set('version_id', versionId);
+    return this.http.get<ApiFileDetail>(`${this.base}/organizations/${orgId}/files/${fileId}`, { params });
   }
 
   uploadFile(orgId: string, folderId: string, file: File): Observable<UploadProgress> {

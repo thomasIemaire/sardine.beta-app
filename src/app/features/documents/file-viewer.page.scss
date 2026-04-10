@@ -124,6 +124,20 @@
   border-top: 1px solid var(--p-content-border-color);
 }
 
+/* ── Agent results ────────────────────────────────────────────────────────── */
+.fv-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+:host ::ng-deep .fv-save-btn {
+  width: 100%;
+  margin-top: 0.5rem;
+
+  .p-button { width: 100%; justify-content: center; }
+}
+
 /* ── Center preview ───────────────────────────────────────────────────────── */
 .fv-center {
   position: relative;
