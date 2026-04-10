@@ -1,5 +1,6 @@
 import { Component, input, output, computed } from '@angular/core';
 import { TooltipModule } from 'primeng/tooltip';
+import { TagModule } from 'primeng/tag';
 import { ItemCardComponent, ItemCardData } from '../item-card/item-card.component';
 
 export interface Agent extends ItemCardData {
@@ -13,7 +14,7 @@ export interface Agent extends ItemCardData {
 
 @Component({
   selector: 'app-agent-card',
-  imports: [TooltipModule, ItemCardComponent],
+  imports: [TooltipModule, TagModule, ItemCardComponent],
   template: `
     <app-item-card
       [item]="agent()"
@@ -24,39 +25,20 @@ export interface Agent extends ItemCardData {
     />
     <ng-template #badgeTpl>
       @if (agent().forkedFromId) {
-        <span class="fork-badge" pTooltip="Forké depuis un agent partagé" tooltipPosition="top">fork</span>
+        <p-tag value="fork" severity="secondary" [rounded]="true" class="badge-xs" pTooltip="Forké depuis un agent partagé" tooltipPosition="top" />
       }
       @if (!agent().usedInFlows) {
-        <span class="unused-badge" pTooltip="Cet agent n'est utilisé dans aucun flow" tooltipPosition="top">inutilisé</span>
+        <p-tag value="inutilisé" severity="warn" [rounded]="true" class="badge-xs" pTooltip="Cet agent n'est utilisé dans aucun flow" tooltipPosition="top" />
       }
-      <span class="card-percentage" [attr.data-severity]="percentageSeverity()" pTooltip="Réussite d'extraction" tooltipPosition="right">{{ agent().percentage }}%</span>
+      <p-tag [value]="agent().percentage + '%'" [severity]="percentageSeverity()" [rounded]="true" class="badge-xs" pTooltip="Réussite d'extraction" tooltipPosition="right" />
     </ng-template>
   `,
   styles: `
-    .fork-badge {
+    :host ::ng-deep .badge-xs {
       font-size: 0.5625rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
       padding: 0.1rem 0.4rem;
-      border-radius: 4px;
-      background: var(--primary-color-100);
-      color: var(--primary-color-700);
-      border: 1px solid var(--primary-color-200);
-      line-height: 1.4;
-    }
-
-    .unused-badge {
-      font-size: 0.5625rem;
-      font-weight: 600;
-      text-transform: uppercase;
       letter-spacing: 0.04em;
-      padding: 0.1rem 0.4rem;
-      border-radius: 4px;
-      background: var(--p-surface-200);
-      color: var(--p-text-muted-color);
-      border: 1px solid var(--p-surface-300);
-      line-height: 1.4;
+      text-transform: uppercase;
     }
   `,
   styleUrl: './agent-card.component.scss',
