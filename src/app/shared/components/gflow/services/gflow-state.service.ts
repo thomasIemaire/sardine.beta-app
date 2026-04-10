@@ -242,6 +242,11 @@ export class GflowStateService {
             return result;
         }
 
+        // Les tableaux (ex. agentResults de plusieurs agents en amont) sont concaténés.
+        if (Array.isArray(a) && Array.isArray(b)) {
+            return [...a, ...b] as JsonValue;
+        }
+
         return this.cloneJson(b);
     }
 

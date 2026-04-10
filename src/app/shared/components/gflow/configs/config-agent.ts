@@ -219,19 +219,22 @@ export class ConfigAgentComponent implements OnInit {
 
     /**
      * Met à jour la sortie du nœud pour exposer le schéma de l'agent
-     * sélectionné sous `agentResult`. Les données entrantes
-     * des nœuds en aval agrégeront ainsi le résultat de tous les agents
-     * qui les précèdent sous une même clé racine `agentResult`.
+     * sous `agentResults` au format tableau `[{ agentId, agentName, fields }]`.
+     * Les nœuds en aval voient ainsi la même structure que dans
+     * flow_execution_results.agentResults.
      */
     private applyOutputMap(agent: AgentOption): void {
         const node = this.node();
         const cleaned = this.simplifySchema(agent.schemaData ?? {});
 
-        // Le schéma nettoyé est exposé sous `agentResult`. Si plusieurs
-        // agents en amont écrivent les mêmes clés, les valeurs les plus
-        // profondes écrasent les précédentes via le mergeJson du state.
         const outputMap: JsonValue = {
-            agentResult: cleaned,
+            agentResults: [
+                {
+                    agentId: agent.id,
+                    agentName: agent.name,
+                    fields: cleaned,
+                },
+            ],
         };
 
         if (!node.outputs || node.outputs.length === 0) {

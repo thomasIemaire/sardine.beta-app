@@ -59,6 +59,14 @@ export interface AgentListParams {
   createdTo?: string;
 }
 
+export interface AgentStats {
+  total_ratings: number;
+  correct: number;
+  incorrect: number;
+  accuracy_rate: number;
+  per_field: Record<string, { total: number; correct: number; incorrect: number; accuracy_rate: number }>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AgentService {
   private readonly http = inject(HttpClient);
@@ -195,6 +203,14 @@ export class AgentService {
     };
   }
 
+  submitFeedback(orgId: string, agentId: string, fileId: string, feedbacks: { fieldKey: string; fieldValue: string; isCorrect: boolean }[]) {
+    return this.http.post(`${this.base}/organizations/${orgId}/agents/${agentId}/feedback`, { file_id: fileId, feedbacks });
+  }
+
+  getAgentStats(orgId: string, agentId: string) {
+    return this.http.get<AgentStats>(`${this.base}/organizations/${orgId}/agents/${agentId}/stats`);
+  }
+
   private mapAgent(a: ApiAgent): Agent {
     const user = this.auth.currentUser();
     const selectedOrgId = this.contextSwitcher.selectedId();
@@ -217,7 +233,7 @@ export class AgentService {
       id: a.id,
       name: a.name,
       description: a.description ?? '',
-      percentage: 0,
+      percentage: null,
       isOwned: isOwn,
       forkedFromId: a.forked_from_id ?? null,
       schemaData: a.active_version_schema ?? null,

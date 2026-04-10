@@ -12,7 +12,13 @@ import { ApiFile, ApiFileDetail, DocFileType, DocumentService, fileTypeFromMime,
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
-import { AgentResultTreeComponent, AgentResultEntry, toEntries, entriesToObject } from './agent-result-tree.component';
+import { AgentResultTreeComponent, AgentResultEntry, toEntries, entriesToObject, AgentResultObject } from './agent-result-tree.component';
+
+interface AgentResultSection {
+  agentId: string;
+  agentName: string;
+  entries: AgentResultEntry[];
+}
 
 @Component({
   selector: 'app-file-viewer',
@@ -56,10 +62,19 @@ import { AgentResultTreeComponent, AgentResultEntry, toEntries, entriesToObject 
         </div>
 
         <div class="fv-left-body">
-          @if (agentResultEntries().length) {
+          @if (agentSections().length) {
             <div class="fv-results">
               <span class="fv-section-title">RÉSULTATS D'EXTRACTION</span>
-              <app-agent-result-tree [entries]="agentResultEntries()" (change)="onResultsChange()" />
+              @for (section of agentSections(); track section.agentId) {
+                <div class="fv-agent-section">
+                  <app-agent-result-tree
+                    [entries]="section.entries"
+                    [agentId]="section.agentId"
+                    [fileId]="file()?.id || ''"
+                    (change)="onResultsChange()"
+                  />
+                </div>
+              }
               <p-button
                 label="Sauvegarder"
                 icon="fa-regular fa-floppy-disk"
@@ -172,11 +187,10 @@ export class FileViewerPage implements OnInit {
   readonly previewUrl = signal<SafeResourceUrl | null>(null);
   readonly previewKind = signal<'pdf' | 'image' | 'other'>('other');
   readonly rightOpen = signal(true);
-  readonly agentResultEntries = signal<AgentResultEntry[]>([]);
+  readonly agentSections = signal<AgentResultSection[]>([]);
   readonly savingResults = signal(false);
   readonly resultsDirty = signal(false);
   private readonly messageService = inject(MessageService);
-  private agentResultKey: 'agentResult' | 'agentResults' = 'agentResults';
 
   newComment = '';
 
@@ -207,15 +221,15 @@ export class FileViewerPage implements OnInit {
         next: (detail) => {
           this.file.set(detail);
           const results = detail.flow_execution_results as any;
-          let agentsResult = results?.agentResults ?? results?.data?.agentResults;
-          if (agentsResult) {
-            this.agentResultKey = 'agentResults';
-          } else {
-            agentsResult = results?.agentResult ?? results?.data?.agentResult;
-            if (agentsResult) this.agentResultKey = 'agentResult';
-          }
-          if (agentsResult && typeof agentsResult === 'object') {
-            this.agentResultEntries.set(toEntries(agentsResult));
+          const arr = results?.agentResults ?? results?.data?.agentResults;
+          if (Array.isArray(arr)) {
+            this.agentSections.set(
+              arr.map((item: any) => ({
+                agentId: item.agentId ?? '',
+                agentName: item.agentName ?? 'Agent',
+                entries: toEntries((item.fields ?? {}) as AgentResultObject),
+              }))
+            );
           }
           this.loadPreview(detail);
         },
@@ -268,8 +282,12 @@ export class FileViewerPage implements OnInit {
     if (!orgId || !f) return;
 
     this.savingResults.set(true);
-    const updated = entriesToObject(this.agentResultEntries());
-    const payload = { [this.agentResultKey]: updated };
+    const agentResults = this.agentSections().map(s => ({
+      agentId: s.agentId,
+      agentName: s.agentName,
+      fields: entriesToObject(s.entries),
+    }));
+    const payload = { agentResults };
 
     this.docService.updateExecutionResults(orgId, f.id, payload)
       .pipe(takeUntilDestroyed(this.destroyRef))

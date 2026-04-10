@@ -131,9 +131,19 @@
   gap: 0.625rem;
 }
 
+.fv-agent-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+:host ::ng-deep .fv-agent-section app-agent-result-tree {
+  display: block;
+}
+
 :host ::ng-deep .fv-save-btn {
   width: 100%;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
 
   .p-button { width: 100%; justify-content: center; }
 }

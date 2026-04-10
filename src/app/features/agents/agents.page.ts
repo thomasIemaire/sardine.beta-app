@@ -15,6 +15,8 @@ import { AgentConfigPanelComponent } from './agent-config-panel.component';
 import { AgentVersionPanelComponent } from './agent-version-panel.component';
 import { CreateAgentDialogComponent } from './create-agent-dialog.component';
 import { ShareDialogComponent } from '../../shared/components/share-dialog/share-dialog.component';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { AgentService, AgentListParams } from '../../core/services/agent.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
@@ -477,6 +479,22 @@ export class AgentsPage {
         const agent = res.items.find((a) => a.id === selectId);
         if (agent) this.selectAgent(agent);
       }
+
+      // Charge les stats de chaque agent en parallèle pour afficher le taux de réussite.
+      if (res.items.length === 0) return;
+      forkJoin(
+        res.items.map(a =>
+          this.agentService.getAgentStats(orgId, a.id).pipe(catchError(() => of(null)))
+        )
+      ).subscribe(statsArray => {
+        this.agents.update(agents =>
+          agents.map((a, i) => {
+            const stats = statsArray[i];
+            if (!stats || stats.total_ratings === 0) return a;
+            return { ...a, percentage: Math.round(stats.accuracy_rate * 100) };
+          })
+        );
+      });
     });
   }
 }

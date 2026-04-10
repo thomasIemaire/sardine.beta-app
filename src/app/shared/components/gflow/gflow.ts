@@ -470,7 +470,28 @@ export class GflowComponent implements OnInit, AfterViewInit, OnDestroy {
                 return {
                     ...n,
                     inputs: n.inputs || [],
-                    outputs: n.outputs || [],
+                    outputs: (n.outputs || []).map((port: any) => {
+                        if (!port.map) return port;
+                        const map = port.map as Record<string, unknown>;
+                        // Migration : agentsResult / agentResult (anciens formats) → agentResults[]
+                        const legacy = map['agentsResult'] ?? map['agentResult'];
+                        if (legacy !== undefined && !Array.isArray(map['agentResults'])) {
+                            const cfg = n.config as any;
+                            const { agentsResult: _a, agentResult: _b, ...rest } = map as any;
+                            return {
+                                ...port,
+                                map: {
+                                    ...rest,
+                                    agentResults: [{
+                                        agentId: cfg?.agentId ?? '',
+                                        agentName: cfg?.agentName ?? 'Agent',
+                                        fields: legacy,
+                                    }],
+                                },
+                            };
+                        }
+                        return port;
+                    }),
                     entries: n.entries ?? blueprint?.entries ?? [],
                     exits: n.exits ?? blueprint?.exits ?? [],
                     color: definition?.color || '',
