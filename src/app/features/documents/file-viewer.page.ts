@@ -162,8 +162,8 @@ interface AgentResultSection {
                 <span>Aucun commentaire</span>
               </div>
               <div class="fv-comment-input">
-                <input type="text" pInputText placeholder="Ajouter un commentaire..." [(ngModel)]="newComment" />
-                <p-button label="Envoyer" icon="fa-regular fa-paper-plane" size="small" [rounded]="true" [disabled]="!newComment.trim()" />
+                <input type="text" pInputText class="p-inputtext-sm" placeholder="Ajouter un commentaire..." [(ngModel)]="newComment" />
+                <p-button label="Envoyer" icon="fa-regular fa-paper-plane" size="small" [rounded]="true" [fluid]="true" [disabled]="!newComment.trim()" />
               </div>
             </section>
           </div>
