@@ -249,10 +249,13 @@ export class FileViewerPage implements OnInit {
   }
 
   goBack(): void {
-    const folderId = this.route.snapshot.queryParamMap.get('folder');
-    this.router.navigate(['/documents'], {
-      queryParams: folderId ? { folder: folderId } : {},
-    });
+    const params = this.route.snapshot.queryParamMap;
+    const queryParams: Record<string, string> = {};
+    if (params.get('folder')) queryParams['folder'] = params.get('folder')!;
+    if (params.get('q'))      queryParams['q']      = params.get('q')!;
+    if (params.get('sort'))   queryParams['sort']   = params.get('sort')!;
+    if (params.get('dir'))    queryParams['dir']    = params.get('dir')!;
+    this.router.navigate(['/documents'], { queryParams });
   }
 
   onResultsChange(): void {
