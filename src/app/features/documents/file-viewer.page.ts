@@ -224,7 +224,7 @@ export class FileViewerPage implements OnInit {
         next: (detail) => {
           this.file.set(detail);
           const results = detail.flow_execution_results as any;
-          const arr = results?.agentResults ?? results?.data?.agentResults;
+          const arr = results?.agentExtractions ?? results?.data?.agentExtractions;
           if (Array.isArray(arr)) {
             this.agentSections.set(
               arr.map((item: any) => ({
