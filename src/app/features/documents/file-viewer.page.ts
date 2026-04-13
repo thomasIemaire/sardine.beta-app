@@ -67,6 +67,9 @@ interface AgentResultSection {
               <span class="fv-section-title">RÉSULTATS D'EXTRACTION</span>
               @for (section of agentSections(); track section.agentId) {
                 <div class="fv-agent-section">
+                  <div class="fv-agent-section-header">
+                    <span class="fv-agent-name">{{ section.agentName }}</span>
+                  </div>
                   <app-agent-result-tree
                     [entries]="section.entries"
                     [agentId]="section.agentId"
