@@ -191,6 +191,7 @@ export function entriesToObject(entries: AgentResultEntry[]): AgentResultObject 
     }
 
     .art-children {
+      padding-left: 0.875rem;
       margin-bottom: 0.25rem;
     }
   `,
