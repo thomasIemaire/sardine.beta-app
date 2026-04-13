@@ -2,13 +2,23 @@ import { Component, EventEmitter, inject, input, OnInit, Output } from '@angular
 import { FormsModule } from '@angular/forms';
 import { SelectModule } from 'primeng/select';
 import { ButtonModule } from 'primeng/button';
+import { forkJoin, of, catchError } from 'rxjs';
 import { ContainerConfig, GFlowNode } from '../core/gflow.types';
-import { AgentsService, UserService } from '../core/gflow-stubs';
+import { AgentService } from '../../../../core/services/agent.service';
+import { ContextSwitcherService } from '../../../../core/layout/context-switcher/context-switcher.service';
 
 interface AgentOption {
     id: string;
     name: string;
+    description: string;
     version: string;
+    source: 'own' | 'shared';
+}
+
+interface AgentGroup {
+    label: string;
+    source: 'own' | 'shared';
+    items: AgentOption[];
 }
 
 @Component({
@@ -29,12 +39,42 @@ interface AgentOption {
                         </div>
                     }
                 </div>
-                @if (availableToAdd.length > 0) {
-                    <div class="add-agent-row">
-                        <p-select [options]="availableToAdd" [(ngModel)]="selectedAgent" optionLabel="name" placeholder="Ajouter un agent..." size="small" appendTo="body" styleClass="add-agent-select" />
-                        <p-button icon="fa-solid fa-plus" size="small" [disabled]="!selectedAgent" (onClick)="addAgent()" />
-                    </div>
-                }
+
+                <p-select
+                    [options]="availableGroups"
+                    [group]="true"
+                    optionLabel="name"
+                    optionGroupLabel="label"
+                    optionGroupChildren="items"
+                    [(ngModel)]="selectedAgent"
+                    placeholder="Ajouter un agent..."
+                    [filter]="true"
+                    filterBy="name,description"
+                    filterPlaceholder="Rechercher..."
+                    size="small"
+                    appendTo="body"
+                    [loading]="loading"
+                    (onChange)="addAgent()"
+                >
+                    <ng-template let-group pTemplate="group">
+                        <div class="agent-group">
+                            <i class="fa-regular" [class.fa-building]="group.source === 'own'" [class.fa-share-nodes]="group.source === 'shared'"></i>
+                            <span>{{ group.label }}</span>
+                            <span class="agent-group__count">{{ group.items.length }}</span>
+                        </div>
+                    </ng-template>
+                    <ng-template let-agent pTemplate="item">
+                        <div class="agent-opt">
+                            <span class="agent-opt__name">{{ agent.name }}</span>
+                            @if (agent.description) {
+                                <span class="agent-opt__desc">{{ agent.description }}</span>
+                            }
+                        </div>
+                    </ng-template>
+                    <ng-template pTemplate="selectedItem">
+                        <span class="select-placeholder">Ajouter un agent...</span>
+                    </ng-template>
+                </p-select>
             </div>
 
             @if (config.agents.length === 0) {
@@ -51,9 +91,30 @@ interface AgentOption {
         .agent-item__info { display: flex; align-items: center; gap: .5rem; min-width: 0; }
         .agent-item__name { font-size: .8125rem; font-weight: 500; color: var(--p-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .agent-item__version { background-color: var(--background-color-200); color: var(--p-text-muted-color); padding: 2px 6px; border-radius: 40px; font-size: .625rem; font-weight: 500; white-space: nowrap; }
-        .add-agent-row { display: flex; align-items: center; gap: .5rem; }
-        .add-agent-row :first-child { flex: 1; }
         .config-hint { font-size: .75rem; color: var(--p-text-muted-color); line-height: 1.4; }
+        .select-placeholder { color: var(--p-text-muted-color); font-size: .8125rem; }
+        .agent-group {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            font-size: .6875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--p-text-muted-color);
+            i { font-size: .75rem; }
+        }
+        .agent-group__count {
+            margin-left: auto;
+            font-weight: 500;
+            color: var(--p-text-muted-color);
+            background: var(--background-color-100, var(--p-content-hover-background));
+            padding: .05rem .375rem;
+            border-radius: 999px;
+        }
+        .agent-opt { display: flex; flex-direction: column; gap: .125rem; min-width: 0; }
+        .agent-opt__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+        .agent-opt__desc { font-size: .6875rem; color: var(--p-text-muted-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     `]
 })
 export class ConfigContainerComponent implements OnInit {
@@ -61,44 +122,86 @@ export class ConfigContainerComponent implements OnInit {
 
     @Output() configChange = new EventEmitter<void>();
 
-    private agentsService = inject(AgentsService);
-    private userService = inject(UserService);
+    private readonly agentService = inject(AgentService);
+    private readonly contextSwitcher = inject(ContextSwitcherService);
 
     allAgents: AgentOption[] = [];
+    availableGroups: AgentGroup[] = [];
     selectedAgent: AgentOption | null = null;
-    availableToAdd: AgentOption[] = [];
-
-    ngOnInit(): void { this.loadAgents(); }
+    loading = false;
 
     get config(): ContainerConfig { return this.node().config as ContainerConfig; }
 
+    ngOnInit(): void { this.loadAgents(); }
+
     addAgent(): void {
         if (!this.selectedAgent) return;
-        this.config.agents.push({ agentId: this.selectedAgent.id, agentName: this.selectedAgent.name, version: this.selectedAgent.version });
+        this.config.agents.push({
+            agentId: this.selectedAgent.id,
+            agentName: this.selectedAgent.name,
+            version: this.selectedAgent.version,
+        });
         this.selectedAgent = null;
         this.node().configured = this.config.agents.length > 0;
-        this.refreshAvailable();
+        this.refreshAvailableGroups();
         this.configChange.emit();
     }
 
     removeAgent(index: number): void {
         this.config.agents.splice(index, 1);
         this.node().configured = this.config.agents.length > 0;
-        this.refreshAvailable();
+        this.refreshAvailableGroups();
         this.configChange.emit();
     }
 
     private loadAgents(): void {
-        const orgId = this.userService.getCurrentOrgId();
+        const orgId = this.contextSwitcher.selectedId();
         if (!orgId) return;
-        this.agentsService.list(orgId).subscribe(agents => {
-            this.allAgents = agents.map(a => ({ id: a.id, name: a.name, version: a.version }));
-            this.refreshAvailable();
+
+        this.loading = true;
+
+        forkJoin({
+            own: this.agentService
+                .getAgents(orgId, { page: 1, pageSize: 100 })
+                .pipe(catchError(() => of({ items: [], total: 0, totalPages: 0 }))),
+            shared: this.agentService
+                .getSharedAgents(orgId)
+                .pipe(catchError(() => of({ items: [], total: 0, totalPages: 0 }))),
+        }).subscribe(({ own, shared }) => {
+            const byName = (a: AgentOption, b: AgentOption) => a.name.localeCompare(b.name);
+
+            this.allAgents = [
+                ...own.items.map<AgentOption>((a) => ({
+                    id: a.id,
+                    name: a.name,
+                    description: a.description ?? '',
+                    version: a.activeVersionId ?? '',
+                    source: 'own',
+                })).sort(byName),
+                ...shared.items.map<AgentOption>((a) => ({
+                    id: a.id,
+                    name: a.name,
+                    description: a.description ?? '',
+                    version: a.activeVersionId ?? '',
+                    source: 'shared',
+                })).sort(byName),
+            ];
+
+            this.refreshAvailableGroups();
+            this.loading = false;
         });
     }
 
-    private refreshAvailable(): void {
-        const usedIds = new Set(this.config.agents.map(a => a.agentId));
-        this.availableToAdd = this.allAgents.filter(a => !usedIds.has(a.id));
+    private refreshAvailableGroups(): void {
+        const usedIds = new Set(this.config.agents.map((a) => a.agentId));
+        const available = this.allAgents.filter((a) => !usedIds.has(a.id));
+
+        const own = available.filter((a) => a.source === 'own');
+        const shared = available.filter((a) => a.source === 'shared');
+
+        const groups: AgentGroup[] = [];
+        if (own.length > 0) groups.push({ label: 'Mon organisation', source: 'own', items: own });
+        if (shared.length > 0) groups.push({ label: 'Partagés avec mon organisation', source: 'shared', items: shared });
+        this.availableGroups = groups;
     }
 }
