@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { SelectModule } from 'primeng/select';
 import { forkJoin, of, catchError } from 'rxjs';
 import { AgentConfig, GFlowNode, JsonValue } from '../core/gflow.types';
-import { AgentService } from '../../../../core/services/agent.service';
+import { AgentService, ApiAgentVersion } from '../../../../core/services/agent.service';
 import { ContextSwitcherService } from '../../../../core/layout/context-switcher/context-switcher.service';
 import { GflowStateService } from '../services/gflow-state.service';
 
@@ -12,9 +12,7 @@ interface AgentOption {
     name: string;
     description: string;
     version: string;
-    /** `own` = agent de l'org active, `shared` = agent partagé avec l'org. */
     source: 'own' | 'shared';
-    /** Schéma d'extraction de la version active de l'agent. */
     schemaData: Record<string, unknown> | null;
 }
 
@@ -22,6 +20,11 @@ interface AgentGroup {
     label: string;
     source: 'own' | 'shared';
     items: AgentOption[];
+}
+
+interface VersionOption {
+    label: string;
+    value: string; // '' = dernière version
 }
 
 @Component({
@@ -75,6 +78,20 @@ interface AgentGroup {
             </div>
 
             @if (selectedAgent) {
+                <div class="config-field">
+                    <label class="config-label">Version</label>
+                    <p-select
+                        [options]="versionOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        [(ngModel)]="selectedVersionId"
+                        size="small"
+                        appendTo="body"
+                        [loading]="loadingVersions"
+                        (onChange)="onVersionChange()"
+                    />
+                </div>
+
                 <div class="agent-info">
                     @if (selectedAgent.description) {
                         <div class="agent-info__row">
@@ -86,12 +103,6 @@ interface AgentGroup {
                         <span class="agent-info__label">Origine:</span>
                         <span class="agent-info__value">{{ selectedAgent.source === 'own' ? 'Mon organisation' : 'Partagé' }}</span>
                     </div>
-                    @if (selectedAgent.version) {
-                        <div class="agent-info__row">
-                            <span class="agent-info__label">Version:</span>
-                            <span class="agent-info__value">{{ selectedAgent.version }}</span>
-                        </div>
-                    }
                 </div>
             }
         </div>
@@ -113,7 +124,6 @@ interface AgentGroup {
             text-transform: uppercase;
             letter-spacing: .04em;
             color: var(--p-text-muted-color);
-
             i { font-size: .75rem; }
         }
         .agent-group__count {
@@ -155,10 +165,13 @@ export class ConfigAgentComponent implements OnInit {
     private readonly contextSwitcher = inject(ContextSwitcherService);
     private readonly state = inject(GflowStateService);
 
-    /** Options groupées : agents de l'org active + agents partagés. */
     agentGroups: AgentGroup[] = [];
     selectedAgent: AgentOption | null = null;
     loading = false;
+
+    versionOptions: VersionOption[] = [];
+    selectedVersionId = '';
+    loadingVersions = false;
 
     get config(): AgentConfig { return this.node().config as AgentConfig; }
 
@@ -167,33 +180,51 @@ export class ConfigAgentComponent implements OnInit {
     onAgentChange(): void {
         const agent = this.selectedAgent;
         if (!agent) {
+            this.versionOptions = [];
+            this.selectedVersionId = '';
             this.configChange.emit();
             return;
         }
 
         this.config.agentId = agent.id;
         this.config.agentName = agent.name;
-        this.config.version = agent.version;
+        this.config.version = '';
+        this.selectedVersionId = '';
         this.node().name = agent.name;
 
-        // Propagation immédiate avec ce qu'on a déjà (cache local, sinon {}).
-        // C'est ce qui déclenche `recomputeDownstreamFrom` côté gflow et met
-        // à jour les "Données entrantes" des nœuds en aval sans délai.
         this.applyOutputMap(agent);
         this.configChange.emit();
 
-        // Si le schéma n'était pas dans la liste, on le récupère au détail
-        // et on ré-applique / ré-émet dès qu'il arrive.
+        this.loadVersions(agent.id);
+
         if (agent.schemaData === null) {
-            this.fetchAndApplySchema(agent, /* emit */ true);
+            this.fetchAndApplySchema(agent, true);
         }
     }
 
-    /**
-     * Charge le détail de l'agent pour récupérer son `schemaData` et met
-     * à jour la sortie du noeud + propage (via emit ou directement via le
-     * state selon le contexte).
-     */
+    onVersionChange(): void {
+        this.config.version = this.selectedVersionId;
+        this.configChange.emit();
+    }
+
+    private loadVersions(agentId: string): void {
+        const orgId = this.contextSwitcher.selectedId();
+        if (!orgId) return;
+
+        this.loadingVersions = true;
+        this.agentService.getAgentVersions(orgId, agentId)
+            .pipe(catchError(() => of([] as ApiAgentVersion[])))
+            .subscribe((versions) => {
+                this.versionOptions = [
+                    { label: 'Dernière version (automatique)', value: '' },
+                    ...versions
+                        .sort((a, b) => b.version_number - a.version_number)
+                        .map((v, i, arr) => ({ label: `v${v.version_number ?? (arr.length - i)}`, value: v.id })),
+                ];
+                this.loadingVersions = false;
+            });
+    }
+
     private fetchAndApplySchema(agent: AgentOption, emit: boolean): void {
         const orgId = this.contextSwitcher.selectedId();
         if (!orgId) return;
@@ -203,26 +234,17 @@ export class ConfigAgentComponent implements OnInit {
         ).subscribe((full) => {
             if (!full?.schemaData) return;
             agent.schemaData = full.schemaData as Record<string, unknown>;
-            // L'utilisateur a pu changer d'agent entre-temps.
             if (this.selectedAgent?.id !== agent.id) return;
 
             this.applyOutputMap(agent);
             if (emit) {
                 this.configChange.emit();
             } else {
-                // Chargement initial : on ne veut pas marquer le flow dirty,
-                // mais on doit quand même recalculer les liens en aval.
                 this.state.recomputeDownstreamFrom(this.node().id);
             }
         });
     }
 
-    /**
-     * Met à jour la sortie du nœud pour exposer le schéma de l'agent
-     * sous `agentResults` au format tableau `[{ agentId, agentName, fields }]`.
-     * Les nœuds en aval voient ainsi la même structure que dans
-     * flow_execution_results.agentResults.
-     */
     private applyOutputMap(agent: AgentOption): void {
         const node = this.node();
         const cleaned = this.simplifySchema(agent.schemaData ?? {});
@@ -244,19 +266,6 @@ export class ConfigAgentComponent implements OnInit {
         }
     }
 
-    /**
-     * Transforme un schéma d'agent (format "super flux" avec `_key`, `_type`,
-     * `_description`, `_requirements`, `_list`, ...) en une structure JSON
-     * simple à afficher dans les "Données entrantes" des nœuds en aval.
-     *
-     * - Les clés techniques préfixées par `_` sont supprimées.
-     * - Un nœud avec `_list: true` est représenté comme un tableau contenant
-     *   un seul "template" (→ le viewer montre `[ { ... } ]` qui illustre
-     *   qu'il peut y avoir 0 à N éléments).
-     * - Un nœud feuille (aucun enfant non préfixé par `_`) est remplacé par
-     *   la valeur de son `_type` (ex. "string", "number") si présente,
-     *   sinon `null`.
-     */
     private simplifySchema(value: unknown): JsonValue {
         if (Array.isArray(value)) {
             return value.map((v) => this.simplifySchema(v));
@@ -275,7 +284,6 @@ export class ConfigAgentComponent implements OnInit {
             }
 
             if (!hasChildren) {
-                // Feuille : on expose le type déclaré, sinon null.
                 const type = obj['_type'];
                 if (typeof type === 'string') return type;
                 if (typeof type === 'number' || typeof type === 'boolean' || type === null) return type;
@@ -285,7 +293,6 @@ export class ConfigAgentComponent implements OnInit {
             return isList ? [children] : children;
         }
 
-        // Primitive (string, number, boolean, null, undefined)
         return (value ?? null) as JsonValue;
     }
 
@@ -295,9 +302,6 @@ export class ConfigAgentComponent implements OnInit {
 
         this.loading = true;
 
-        // Charge en parallèle les agents de l'org et ceux partagés avec elle.
-        // `page_size` max côté API = 100 → on paginerait si besoin, mais en
-        // pratique un flow référence rarement plus que ça.
         forkJoin({
             own: this.agentService
                 .getAgents(orgId, { page: 1, pageSize: 100 })
@@ -331,29 +335,23 @@ export class ConfigAgentComponent implements OnInit {
                 .sort(byName);
 
             const groups: AgentGroup[] = [];
-            if (ownOptions.length > 0) {
-                groups.push({ label: 'Mon organisation', source: 'own', items: ownOptions });
-            }
-            if (sharedOptions.length > 0) {
-                groups.push({ label: 'Partagés avec mon organisation', source: 'shared', items: sharedOptions });
-            }
+            if (ownOptions.length > 0) groups.push({ label: 'Mon organisation', source: 'own', items: ownOptions });
+            if (sharedOptions.length > 0) groups.push({ label: 'Partagés avec mon organisation', source: 'shared', items: sharedOptions });
             this.agentGroups = groups;
 
             if (this.config.agentId) {
                 const all = [...ownOptions, ...sharedOptions];
                 this.selectedAgent = all.find((a) => a.id === this.config.agentId) ?? null;
+                this.selectedVersionId = this.config.version ?? '';
 
-                // Reconstruit la sortie du noeud à partir du schéma actuel
-                // de l'agent, pour que les noeuds en aval reçoivent
-                // `agentResult` dès le chargement du flow — sans avoir à
-                // déselectionner/resélectionner l'agent. On ne passe PAS
-                // par configChange : pas de dirty flag au load.
                 if (this.selectedAgent) {
+                    this.loadVersions(this.config.agentId);
+
                     if (this.selectedAgent.schemaData !== null) {
                         this.applyOutputMap(this.selectedAgent);
                         this.state.recomputeDownstreamFrom(this.node().id);
                     } else {
-                        this.fetchAndApplySchema(this.selectedAgent, /* emit */ false);
+                        this.fetchAndApplySchema(this.selectedAgent, false);
                     }
                 }
             }

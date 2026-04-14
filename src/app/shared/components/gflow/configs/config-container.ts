@@ -4,7 +4,7 @@ import { SelectModule } from 'primeng/select';
 import { ButtonModule } from 'primeng/button';
 import { forkJoin, of, catchError } from 'rxjs';
 import { ContainerConfig, GFlowNode } from '../core/gflow.types';
-import { AgentService } from '../../../../core/services/agent.service';
+import { AgentService, ApiAgentVersion } from '../../../../core/services/agent.service';
 import { ContextSwitcherService } from '../../../../core/layout/context-switcher/context-switcher.service';
 
 interface AgentOption {
@@ -21,6 +21,11 @@ interface AgentGroup {
     items: AgentOption[];
 }
 
+interface VersionOption {
+    label: string;
+    value: string;
+}
+
 @Component({
     selector: 'app-config-container',
     imports: [FormsModule, SelectModule, ButtonModule],
@@ -33,8 +38,18 @@ interface AgentGroup {
                         <div class="agent-item">
                             <div class="agent-item__info">
                                 <span class="agent-item__name">{{ agent.agentName }}</span>
-                                <span class="agent-item__version">{{ agent.version }}</span>
                             </div>
+                            <p-select
+                                [options]="versionOptionsMap[agent.agentId]"
+                                optionLabel="label"
+                                optionValue="value"
+                                [ngModel]="agent.version"
+                                (ngModelChange)="onVersionChange($index, $event)"
+                                size="small"
+                                appendTo="body"
+                                [loading]="loadingVersions[agent.agentId]"
+                                class="version-select"
+                            />
                             <p-button icon="fa-solid fa-xmark" severity="secondary" text size="small" (onClick)="removeAgent($index)" />
                         </div>
                     }
@@ -87,10 +102,17 @@ interface AgentGroup {
         .config-field { display: flex; flex-direction: column; gap: .5rem; }
         .config-label { font-size: .8125rem; font-weight: 500; color: var(--p-text-color); }
         .agents-list { display: flex; flex-direction: column; gap: .375rem; }
-        .agent-item { display: flex; align-items: center; justify-content: space-between; gap: .5rem; background-color: var(--background-color-100); padding: .5rem .75rem; border-radius: .5rem; }
-        .agent-item__info { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+        .agent-item {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            background-color: var(--background-color-100);
+            padding: .375rem .5rem .375rem .75rem;
+            border-radius: .5rem;
+        }
+        .agent-item__info { display: flex; align-items: center; gap: .5rem; min-width: 0; flex: 1; }
         .agent-item__name { font-size: .8125rem; font-weight: 500; color: var(--p-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .agent-item__version { background-color: var(--background-color-200); color: var(--p-text-muted-color); padding: 2px 6px; border-radius: 40px; font-size: .625rem; font-weight: 500; white-space: nowrap; }
+        :host ::ng-deep .version-select { min-width: 130px; flex-shrink: 0; }
         .config-hint { font-size: .75rem; color: var(--p-text-muted-color); line-height: 1.4; }
         .select-placeholder { color: var(--p-text-muted-color); font-size: .8125rem; }
         .agent-group {
@@ -130,6 +152,10 @@ export class ConfigContainerComponent implements OnInit {
     selectedAgent: AgentOption | null = null;
     loading = false;
 
+    /** Versions disponibles par agentId, chargées à la demande. */
+    versionOptionsMap: Record<string, VersionOption[]> = {};
+    loadingVersions: Record<string, boolean> = {};
+
     get config(): ContainerConfig { return this.node().config as ContainerConfig; }
 
     ngOnInit(): void { this.loadAgents(); }
@@ -139,10 +165,11 @@ export class ConfigContainerComponent implements OnInit {
         this.config.agents.push({
             agentId: this.selectedAgent.id,
             agentName: this.selectedAgent.name,
-            version: this.selectedAgent.version,
+            version: '',
         });
-        this.selectedAgent = null;
         this.node().configured = this.config.agents.length > 0;
+        this.ensureVersionsLoaded(this.selectedAgent.id);
+        this.selectedAgent = null;
         this.refreshAvailableGroups();
         this.configChange.emit();
     }
@@ -152,6 +179,34 @@ export class ConfigContainerComponent implements OnInit {
         this.node().configured = this.config.agents.length > 0;
         this.refreshAvailableGroups();
         this.configChange.emit();
+    }
+
+    onVersionChange(index: number, versionId: string): void {
+        this.config.agents[index].version = versionId;
+        this.configChange.emit();
+    }
+
+    private ensureVersionsLoaded(agentId: string): void {
+        if (this.versionOptionsMap[agentId]) return;
+
+        const orgId = this.contextSwitcher.selectedId();
+        if (!orgId) return;
+
+        this.loadingVersions = { ...this.loadingVersions, [agentId]: true };
+        this.agentService.getAgentVersions(orgId, agentId)
+            .pipe(catchError(() => of([] as ApiAgentVersion[])))
+            .subscribe((versions) => {
+                this.versionOptionsMap = {
+                    ...this.versionOptionsMap,
+                    [agentId]: [
+                        { label: 'Dernière version', value: '' },
+                        ...versions
+                            .sort((a, b) => b.version_number - a.version_number)
+                            .map((v, i, arr) => ({ label: `v${v.version_number ?? (arr.length - i)}`, value: v.id })),
+                    ],
+                };
+                this.loadingVersions = { ...this.loadingVersions, [agentId]: false };
+            });
     }
 
     private loadAgents(): void {
@@ -186,6 +241,11 @@ export class ConfigContainerComponent implements OnInit {
                     source: 'shared',
                 })).sort(byName),
             ];
+
+            // Charge les versions des agents déjà présents dans la config.
+            for (const a of this.config.agents) {
+                this.ensureVersionsLoaded(a.agentId);
+            }
 
             this.refreshAvailableGroups();
             this.loading = false;

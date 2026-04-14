@@ -207,6 +207,7 @@ export class FlowsPage {
     } else {
       cm.model = [
         { label: 'Ouvrir', icon: 'fa-regular fa-arrow-up-right-from-square', command: () => this.navigate(flow) },
+        { label: 'Dupliquer', icon: 'fa-regular fa-copy', command: () => this.duplicate(flow) },
         { label: 'Télécharger', icon: 'fa-regular fa-download', command: () => this.exportFlow(flow) },
         { label: 'Partager', icon: 'fa-regular fa-share-nodes', command: () => { this.shareTarget = flow; this.showShareDialog.set(true); } },
         { separator: true },
@@ -239,6 +240,19 @@ export class FlowsPage {
     } else {
       // navigation handled by FlowCardComponent.navigate() on click
     }
+  }
+
+  private duplicate(flow: Flow): void {
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) return;
+    this.flowService.duplicateFlow(orgId, flow.id).subscribe({
+      next: (duplicated) => {
+        this.flows.update((list) => [duplicated, ...list]);
+        this.total.update((t) => t + 1);
+        this.messageService.add({ severity: 'success', summary: 'Flow dupliqué', detail: `"${duplicated.name}" a été créé.` });
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de dupliquer ce flow.' }),
+    });
   }
 
   private fork(flow: Flow): void {
