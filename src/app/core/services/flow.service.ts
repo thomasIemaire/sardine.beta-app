@@ -204,6 +204,17 @@ export class FlowService {
       } as FlowPage)));
   }
 
+  duplicateFlow(orgId: string, flowId: string) {
+    return this.http
+      .post<ApiFlow>(`${this.base}/organizations/${orgId}/flows/${flowId}/duplicate`, {})
+      .pipe(map((f) => this.mapFlow(f)));
+  }
+
+  updateFlow(orgId: string, flowId: string, patch: { name?: string; description?: string }) {
+    return this.http.patch<ApiFlow>(`${this.base}/organizations/${orgId}/flows/${flowId}`, patch)
+      .pipe(map((f) => this.mapFlow(f)));
+  }
+
   createFlow(orgId: string, name: string, description: string) {
     return this.http
       .post<ApiFlow>(`${this.base}/organizations/${orgId}/flows/`, { name, description, flow_data: { nodes: [], edges: [] } })

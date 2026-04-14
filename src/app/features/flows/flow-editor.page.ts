@@ -165,6 +165,7 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
     readonly executing = signal(false);
     flowId: string | null = null;
     orgId: string | null = null;
+    private loadedFlowName: string | null = null;
 
     ngOnInit(): void {
         this.flowId = this.route.snapshot.paramMap.get('id');
@@ -181,6 +182,7 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
         this.flowService.getFlow(orgId, flowId).subscribe({
             next: (flow) => {
                 this.isReadonly.set(!flow.isOwned);
+                this.loadedFlowName = flow.name;
                 this.gflowRef()?.loadFlow({
                     id: flow.id,
                     title: flow.name,
@@ -271,8 +273,17 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
         const { flowId, orgId } = this;
         if (!flowId || !orgId) return;
 
-        this.flowService.saveFlowVersion(orgId, flowId, payload.data).subscribe({
+        const nameChanged = payload.name !== this.loadedFlowName;
+
+        const version$ = this.flowService.saveFlowVersion(orgId, flowId, payload.data);
+        const rename$ = nameChanged
+            ? this.flowService.updateFlow(orgId, flowId, { name: payload.name })
+            : null;
+
+        version$.subscribe({
             next: () => {
+                if (nameChanged) this.loadedFlowName = payload.name;
+                if (rename$) rename$.subscribe();
                 this.messageService.add({ severity: 'success', summary: 'Sauvegardé', detail: 'Le flow a été sauvegardé.' });
             },
             error: () => {
