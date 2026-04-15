@@ -2,10 +2,11 @@ import { Component } from '@angular/core';
 import { PageComponent } from '../../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../../shared/components/header-page/header-page.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
+import { TrainingComponent } from './training.component';
 
 @Component({
   selector: 'app-fine-tuning',
-  imports: [PageComponent, HeaderPageComponent, EmptyStateComponent],
+  imports: [PageComponent, HeaderPageComponent, EmptyStateComponent, TrainingComponent],
   template: `
     <app-page>
       <app-header-page
@@ -33,11 +34,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
       }
 
       @if (currentFacet === 'training') {
-        <app-empty-state
-          icon="fa-regular fa-dumbbell"
-          title="Aucun modèle d'entraînement"
-          subtitle="Lancez votre premier job d'entraînement."
-        />
+        <app-training />
       }
     </app-page>
   `,
