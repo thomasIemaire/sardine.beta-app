@@ -170,6 +170,10 @@ export class ExecPanelComponent {
             takeUntilDestroyed(this.destroyRef)
         ).subscribe(() => {
             this.stoppingExecution.set(false);
+            // Met à jour le statut localement
+            const updated = { ...exec, status: 'cancelled' as const };
+            this.selectedExec.set(updated);
+            this.executions.update(list => list.map(e => e.id === exec.id ? updated : e));
         });
     }
 
