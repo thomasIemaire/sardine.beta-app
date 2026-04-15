@@ -1,49 +1,74 @@
-import { Component, HostListener, signal, computed } from '@angular/core';
+import { Component, HostListener, inject, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
 import { TooltipModule } from 'primeng/tooltip';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { firstValueFrom } from 'rxjs';
 import { DropZoneComponent } from '../../../shared/components/drop-zone/drop-zone.component';
 import { PdfViewerComponent, AnnotationRect, RectType } from './pdf-viewer.component';
+import { DatasetService, ApiDocumentType, ApiZoneType } from '../../../core/services/dataset.service';
+import { ContextSwitcherService } from '../../../core/layout/context-switcher/context-switcher.service';
 
-// ── Domain types ─────────────────────────────────────────────────────────────
+// ── UI ↔ API mapping ──────────────────────────────────────────────────────────
 
-export type DocType =
-  | 'facture'
-  | 'facture-suivante'
-  | 'bulletin-de-paie'
-  | 'bulletin-de-paie-suivant'
-  | 'releve-bancaire'
-  | 'autre';
+type UiDocType = 'facture' | 'facture-suivante' | 'bulletin-de-paie';
 
 interface DocTypeOption {
-  value: DocType;
+  value: UiDocType;
   label: string;
 }
 
 const DOC_TYPE_OPTIONS: DocTypeOption[] = [
-  { value: 'facture', label: 'Facture (1ère page)' },
+  { value: 'facture',          label: 'Facture (1ère page)' },
   { value: 'facture-suivante', label: 'Facture (suite)' },
-  { value: 'bulletin-de-paie', label: 'Bulletin de paie (1ère page)' },
-  { value: 'bulletin-de-paie-suivant', label: 'Bulletin de paie (suite)' },
-  { value: 'releve-bancaire', label: 'Relevé bancaire' },
-  { value: 'autre', label: 'Autre' },
+  { value: 'bulletin-de-paie', label: 'Bulletin de paie' },
 ];
 
+function toApiDocType(ui: UiDocType): ApiDocumentType {
+  switch (ui) {
+    case 'facture':          return 'invoice';
+    case 'facture-suivante': return 'invoice_continuation';
+    case 'bulletin-de-paie': return 'payslip';
+  }
+}
+
+function toApiZoneType(rt: RectType): ApiZoneType {
+  switch (rt) {
+    case 'texte':   return 'text';
+    case 'image':   return 'image';
+    case 'tableau': return 'table';
+  }
+}
+
+/** Convert internal 0–1 coords to API 0–100 percentages */
+function toApiZone(r: AnnotationRect): { type: ApiZoneType; x: number; y: number; width: number; height: number } {
+  return {
+    type:   toApiZoneType(r.type),
+    x:      r.x      * 100,
+    y:      r.y      * 100,
+    width:  r.width  * 100,
+    height: r.height * 100,
+  };
+}
+
+// ── Internal page model ───────────────────────────────────────────────────────
+
 interface TrainingPage {
-  /** Which PDF file this page belongs to */
-  fileIndex: number;
-  /** 1-indexed page within its PDF */
+  /** Backend page id */
+  pageId: string;
+  /** Original filename */
+  filename: string;
+  /** 1-indexed within the original PDF */
   pageNumber: number;
-  /** Cached ArrayBuffer of the PDF (shared among pages of the same file) */
-  pdfData: ArrayBuffer;
-  /** Document type label for this page */
-  docType: DocType | null;
-  /** Annotation rectangles drawn on this page */
+  /** Lazily loaded PDF binary for this single page */
+  pdfData: ArrayBuffer | null;
+  /** UI doc type */
+  docType: UiDocType | null;
+  /** Annotation rectangles (internal 0–1 coords) */
   rects: AnnotationRect[];
-  /** Whether this page has been saved to the mock backend */
+  /** True once saved to backend */
   saved: boolean;
 }
 
@@ -64,7 +89,7 @@ interface TrainingPage {
   template: `
     <p-toast position="bottom-right" [life]="3500" />
 
-    <!-- ── Import state ───────────────────────────────────────────────────── -->
+    <!-- ── Import ───────────────────────────────────────────────────────────── -->
     @if (state() === 'import') {
       <div class="import-screen">
         <div class="import-card">
@@ -75,17 +100,25 @@ interface TrainingPage {
               Importez un ou plusieurs fichiers PDF pour démarrer l'annotation des pages.
             </span>
           </div>
-          <app-drop-zone
-            accept=".pdf"
-            label="Déposer des fichiers PDF"
-            hint="Glissez-déposez ou cliquez pour sélectionner (plusieurs fichiers acceptés)"
-            (filesDropped)="onFilesDropped($event)"
-          />
+
+          @if (importing()) {
+            <div class="importing-status">
+              <i class="fa-solid fa-spinner fa-spin"></i>
+              <span>{{ importStatus() }}</span>
+            </div>
+          } @else {
+            <app-drop-zone
+              accept=".pdf"
+              label="Déposer des fichiers PDF"
+              hint="Glissez-déposez ou cliquez pour sélectionner (plusieurs fichiers acceptés)"
+              (filesDropped)="onFilesDropped($event)"
+            />
+          }
         </div>
       </div>
     }
 
-    <!-- ── Annotation state ───────────────────────────────────────────────── -->
+    <!-- ── Annotating ────────────────────────────────────────────────────────── -->
     @if (state() === 'annotating') {
       <div class="editor">
 
@@ -101,18 +134,14 @@ interface TrainingPage {
                 (click)="viewMode.set('move')"
                 pTooltip="Mode déplacement"
                 tooltipPosition="bottom"
-              >
-                <i class="fa-regular fa-hand"></i>
-              </button>
+              ><i class="fa-regular fa-hand"></i></button>
               <button
                 class="mode-btn"
                 [class.active]="viewMode() === 'draw'"
                 (click)="viewMode.set('draw')"
-                pTooltip="Mode dessin"
+                pTooltip="Mode dessin (D)"
                 tooltipPosition="bottom"
-              >
-                <i class="fa-regular fa-vector-square"></i>
-              </button>
+              ><i class="fa-regular fa-vector-square"></i></button>
             </div>
 
             @if (viewMode() === 'draw') {
@@ -140,8 +169,7 @@ interface TrainingPage {
               Page <strong>{{ currentPageIndex() + 1 }}</strong> / {{ pages().length }}
             </span>
             <span class="file-info">
-              {{ currentPage()?.fileIndex !== undefined ? fileNames()[currentPage()!.fileIndex] : '' }}
-              — p.&nbsp;{{ currentPage()?.pageNumber }}
+              {{ currentPage()!.filename }} — p.&nbsp;{{ currentPage()!.pageNumber }}
             </span>
           </div>
 
@@ -164,14 +192,21 @@ interface TrainingPage {
         <!-- Viewer -->
         <div class="editor-main">
           @if (currentPage(); as page) {
-            <app-pdf-viewer
-              [pdfData]="page.pdfData"
-              [pageNumber]="page.pageNumber"
-              [mode]="viewMode()"
-              [activeType]="activeType()"
-              [initialRects]="page.rects"
-              (rectsChange)="onRectsChange($event)"
-            />
+            @if (loadingPage()) {
+              <div class="page-loading">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <span>Chargement de la page…</span>
+              </div>
+            } @else if (page.pdfData) {
+              <app-pdf-viewer
+                [pdfData]="page.pdfData"
+                [pageNumber]="1"
+                [mode]="viewMode()"
+                [activeType]="activeType()"
+                [initialRects]="page.rects"
+                (rectsChange)="onRectsChange($event)"
+              />
+            }
           }
         </div>
 
@@ -192,7 +227,6 @@ interface TrainingPage {
           </div>
 
           <div class="footer-center">
-            <!-- Progress dots (max 20 shown) -->
             <div class="progress-dots">
               @for (p of progressDots(); track $index) {
                 <span
@@ -216,6 +250,7 @@ interface TrainingPage {
                 rounded
                 icon="fa-regular fa-chevron-left"
                 iconPos="left"
+                [disabled]="saving()"
                 (onClick)="prevPage()"
               />
             }
@@ -225,7 +260,7 @@ interface TrainingPage {
               iconPos="right"
               size="small"
               rounded
-              [disabled]="!currentPage()?.docType"
+              [disabled]="!currentPage()?.docType || loadingPage()"
               [loading]="saving()"
               (onClick)="nextOrSave()"
             />
@@ -234,7 +269,7 @@ interface TrainingPage {
       </div>
     }
 
-    <!-- ── Done state ─────────────────────────────────────────────────────── -->
+    <!-- ── Done ──────────────────────────────────────────────────────────────── -->
     @if (state() === 'done') {
       <div class="done-screen">
         <i class="fa-regular fa-circle-check done-icon"></i>
@@ -286,15 +321,25 @@ interface TrainingPage {
       margin-bottom: .25rem;
     }
 
-    .import-title {
-      font-size: 1rem;
-      font-weight: 600;
-    }
+    .import-title { font-size: 1rem; font-weight: 600; }
 
     .import-subtitle {
       font-size: .8125rem;
       color: var(--p-text-muted-color);
       max-width: 360px;
+    }
+
+    .importing-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .625rem;
+      padding: 1.5rem;
+      font-size: .875rem;
+      color: var(--p-text-muted-color);
+      border: 1.5px dashed var(--surface-border);
+      border-radius: .625rem;
+      i { color: var(--p-primary-500); }
     }
 
     /* ── Editor ──────────────────────────────────────────────────────────── */
@@ -320,11 +365,7 @@ interface TrainingPage {
       align-items: center;
       gap: .5rem;
       flex: 1;
-
-      &--right {
-        justify-content: flex-end;
-        gap: .5rem;
-      }
+      &--right { justify-content: flex-end; }
     }
 
     .toolbar-center {
@@ -335,9 +376,7 @@ interface TrainingPage {
       gap: .125rem;
     }
 
-    .page-info {
-      font-size: .875rem;
-    }
+    .page-info { font-size: .875rem; }
 
     .file-info {
       font-size: .6875rem;
@@ -348,13 +387,8 @@ interface TrainingPage {
       max-width: 260px;
     }
 
-    .doc-type-label {
-      font-size: .8125rem;
-      font-weight: 500;
-      white-space: nowrap;
-    }
+    .doc-type-label { font-size: .8125rem; font-weight: 500; white-space: nowrap; }
 
-    /* Mode toggle */
     .mode-toggle {
       display: flex;
       border: 1px solid var(--surface-border);
@@ -374,19 +408,11 @@ interface TrainingPage {
       color: var(--p-text-muted-color);
       transition: background .15s, color .15s;
       font-size: .875rem;
-
       &:hover { background: var(--p-surface-hover); }
-      &.active {
-        background: var(--p-primary-500);
-        color: white;
-      }
+      &.active { background: var(--p-primary-500); color: white; }
     }
 
-    /* Rect type buttons */
-    .rect-types {
-      display: flex;
-      gap: .375rem;
-    }
+    .rect-types { display: flex; gap: .375rem; }
 
     .rect-type-btn {
       display: flex;
@@ -401,28 +427,34 @@ interface TrainingPage {
       font-size: .75rem;
       font-weight: 600;
       transition: background .12s, color .12s, box-shadow .12s;
-
-      &:hover:not(.active) {
-        background: color-mix(in srgb, var(--color) 15%, transparent);
-      }
-
+      &:hover:not(.active) { background: color-mix(in srgb, var(--color) 15%, transparent); }
       &.active {
         background: var(--color);
         color: #fff;
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--color) 35%, transparent);
       }
-
       i { font-size: .75rem; }
     }
 
-    /* Viewer */
     .editor-main {
       flex: 1;
       overflow: hidden;
       position: relative;
     }
 
-    /* Footer */
+    .page-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      font-size: .875rem;
+      color: var(--p-text-muted-color);
+      i { font-size: 1.5rem; color: var(--p-primary-500); }
+    }
+
     .editor-footer {
       display: flex;
       align-items: center;
@@ -439,17 +471,9 @@ interface TrainingPage {
       gap: .5rem;
       flex: 1;
     }
-
     .footer-right { justify-content: flex-end; }
+    .footer-center { display: flex; align-items: center; justify-content: center; flex: 1; }
 
-    .footer-center {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex: 1;
-    }
-
-    /* Progress dots */
     .progress-dots {
       display: flex;
       align-items: center;
@@ -465,19 +489,12 @@ interface TrainingPage {
       border-radius: 50%;
       background: var(--surface-border);
       transition: background .2s, transform .2s;
-
       &--saved { background: var(--p-primary-500); }
-      &--current {
-        background: var(--p-primary-300);
-        transform: scale(1.4);
-      }
+      &--current { background: var(--p-primary-300); transform: scale(1.4); }
       &--current.dot--saved { background: var(--p-primary-500); }
     }
 
-    .dot-overflow {
-      font-size: .6875rem;
-      color: var(--p-text-muted-color);
-    }
+    .dot-overflow { font-size: .6875rem; color: var(--p-text-muted-color); }
 
     /* ── Done ────────────────────────────────────────────────────────────── */
     .done-screen {
@@ -489,101 +506,150 @@ interface TrainingPage {
       gap: .75rem;
     }
 
-    .done-icon {
-      font-size: 3rem;
-      color: var(--p-primary-500);
-    }
-
-    .done-title {
-      font-size: 1.125rem;
-      font-weight: 600;
-    }
-
-    .done-subtitle {
-      font-size: .875rem;
-      color: var(--p-text-muted-color);
-      margin-bottom: .5rem;
-    }
+    .done-icon { font-size: 3rem; color: var(--p-primary-500); }
+    .done-title { font-size: 1.125rem; font-weight: 600; }
+    .done-subtitle { font-size: .875rem; color: var(--p-text-muted-color); margin-bottom: .5rem; }
   `,
 })
 export class TrainingComponent {
+  private readonly datasetService   = inject(DatasetService);
+  private readonly contextSwitcher  = inject(ContextSwitcherService);
+  private readonly messageService   = inject(MessageService);
+
   // ── UI config ───────────────────────────────────────────────────────────────
 
   readonly docTypeOptions = DOC_TYPE_OPTIONS;
 
   readonly rectTypes: { value: RectType; label: string; icon: string; color: string }[] = [
-    { value: 'texte', label: 'Texte', icon: 'fa-regular fa-font', color: '#3b82f6' },
-    { value: 'image', label: 'Image', icon: 'fa-regular fa-image', color: '#f59e0b' },
-    { value: 'tableau', label: 'Tableau', icon: 'fa-regular fa-table', color: '#10b981' },
+    { value: 'texte',   label: 'Texte',   icon: 'fa-regular fa-font',   color: '#3b82f6' },
+    { value: 'image',   label: 'Image',   icon: 'fa-regular fa-image',  color: '#f59e0b' },
+    { value: 'tableau', label: 'Tableau', icon: 'fa-regular fa-table',  color: '#10b981' },
   ];
 
   // ── State ───────────────────────────────────────────────────────────────────
 
-  readonly state = signal<'import' | 'annotating' | 'done'>('import');
-  readonly viewMode = signal<'move' | 'draw'>('move');
-  readonly activeType = signal<RectType>('texte');
-  readonly saving = signal(false);
+  readonly state        = signal<'import' | 'annotating' | 'done'>('import');
+  readonly viewMode     = signal<'move' | 'draw'>('move');
+  readonly activeType   = signal<RectType>('texte');
+  readonly saving       = signal(false);
+  readonly importing    = signal(false);
+  readonly importStatus = signal('');
+  readonly loadingPage  = signal(false);
 
-  readonly pages = signal<TrainingPage[]>([]);
-  readonly fileNames = signal<string[]>([]);
+  readonly pages            = signal<TrainingPage[]>([]);
   readonly currentPageIndex = signal(0);
+  /** Dataset id created on the backend for this session */
+  private datasetId: string | null = null;
 
-  readonly currentPage = computed(() => this.pages()[this.currentPageIndex()]);
-  readonly isLastPage = computed(() => this.currentPageIndex() === this.pages().length - 1);
+  readonly currentPage  = computed(() => this.pages()[this.currentPageIndex()]);
+  readonly isLastPage   = computed(() => this.currentPageIndex() === this.pages().length - 1);
 
   readonly progressDots = computed(() =>
-    this.pages()
-      .slice(0, 20)
-      .map((p, i) => ({ saved: p.saved, isCurrent: i === this.currentPageIndex() }))
+    this.pages().slice(0, 20).map((p, i) => ({
+      saved:     p.saved,
+      isCurrent: i === this.currentPageIndex(),
+    }))
   );
 
-  // ── File import ─────────────────────────────────────────────────────────────
+  // ── Import ──────────────────────────────────────────────────────────────────
 
   async onFilesDropped(files: File[]): Promise<void> {
     const pdfFiles = files.filter((f) => f.type === 'application/pdf' || f.name.endsWith('.pdf'));
     if (!pdfFiles.length) return;
 
-    const allPages: TrainingPage[] = [];
-    const names: string[] = [];
-
-    for (let fileIndex = 0; fileIndex < pdfFiles.length; fileIndex++) {
-      const file = pdfFiles[fileIndex];
-      names.push(file.name);
-
-      const buffer = await file.arrayBuffer();
-
-      // Determine page count via pdfjs (dynamic import to keep bundle clean)
-      let pageCount = 1;
-      try {
-        const { getDocument } = await import('pdfjs-dist');
-        const doc = await getDocument({ data: buffer.slice(0) }).promise;
-        pageCount = doc.numPages;
-        await doc.destroy();
-      } catch {
-        pageCount = 1;
-      }
-
-      for (let p = 1; p <= pageCount; p++) {
-        allPages.push({
-          fileIndex,
-          pageNumber: p,
-          pdfData: buffer,
-          docType: null,
-          rects: [],
-          saved: false,
-        });
-      }
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) {
+      this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Aucune organisation sélectionnée.' });
+      return;
     }
 
-    this.fileNames.set(names);
-    this.pages.set(allPages);
-    this.currentPageIndex.set(0);
-    this.state.set('annotating');
+    this.importing.set(true);
+
+    try {
+      // 1. Create the dataset
+      this.importStatus.set('Création du dataset…');
+      const dataset = await firstValueFrom(
+        this.datasetService.createDataset(orgId, `Entraînement ${new Date().toLocaleDateString('fr-FR')}`)
+      );
+      this.datasetId = dataset.id;
+
+      // 2. Import each PDF file
+      const allPages: TrainingPage[] = [];
+
+      for (let i = 0; i < pdfFiles.length; i++) {
+        const file = pdfFiles[i];
+        this.importStatus.set(`Import ${file.name} (${i + 1}/${pdfFiles.length})…`);
+
+        const result = await firstValueFrom(
+          this.datasetService.importFile(orgId, dataset.id, file)
+        );
+
+        // 3. Fetch the pages created for this file
+        const resp = await firstValueFrom(
+          this.datasetService.listPages(orgId, dataset.id, { filename: result.original_filename, limit: 1000 })
+        );
+
+        for (const p of resp.data) {
+          allPages.push({
+            pageId:     p.id,
+            filename:   p.original_filename,
+            pageNumber: p.page_number,
+            pdfData:    null,     // loaded lazily
+            docType:    null,
+            rects:      [],
+            saved:      p.processed,
+          });
+        }
+      }
+
+      // Sort by filename then page_number to keep the original order
+      allPages.sort((a, b) =>
+        a.filename.localeCompare(b.filename) || a.pageNumber - b.pageNumber
+      );
+
+      this.pages.set(allPages);
+      this.currentPageIndex.set(0);
+      this.importing.set(false);
+      this.state.set('annotating');
+
+      // Load first page binary
+      await this.loadPageBinary(0);
+
+    } catch (err: unknown) {
+      this.importing.set(false);
+      const detail = (err as { error?: { detail?: string } })?.error?.detail ?? 'Erreur lors de l\'import.';
+      this.messageService.add({ severity: 'error', summary: 'Import échoué', detail });
+    }
+  }
+
+  /** Fetch the PDF binary for a page if not already loaded */
+  private async loadPageBinary(index: number): Promise<void> {
+    const page = this.pages()[index];
+    if (!page || page.pdfData) return;
+
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId || !this.datasetId) return;
+
+    this.loadingPage.set(true);
+    try {
+      const buffer = await firstValueFrom(
+        this.datasetService.getPageBinary(orgId, this.datasetId, page.pageId)
+      );
+      this.pages.update((pages) => {
+        const updated = [...pages];
+        updated[index] = { ...updated[index], pdfData: buffer };
+        return updated;
+      });
+    } catch {
+      this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger la page PDF.' });
+    } finally {
+      this.loadingPage.set(false);
+    }
   }
 
   // ── Annotation ──────────────────────────────────────────────────────────────
 
-  setDocType(value: DocType): void {
+  setDocType(value: UiDocType): void {
     this.pages.update((pages) => {
       const updated = [...pages];
       updated[this.currentPageIndex()] = { ...updated[this.currentPageIndex()], docType: value };
@@ -601,84 +667,81 @@ export class TrainingComponent {
 
   // ── Navigation ──────────────────────────────────────────────────────────────
 
-  prevPage(): void {
-    if (this.currentPageIndex() > 0) {
-      this.currentPageIndex.update((i) => i - 1);
-      this.viewMode.set('move');
-    }
+  async prevPage(): Promise<void> {
+    const prev = this.currentPageIndex() - 1;
+    if (prev < 0) return;
+    this.currentPageIndex.set(prev);
+    this.viewMode.set('move');
+    await this.loadPageBinary(prev);
   }
 
   async nextOrSave(): Promise<void> {
     await this.saveCurrent();
-
     if (this.isLastPage()) {
-      // Final save — mark training dataset as complete (mock)
-      await this.finalizeTraining();
+      this.state.set('done');
     } else {
-      this.currentPageIndex.update((i) => i + 1);
+      const next = this.currentPageIndex() + 1;
+      this.currentPageIndex.set(next);
       this.viewMode.set('move');
+      await this.loadPageBinary(next);
     }
   }
 
-  // ── Mock API calls ──────────────────────────────────────────────────────────
+  // ── API save ─────────────────────────────────────────────────────────────────
 
   private async saveCurrent(): Promise<void> {
-    const idx = this.currentPageIndex();
+    const idx  = this.currentPageIndex();
     const page = this.pages()[idx];
-    if (!page) return;
+    if (!page || !page.docType) return;
+
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId || !this.datasetId) return;
 
     this.saving.set(true);
+    try {
+      // Save zones (full replacement)
+      await firstValueFrom(
+        this.datasetService.saveZones(
+          orgId,
+          this.datasetId,
+          page.pageId,
+          page.rects.map(toApiZone),
+        )
+      );
 
-    // Mock: simulate API call
-    await new Promise((r) => setTimeout(r, 300));
+      // Mark the page as processed with its document type
+      await firstValueFrom(
+        this.datasetService.updatePage(orgId, this.datasetId, page.pageId, {
+          processed:     true,
+          document_type: toApiDocType(page.docType),
+        })
+      );
 
-    // Mock payload that would be sent to the server
-    const payload = {
-      fileIndex: page.fileIndex,
-      pageNumber: page.pageNumber,
-      docType: page.docType,
-      rects: page.rects,
-    };
-    console.debug('[Training mock] Saved page', payload);
-
-    this.pages.update((pages) => {
-      const updated = [...pages];
-      updated[idx] = { ...updated[idx], saved: true };
-      return updated;
-    });
-
-    this.saving.set(false);
+      this.pages.update((pages) => {
+        const updated = [...pages];
+        updated[idx] = { ...updated[idx], saved: true };
+        return updated;
+      });
+    } catch (err: unknown) {
+      const detail = (err as { error?: { detail?: string } })?.error?.detail ?? 'Impossible de sauvegarder la page.';
+      this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+      throw err; // re-throw so nextOrSave() stops
+    } finally {
+      this.saving.set(false);
+    }
   }
 
-  private async finalizeTraining(): Promise<void> {
-    this.saving.set(true);
-
-    // Mock: simulate finalizing the training dataset
-    await new Promise((r) => setTimeout(r, 500));
-
-    const summary = {
-      totalPages: this.pages().length,
-      files: this.fileNames(),
-      pages: this.pages().map((p) => ({
-        file: this.fileNames()[p.fileIndex],
-        pageNumber: p.pageNumber,
-        docType: p.docType,
-        rectangles: p.rects.length,
-      })),
-    };
-    console.debug('[Training mock] Finalized training dataset', summary);
-
-    this.saving.set(false);
-    this.state.set('done');
-  }
+  // ── Reset ────────────────────────────────────────────────────────────────────
 
   reset(): void {
     this.state.set('import');
     this.pages.set([]);
-    this.fileNames.set([]);
     this.currentPageIndex.set(0);
     this.viewMode.set('move');
+    this.datasetId = null;
   }
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────────
 
   @HostListener('window:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
@@ -708,15 +771,9 @@ export class TrainingComponent {
       case 'D':
         this.viewMode.set('draw');
         break;
-      case '1':
-        this.activeType.set('texte');
-        break;
-      case '2':
-        this.activeType.set('image');
-        break;
-      case '3':
-        this.activeType.set('tableau');
-        break;
+      case '1': this.activeType.set('texte');   break;
+      case '2': this.activeType.set('image');   break;
+      case '3': this.activeType.set('tableau'); break;
     }
   }
 }
