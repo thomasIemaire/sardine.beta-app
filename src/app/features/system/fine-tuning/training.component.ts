@@ -393,17 +393,24 @@ interface TrainingPage {
       align-items: center;
       gap: .3rem;
       padding: .25rem .625rem;
-      border: 1.5px solid var(--color);
+      border: 2px solid var(--color);
       border-radius: 6px;
       background: transparent;
       color: var(--color);
       cursor: pointer;
       font-size: .75rem;
       font-weight: 600;
-      transition: background .15s;
+      transition: background .12s, color .12s, box-shadow .12s;
 
-      &:hover { background: color-mix(in srgb, var(--color) 12%, transparent); }
-      &.active { background: color-mix(in srgb, var(--color) 18%, transparent); }
+      &:hover:not(.active) {
+        background: color-mix(in srgb, var(--color) 15%, transparent);
+      }
+
+      &.active {
+        background: var(--color);
+        color: #fff;
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color) 35%, transparent);
+      }
 
       i { font-size: .75rem; }
     }

@@ -166,6 +166,9 @@ const MAX_ZOOM = 6;
       &:not(.mode-draw) { cursor: grab; }
       &.is-panning      { cursor: grabbing !important; }
       &.mode-draw       { cursor: default; }
+
+      /* Middle-button pan overrides draw cursor */
+      &.is-panning .annotations-overlay { cursor: grabbing !important; }
     }
 
     .canvas-container {
@@ -202,12 +205,12 @@ const MAX_ZOOM = 6;
       display: flex;
       align-items: center;
       gap: 2px;
-      background: var(--p-surface-card);
-      border: 1px solid var(--surface-border);
+      background: rgba(0,0,0,0.55);
       border-radius: 8px;
       padding: 2px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
       z-index: 10;
+      backdrop-filter: blur(4px);
     }
 
     .zoom-btn, .zoom-level {
@@ -217,10 +220,10 @@ const MAX_ZOOM = 6;
       border: none;
       background: transparent;
       cursor: pointer;
-      color: var(--p-text-color);
+      color: rgba(255,255,255,0.9);
       border-radius: 5px;
       transition: background .12s;
-      &:hover { background: var(--p-surface-hover); }
+      &:hover { background: rgba(255,255,255,0.15); }
     }
 
     .zoom-btn {
@@ -419,23 +422,32 @@ export class PdfViewerComponent implements AfterViewInit, OnDestroy {
 
   // ── Wheel (zoom) ───────────────────────────────────────────────────────────
 
-  /** Non-passive wheel listener so we can preventDefault */
+  /** Ctrl+wheel → zoom centré sur le curseur ; molette seule → scroll vertical */
   @HostListener('wheel', ['$event'])
   onWheel(event: WheelEvent): void {
-    if (this.mode() !== 'move') return;
     event.preventDefault();
-    const wrap = this.wrapRef.nativeElement;
-    const rect = wrap.getBoundingClientRect();
-    const ax = event.clientX - rect.left;
-    const ay = event.clientY - rect.top;
-    const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
-    this.scaleAround(this.zoom() * factor, ax, ay);
+    if (event.ctrlKey) {
+      const wrap = this.wrapRef.nativeElement;
+      const rect = wrap.getBoundingClientRect();
+      const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+      this.scaleAround(this.zoom() * factor, event.clientX - rect.left, event.clientY - rect.top);
+    } else {
+      // Scroll vertical (shift = horizontal)
+      const delta = event.deltaMode === 1 ? event.deltaY * 32 : event.deltaY;
+      if (event.shiftKey) {
+        this.panX.update((px) => px - delta);
+      } else {
+        this.panY.update((py) => py - delta);
+      }
+    }
   }
 
-  // ── Pan (move mode only) ────────────────────────────────────────────────────
+  // ── Pan — clic gauche (mode déplacement) ou molette enfoncée (tous modes) ──
 
   onWrapMouseDown(event: MouseEvent): void {
-    if (this.mode() !== 'move' || event.button !== 0) return;
+    const isMiddle = event.button === 1;
+    const isLeft   = event.button === 0 && this.mode() === 'move';
+    if (!isMiddle && !isLeft) return;
     event.preventDefault();
     this.isPanning.set(true);
     this.panStartX = event.clientX - this.panX();
@@ -454,6 +466,8 @@ export class PdfViewerComponent implements AfterViewInit, OnDestroy {
   // ── Draw mode rectangle ────────────────────────────────────────────────────
 
   onDrawMouseDown(event: MouseEvent): void {
+    // Molette enfoncée → déléguer au pan du viewer-wrap (bubble)
+    if (event.button === 1) { event.preventDefault(); return; }
     if (this.mode() !== 'draw') return;
     const { x, y } = this.svgPos(event);
     this.drawState = { startX: x, startY: y, currentX: x, currentY: y };
