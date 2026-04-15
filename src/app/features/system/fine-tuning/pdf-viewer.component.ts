@@ -495,21 +495,92 @@ export class PdfViewerComponent implements AfterViewInit, OnDestroy {
     this.drawing.set(false);
     this.preview.set(null);
 
-    const w = Math.abs(currentX - startX);
-    const h = Math.abs(currentY - startY);
-    if (w < 6 || h < 6) return;
+    const rawW = Math.abs(currentX - startX);
+    const rawH = Math.abs(currentY - startY);
+    if (rawW < 6 || rawH < 6) return;
+
+    const x0 = Math.min(startX, currentX);
+    const y0 = Math.min(startY, currentY);
+
+    // Snap to actual content pixels inside the drawn area
+    const tight = this.shrinkToContent(x0, y0, rawW, rawH) ?? { x: x0, y: y0, w: rawW, h: rawH };
 
     const cw = this.canvasW(), ch = this.canvasH();
     const rect: AnnotationRect = {
       id:     crypto.randomUUID(),
-      x:      Math.min(startX, currentX) / cw,
-      y:      Math.min(startY, currentY) / ch,
-      width:  w / cw,
-      height: h / ch,
+      x:      tight.x / cw,
+      y:      tight.y / ch,
+      width:  tight.w / cw,
+      height: tight.h / ch,
       type:   this.activeType(),
     };
     this.rects.update((r) => [...r, rect]);
     this.rectsChange.emit(this.rects());
+  }
+
+  /**
+   * Scan the canvas pixels inside (x, y, w, h) and return the tight bounding
+   * box of pixels that differ from the background.
+   *
+   * Background = colour of the top-left pixel of the selection (the "paper" colour).
+   * Tolerance of 15 handles JPEG/anti-aliasing artefacts without false positives.
+   * A 2-px padding is added around the detected content.
+   */
+  private shrinkToContent(
+    x: number, y: number, w: number, h: number,
+  ): { x: number; y: number; w: number; h: number } | null {
+    const canvas = this.canvasRef.nativeElement;
+    const ctx    = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    // Clamp to canvas boundaries
+    const cx = Math.max(0, Math.round(x));
+    const cy = Math.max(0, Math.round(y));
+    const cw = Math.min(Math.round(w), canvas.width  - cx);
+    const ch = Math.min(Math.round(h), canvas.height - cy);
+    if (cw < 1 || ch < 1) return null;
+
+    const { data } = ctx.getImageData(cx, cy, cw, ch);
+
+    // Background colour = top-left pixel of the selection
+    const bgR = data[0], bgG = data[1], bgB = data[2];
+
+    // Euclidean colour distance threshold (works for both light and dark backgrounds)
+    const TOLERANCE = 15;
+
+    let minX = cw, maxX = -1, minY = ch, maxY = -1;
+
+    for (let row = 0; row < ch; row++) {
+      for (let col = 0; col < cw; col++) {
+        const i = (row * cw + col) * 4;
+        const a = data[i + 3];
+        if (a < 16) continue; // skip transparent pixels
+
+        const dr = data[i]     - bgR;
+        const dg = data[i + 1] - bgG;
+        const db = data[i + 2] - bgB;
+        const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+
+        if (dist > TOLERANCE) {
+          if (col < minX) minX = col;
+          if (col > maxX) maxX = col;
+          if (row < minY) minY = row;
+          if (row > maxY) maxY = row;
+        }
+      }
+    }
+
+    // No content found — return original drawn area unchanged
+    if (maxX === -1) return { x: cx, y: cy, w: cw, h: ch };
+
+    // Add a small visual padding so labels are not clipped
+    const PAD = 0;
+    const tx = cx + Math.max(0, minX - PAD);
+    const ty = cy + Math.max(0, minY - PAD);
+    const tw = Math.min(canvas.width  - tx, maxX - minX + 1 + PAD * 2);
+    const th = Math.min(canvas.height - ty, maxY - minY + 1 + PAD * 2);
+
+    return { x: tx, y: ty, w: tw, h: th };
   }
 
   removeRect(id: string, event: MouseEvent): void {
