@@ -71,9 +71,8 @@ export class DatasetService {
   private readonly base = environment.apiUrl;
 
   private url(orgId: string, ...segments: string[]): string {
-    return [`${this.base}/organizations/${orgId}/datasets`, ...segments]
-      .join('/')
-      .replace(/\/+/g, '/');
+    const parts = [this.base, 'organizations', orgId, 'datasets', ...segments].filter(Boolean);
+    return parts.join('/');
   }
 
   // ── Datasets ────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, signal, computed } from '@angular/core';
+import { Component, HostListener, inject, output, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
@@ -31,6 +31,15 @@ function toApiDocType(ui: UiDocType): ApiDocumentType {
     case 'facture':          return 'invoice';
     case 'facture-suivante': return 'invoice_continuation';
     case 'bulletin-de-paie': return 'payslip';
+  }
+}
+
+function fromApiDocType(api: ApiDocumentType): UiDocType | null {
+  switch (api) {
+    case 'invoice':               return 'facture';
+    case 'invoice_continuation':  return 'facture-suivante';
+    case 'payslip':               return 'bulletin-de-paie';
+    default:                      return null;
   }
 }
 
@@ -163,11 +172,22 @@ interface TrainingPage {
             }
           </div>
 
-          <!-- Center: page info -->
+          <!-- Center: page info + processed badge -->
           <div class="toolbar-center">
-            <span class="page-info">
-              Page <strong>{{ currentPageIndex() + 1 }}</strong> / {{ pages().length }}
-            </span>
+            <div class="page-info-row">
+              <span class="page-info">
+                Page <strong>{{ currentPageIndex() + 1 }}</strong> / {{ pages().length }}
+              </span>
+              @if (currentPage()!.saved) {
+                <span class="page-badge page-badge--done" pTooltip="Page traitée" tooltipPosition="bottom">
+                  <i class="fa-regular fa-circle-check"></i> Traitée
+                </span>
+              } @else {
+                <span class="page-badge page-badge--pending" pTooltip="Page non traitée" tooltipPosition="bottom">
+                  <i class="fa-regular fa-circle-dashed"></i> Non traitée
+                </span>
+              }
+            </div>
             <span class="file-info">
               {{ currentPage()!.filename }} — p.&nbsp;{{ currentPage()!.pageNumber }}
             </span>
@@ -214,14 +234,12 @@ interface TrainingPage {
         <div class="editor-footer">
           <div class="footer-left">
             <p-button
-              label="Recommencer"
+              label="Retour"
               severity="secondary"
               [text]="true"
               size="small"
               rounded
-              icon="fa-regular fa-rotate-left"
-              pTooltip="Réinitialiser et importer de nouveaux fichiers"
-              tooltipPosition="top"
+              icon="fa-regular fa-arrow-left"
               (onClick)="reset()"
             />
           </div>
@@ -376,7 +394,33 @@ interface TrainingPage {
       gap: .125rem;
     }
 
+    .page-info-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
     .page-info { font-size: .875rem; }
+
+    .page-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .25rem;
+      font-size: .6875rem;
+      font-weight: 600;
+      padding: .125rem .5rem;
+      border-radius: 999px;
+      i { font-size: .6875rem; }
+
+      &--done {
+        background: color-mix(in srgb, #10b981 15%, transparent);
+        color: #059669;
+      }
+      &--pending {
+        background: color-mix(in srgb, #f59e0b 15%, transparent);
+        color: #d97706;
+      }
+    }
 
     .file-info {
       font-size: .6875rem;
@@ -516,6 +560,9 @@ export class TrainingComponent {
   private readonly contextSwitcher  = inject(ContextSwitcherService);
   private readonly messageService   = inject(MessageService);
 
+  /** Emitted when the user clicks "Retour" — signals the parent to go back to the list */
+  readonly backToList = output<void>();
+
   // ── UI config ───────────────────────────────────────────────────────────────
 
   readonly docTypeOptions = DOC_TYPE_OPTIONS;
@@ -584,21 +631,35 @@ export class TrainingComponent {
           this.datasetService.importFile(orgId, dataset.id, file)
         );
 
-        // 3. Fetch the pages created for this file
-        const resp = await firstValueFrom(
-          this.datasetService.listPages(orgId, dataset.id, { filename: result.original_filename, limit: 1000 })
-        );
+        // 3. Fetch all pages for this file (paginated, max 100 per call)
+        const PAGE_LIMIT = 100;
+        let pageNum = 1;
+        let fetched = 0;
+        let total = Infinity;
 
-        for (const p of resp.data) {
-          allPages.push({
-            pageId:     p.id,
-            filename:   p.original_filename,
-            pageNumber: p.page_number,
-            pdfData:    null,     // loaded lazily
-            docType:    null,
-            rects:      [],
-            saved:      p.processed,
-          });
+        while (fetched < total) {
+          const resp = await firstValueFrom(
+            this.datasetService.listPages(orgId, dataset.id, {
+              filename: result.original_filename,
+              page:     pageNum,
+              limit:    PAGE_LIMIT,
+            })
+          );
+          total = resp.total;
+          for (const p of resp.data) {
+            allPages.push({
+              pageId:     p.id,
+              filename:   p.original_filename,
+              pageNumber: p.page_number,
+              pdfData:    null,
+              docType:    null,
+              rects:      [],
+              saved:      p.processed,
+            });
+          }
+          fetched += resp.data.length;
+          pageNum++;
+          if (resp.data.length === 0) break; // safety
         }
       }
 
@@ -731,6 +792,64 @@ export class TrainingComponent {
     }
   }
 
+  // ── Resume existing dataset ──────────────────────────────────────────────────
+
+  async resumeFromDataset(datasetId: string, startPageId?: string): Promise<void> {
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) return;
+
+    this.datasetId = datasetId;
+    this.importing.set(true);
+    this.importStatus.set('Chargement du dataset…');
+
+    try {
+      const allPages: TrainingPage[] = [];
+      const PAGE_LIMIT = 100;
+      let pageNum = 1;
+      let fetched = 0;
+      let total = Infinity;
+
+      while (fetched < total) {
+        const resp = await firstValueFrom(
+          this.datasetService.listPages(orgId, datasetId, { page: pageNum, limit: PAGE_LIMIT })
+        );
+        total = resp.total;
+        for (const p of resp.data) {
+          allPages.push({
+            pageId:     p.id,
+            filename:   p.original_filename,
+            pageNumber: p.page_number,
+            pdfData:    null,
+            docType:    fromApiDocType(p.document_type),
+            rects:      [], // zones loaded lazily when the page opens
+            saved:      p.processed,
+          });
+        }
+        fetched += resp.data.length;
+        pageNum++;
+        if (resp.data.length === 0) break;
+      }
+
+      allPages.sort((a, b) => a.filename.localeCompare(b.filename) || a.pageNumber - b.pageNumber);
+
+      // Jump to the requested page, or the first unprocessed one
+      const startIndex = startPageId
+        ? Math.max(0, allPages.findIndex((p) => p.pageId === startPageId))
+        : Math.max(0, allPages.findIndex((p) => !p.saved));
+
+      this.pages.set(allPages);
+      this.currentPageIndex.set(startIndex);
+      this.importing.set(false);
+      this.state.set('annotating');
+
+      await this.loadPageBinary(startIndex);
+    } catch (err: unknown) {
+      this.importing.set(false);
+      const detail = (err as { error?: { detail?: string } })?.error?.detail ?? 'Erreur lors du chargement.';
+      this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
+    }
+  }
+
   // ── Reset ────────────────────────────────────────────────────────────────────
 
   reset(): void {
@@ -739,6 +858,7 @@ export class TrainingComponent {
     this.currentPageIndex.set(0);
     this.viewMode.set('move');
     this.datasetId = null;
+    this.backToList.emit();
   }
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────
