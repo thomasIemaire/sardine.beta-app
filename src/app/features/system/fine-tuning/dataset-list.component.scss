@@ -1,0 +1,331 @@
+@use 'styles/mixins' as *;
+
+:host {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+// ── Wrapper ──────────────────────────────────────────────────────────────────
+.dl-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+// ── Toolbar ──────────────────────────────────────────────────────────────────
+.dl-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .625rem 1rem;
+  border-bottom: 1px solid var(--surface-border);
+  flex-shrink: 0;
+}
+
+.dl-toolbar-count {
+  font-size: .6875rem;
+  color: var(--p-text-muted-color);
+  font-weight: 500;
+}
+
+// ── Layout (main + optional panel) — mirrors agents.page.scss ────────────────
+.dl-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dl-main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dl-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+// ── Card grid ─────────────────────────────────────────────────────────────────
+.dl-grid {
+  @include grid-container;
+  padding-top: 1rem;
+}
+
+// ── Dataset card ──────────────────────────────────────────────────────────────
+.ds-card {
+  @include card-interactive;
+
+  &.selected {
+    background: var(--primary-color-50);
+
+    .ds-card-name { color: var(--primary-color-600); }
+  }
+}
+
+.ds-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+.ds-card-name-group {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  min-width: 0;
+}
+
+.ds-card-name { @include card-name; }
+
+.ds-card-description {
+  @include card-description;
+  margin-bottom: .25rem;
+}
+
+.ds-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.ds-card-footer-stats {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  font-size: .6875rem;
+  color: var(--p-text-muted-color);
+
+  .stat-ok   { color: #10b981; font-weight: 500; }
+  .stat-warn { color: #f59e0b; font-weight: 500; }
+  .sep       { opacity: .4; }
+}
+
+.ds-card-date { @include card-date; }
+
+// ── Status badge ──────────────────────────────────────────────────────────────
+.dl-status {
+  font-size: .625rem;
+  font-weight: 700;
+  padding: .125rem .4rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  flex-shrink: 0;
+
+  &--lg { font-size: .6875rem; padding: .2rem .5rem; }
+  &--draft       { background: color-mix(in srgb, var(--p-text-muted-color) 15%, transparent); color: var(--p-text-muted-color); }
+  &--in_progress { background: color-mix(in srgb, #f59e0b 18%, transparent); color: #d97706; }
+  &--ready       { background: color-mix(in srgb, #10b981 18%, transparent); color: #059669; }
+}
+
+// ── Detail panel — same as agents-panel ──────────────────────────────────────
+.dl-panel {
+  width: 50%;
+  flex-shrink: 0;
+  border-left: 1px solid var(--surface-border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  @include slide-in;
+}
+
+.dl-panel-header {
+  @include panel-header;
+  flex-direction: column;
+  align-items: stretch;
+  gap: .75rem;
+}
+
+.dl-panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+
+  // Push close button to far right
+  p-button:last-child { margin-left: auto; }
+}
+
+.dl-panel-name { @include panel-title; font-size: 1rem; flex: 1; }
+
+.dl-panel-actions {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+.dl-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .625rem;
+  padding: 1rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.dl-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .25rem;
+  padding: .75rem .5rem;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-l);
+  background: var(--background-color-50);
+}
+
+.dl-stat-value {
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1;
+
+  &--ok   { color: #10b981; }
+  &--warn { color: #f59e0b; }
+}
+
+.dl-stat-label {
+  font-size: .625rem;
+  color: var(--p-text-muted-color);
+  text-align: center;
+}
+
+// ── Pages section ─────────────────────────────────────────────────────────────
+.dl-pages-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dl-pages-header {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .75rem 1rem .5rem;
+  flex-shrink: 0;
+}
+
+.dl-pages-title {
+  font-size: .8125rem;
+  font-weight: 600;
+}
+
+.dl-pages-count {
+  font-size: .75rem;
+  color: var(--p-text-muted-color);
+  flex: 1;
+}
+
+.dl-pages-controls {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+}
+
+
+.dl-pages-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0 .5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dl-page-item {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .45rem .5rem;
+  border-radius: var(--radius-m);
+  cursor: pointer;
+  font-size: .8125rem;
+  flex-shrink: 0;
+  transition: background .12s;
+
+  &:hover { background: var(--background-color-100); }
+  &:hover .dl-page-arrow { opacity: 1; }
+}
+
+.dl-page-icon { color: var(--p-text-muted-color); flex-shrink: 0; }
+.dl-page-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-page-num  { font-size: .75rem; color: var(--p-text-muted-color); flex-shrink: 0; }
+
+.dl-page-status {
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+  font-size: .6875rem;
+  font-weight: 600;
+  padding: .1rem .4rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+
+  i { font-size: .6875rem; }
+
+  &--done    { background: color-mix(in srgb, #10b981 15%, transparent); color: #059669; }
+  &--pending { background: color-mix(in srgb, #f59e0b 15%, transparent); color: #d97706; }
+}
+
+.dl-page-arrow {
+  color: var(--p-primary-500);
+  font-size: .75rem;
+  opacity: 0;
+  transition: opacity .12s;
+  flex-shrink: 0;
+}
+
+// ── Paginator bar (delegate to shared component, just ensure no overflow) ─────
+app-paginator-bar { flex-shrink: 0; }
+
+// ── Empty / spinner ───────────────────────────────────────────────────────────
+.dl-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 3rem;
+  color: var(--p-primary-500);
+  font-size: 1.25rem;
+
+  &--sm { padding: 1rem; font-size: 1rem; }
+}
+
+.dl-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  color: var(--p-text-muted-color);
+  font-size: .875rem;
+
+  i { font-size: 2rem; }
+}
+
+.dl-pages-empty {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .8125rem;
+  color: var(--p-text-muted-color);
+  padding: .75rem 1rem;
+
+  i { font-size: 1rem; }
+}
