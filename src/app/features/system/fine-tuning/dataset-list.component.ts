@@ -11,18 +11,21 @@ import { PaginatorState } from 'primeng/paginator';
 import { firstValueFrom } from 'rxjs';
 import { DatasetService, ApiDataset, ApiPage, DatasetStatus } from '../../../core/services/dataset.service';
 import { ContextSwitcherService } from '../../../core/layout/context-switcher/context-switcher.service';
+import { DataListComponent, ListColumn } from '../../../shared/components/data-list/data-list.component';
 import { PaginatorBarComponent } from '../../../shared/components/paginator-bar/paginator-bar.component';
+import type { ActiveFilter, FilterDefinition, ActiveSort } from '../../../shared/components/toolbar/models/filter.models';
+import type { ViewMode } from '../../../shared/components/toolbar/toolbar.component';
 
 export interface DatasetOpenEvent {
   datasetId: string;
   startPageId?: string;
 }
 
-type SortField = 'default' | 'filename' | 'page_number' | 'status';
+type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
 
 @Component({
   selector: 'app-dataset-list',
-  imports: [DatePipe, FormsModule, ButtonModule, SelectModule, ToastModule, TooltipModule, ConfirmDialogModule, PaginatorBarComponent],
+  imports: [DatePipe, FormsModule, ButtonModule, SelectModule, ToastModule, TooltipModule, ConfirmDialogModule, DataListComponent, PaginatorBarComponent],
   providers: [MessageService, ConfirmationService],
   styleUrl: './dataset-list.component.scss',
   template: `
@@ -32,77 +35,45 @@ type SortField = 'default' | 'filename' | 'page_number' | 'status';
     <input #fileInput type="file" accept=".pdf" multiple hidden (change)="onFileInputChange($event)" />
 
     <div class="dl-wrapper">
-
-      <!-- Toolbar -->
-      <div class="dl-toolbar">
-        @if (!loading()) {
-          <span class="dl-toolbar-count">
-            {{ datasets().length }} dataset{{ datasets().length > 1 ? 's' : '' }}
-          </span>
-        } @else {
-          <span></span>
-        }
-        <p-button icon="fa-regular fa-plus" label="Nouveau dataset" size="small" rounded (onClick)="newDataset.emit()" />
-      </div>
-
-      <!-- Main layout -->
       <div class="dl-layout">
 
-        <!-- ── Left: card grid ─────────────────────────────────────────────── -->
+        <!-- ── Left: dataset list ─────────────────────────────────────────── -->
         <div class="dl-main">
-          <div class="dl-body">
-            @if (loading()) {
-              <div class="dl-spinner"><i class="fa-solid fa-spinner fa-spin"></i></div>
-            } @else if (datasets().length === 0) {
-              <div class="dl-empty">
-                <i class="fa-regular fa-folder-open"></i>
-                <span>Aucun dataset · Créez votre premier pour commencer.</span>
-              </div>
-            } @else {
-              <div class="dl-grid">
-                @for (ds of datasets(); track ds.id) {
-                  <div class="ds-card" [class.selected]="expanded()?.id === ds.id" (click)="toggle(ds)">
-
-                    <div class="ds-card-header">
-                      <div class="ds-card-name-group">
-                        <span class="ds-card-name">{{ ds.name }}</span>
-                        <span class="dl-status" [class]="'dl-status--' + ds.status">{{ statusLabel(ds.status) }}</span>
-                      </div>
-                    </div>
-
-                    <p class="ds-card-description">
-                      {{ ds.page_count ?? 0 }} page{{ (ds.page_count ?? 0) > 1 ? 's' : '' }}
-                      · {{ ds.file_count ?? 0 }} fichier{{ (ds.file_count ?? 0) > 1 ? 's' : '' }}
-                    </p>
-
-                    <div class="ds-card-footer">
-                      <div class="ds-card-footer-stats">
-                        @if ((ds.processed_count ?? 0) > 0) {
-                          <span class="stat-ok">{{ ds.processed_count }} traitée{{ (ds.processed_count ?? 0) > 1 ? 's' : '' }}</span>
-                          <span class="sep">·</span>
-                        }
-                        @if ((ds.page_count ?? 0) - (ds.processed_count ?? 0) > 0) {
-                          <span class="stat-warn">{{ (ds.page_count ?? 0) - (ds.processed_count ?? 0) }} en attente</span>
-                        }
-                        @if ((ds.processed_count ?? 0) === 0 && (ds.page_count ?? 0) === 0) {
-                          <span>Aucune page</span>
-                        }
-                      </div>
-                      <span class="ds-card-date">{{ ds.created_at | date:'dd/MM/yyyy' }}</span>
-                    </div>
-
-                  </div>
-                }
-              </div>
-            }
-          </div>
+          <app-data-list
+            searchPlaceholder="Rechercher un dataset..."
+            [(search)]="search"
+            [(sorts)]="sorts"
+            [(filters)]="filters"
+            [filterDefinitions]="filterDefinitions"
+            [sortDefinitions]="sortDefinitions"
+            [(viewMode)]="viewMode"
+            [columns]="listColumns"
+            [gridTemplate]="gridTpl"
+            [listTemplate]="listTpl"
+            emptyIcon="fa-regular fa-database"
+            [emptyTitle]="hasActiveFilters() ? 'Aucun résultat' : 'Aucun dataset'"
+            [emptySubtitle]="hasActiveFilters() ? 'Aucun dataset ne correspond à vos critères.' : 'Créez votre premier dataset pour commencer.'"
+            [totalRecords]="filteredDatasets().length"
+            [paginatorFirst]="dsFirst()"
+            [paginatorRows]="dsRows()"
+            [rowsPerPageOptions]="[6, 12, 24, 48]"
+            (pageChange)="onDatasetsPageChange($event)"
+          >
+            <p-button
+              label="Nouveau dataset"
+              icon="fa-regular fa-plus"
+              size="small"
+              rounded
+              toolbar-actions
+              (onClick)="newDataset.emit()"
+            />
+          </app-data-list>
         </div>
 
         <!-- ── Right: detail panel ─────────────────────────────────────────── -->
         @if (expanded()) {
           <div class="dl-panel">
 
-            <!-- Panel header -->
             <div class="dl-panel-header">
               <div class="dl-panel-title-row">
                 <span class="dl-panel-name">{{ expanded()!.name }}</span>
@@ -157,7 +128,6 @@ type SortField = 'default' | 'filename' | 'page_number' | 'status';
               </div>
             </div>
 
-            <!-- Stats -->
             <div class="dl-stats">
               <div class="dl-stat">
                 <span class="dl-stat-value">{{ expanded()!.page_count ?? 0 }}</span>
@@ -179,9 +149,7 @@ type SortField = 'default' | 'filename' | 'page_number' | 'status';
               </div>
             </div>
 
-            <!-- Pages section -->
             <div class="dl-pages-section">
-
               <div class="dl-pages-header">
                 <span class="dl-pages-title">Pages</span>
                 <span class="dl-pages-count">{{ pagesTotal() }} au total</span>
@@ -190,20 +158,20 @@ type SortField = 'default' | 'filename' | 'page_number' | 'status';
                     [options]="sortOptions"
                     optionLabel="label"
                     optionValue="value"
-                    [ngModel]="sortField()"
-                    (ngModelChange)="sortField.set($event)"
+                    [ngModel]="pageSortField()"
+                    (ngModelChange)="pageSortField.set($event)"
                     size="small"
                     appendTo="body"
                   />
                   <p-button
-                    [icon]="sortDir() === 'asc' ? 'fa-regular fa-arrow-up' : 'fa-regular fa-arrow-down'"
+                    [icon]="pageSortDir() === 'asc' ? 'fa-regular fa-arrow-up' : 'fa-regular fa-arrow-down'"
                     severity="secondary"
                     size="small"
                     [text]="true"
                     [rounded]="true"
-                    [pTooltip]="sortDir() === 'asc' ? 'Ordre croissant' : 'Ordre décroissant'"
+                    [pTooltip]="pageSortDir() === 'asc' ? 'Croissant' : 'Décroissant'"
                     tooltipPosition="bottom"
-                    (onClick)="toggleSortDir()"
+                    (onClick)="togglePageSortDir()"
                   />
                 </div>
               </div>
@@ -241,16 +209,68 @@ type SortField = 'default' | 'filename' | 'page_number' | 'status';
                   [rows]="pageLimit()"
                   [totalRecords]="pagesTotal()"
                   [rowsPerPageOptions]="[5, 10, 15, 20]"
-                  (pageChange)="onPageChange($event)"
+                  (pageChange)="onPagesPageChange($event)"
                 />
               }
-
             </div>
+
           </div>
         }
 
       </div>
     </div>
+
+    <!-- ── Card template ──────────────────────────────────────────────────── -->
+    <ng-template #gridTpl>
+      @for (ds of paginatedDatasets(); track ds.id) {
+        <div class="ds-card" [class.selected]="expanded()?.id === ds.id" (click)="toggle(ds)">
+          <div class="ds-card-header">
+            <div class="ds-card-name-group">
+              <span class="ds-card-name">{{ ds.name }}</span>
+              <span class="dl-status" [class]="'dl-status--' + ds.status">{{ statusLabel(ds.status) }}</span>
+            </div>
+          </div>
+          <p class="ds-card-description">
+            {{ ds.page_count ?? 0 }} page{{ (ds.page_count ?? 0) > 1 ? 's' : '' }}
+            · {{ ds.file_count ?? 0 }} fichier{{ (ds.file_count ?? 0) > 1 ? 's' : '' }}
+          </p>
+          <div class="ds-card-footer">
+            <div class="ds-card-footer-stats">
+              @if ((ds.processed_count ?? 0) > 0) {
+                <span class="stat-ok">{{ ds.processed_count }} traitée{{ (ds.processed_count ?? 0) > 1 ? 's' : '' }}</span>
+                <span class="sep">·</span>
+              }
+              @if ((ds.page_count ?? 0) - (ds.processed_count ?? 0) > 0) {
+                <span class="stat-warn">{{ (ds.page_count ?? 0) - (ds.processed_count ?? 0) }} en attente</span>
+              }
+              @if ((ds.processed_count ?? 0) === 0 && (ds.page_count ?? 0) === 0) {
+                <span>Aucune page</span>
+              }
+            </div>
+            <span class="ds-card-date">{{ ds.created_at | date:'dd/MM/yyyy' }}</span>
+          </div>
+        </div>
+      }
+    </ng-template>
+
+    <!-- ── List row template ──────────────────────────────────────────────── -->
+    <ng-template #listTpl>
+      @for (ds of paginatedDatasets(); track ds.id) {
+        <div class="ds-row" [class.selected]="expanded()?.id === ds.id" (click)="toggle(ds)">
+          <div class="ds-row-main">
+            <div class="ds-row-name-group">
+              <span class="ds-card-name">{{ ds.name }}</span>
+              <span class="dl-status" [class]="'dl-status--' + ds.status">{{ statusLabel(ds.status) }}</span>
+            </div>
+            <span class="ds-row-meta">
+              {{ ds.page_count ?? 0 }} page{{ (ds.page_count ?? 0) > 1 ? 's' : '' }}
+              · {{ ds.file_count ?? 0 }} fichier{{ (ds.file_count ?? 0) > 1 ? 's' : '' }}
+            </span>
+          </div>
+          <span class="ds-row-date col-date">{{ ds.created_at | date:'dd/MM/yyyy' }}</span>
+        </div>
+      }
+    </ng-template>
   `,
 })
 export class DatasetListComponent implements OnInit {
@@ -262,35 +282,109 @@ export class DatasetListComponent implements OnInit {
   readonly newDataset = output<void>();
   readonly openEditor = output<DatasetOpenEvent>();
 
-  readonly loading       = signal(true);
+  // ── Dataset list ────────────────────────────────────────────────────────────
+  readonly loading  = signal(true);
+  readonly datasets = signal<ApiDataset[]>([]);
+  readonly expanded = signal<ApiDataset | null>(null);
+
+  // DataList toolbar — getter/setter backed by signals for computed reactivity
+  private readonly _search  = signal('');
+  private readonly _sorts   = signal<ActiveSort[]>([]);
+  private readonly _filters = signal<ActiveFilter[]>([]);
+
+  get search(): string { return this._search(); }
+  set search(v: string) { this._search.set(v); this.dsFirst.set(0); }
+
+  get sorts(): ActiveSort[] { return this._sorts(); }
+  set sorts(v: ActiveSort[]) { this._sorts.set(v); this.dsFirst.set(0); }
+
+  get filters(): ActiveFilter[] { return this._filters(); }
+  set filters(v: ActiveFilter[]) { this._filters.set(v); this.dsFirst.set(0); }
+
+  private _viewMode: ViewMode = (localStorage.getItem('viewMode:datasets') as ViewMode) ?? 'grid';
+  get viewMode(): ViewMode { return this._viewMode; }
+  set viewMode(v: ViewMode) { this._viewMode = v; localStorage.setItem('viewMode:datasets', v); }
+
+  readonly dsFirst = signal(0);
+  readonly dsRows  = signal(12);
+
+  readonly listColumns: ListColumn[] = [
+    { label: 'Nom',     cssClass: 'col-flex' },
+    { label: 'Créé le', cssClass: 'col-date' },
+  ];
+
+  readonly sortDefinitions = [
+    { id: 'name',  label: 'Nom'              },
+    { id: 'date',  label: 'Date de création' },
+    { id: 'pages', label: 'Nombre de pages'  },
+  ];
+
+  readonly filterDefinitions: FilterDefinition[] = [
+    {
+      id: 'status', label: 'Statut', type: 'select',
+      options: [
+        { value: 'draft',       label: 'Brouillon' },
+        { value: 'in_progress', label: 'En cours'  },
+        { value: 'ready',       label: 'Prêt'      },
+      ],
+    },
+  ];
+
+  readonly filteredDatasets = computed(() => {
+    let list = this.datasets();
+    const q  = this._search().toLowerCase().trim();
+    if (q) list = list.filter(ds => ds.name.toLowerCase().includes(q));
+    for (const f of this._filters()) {
+      if (f.definitionId === 'status') list = list.filter(ds => ds.status === f.value);
+    }
+    const sort = this._sorts()[0];
+    if (sort) {
+      list = [...list].sort((a, b) => {
+        let cmp = 0;
+        if (sort.definitionId === 'name')  cmp = a.name.localeCompare(b.name);
+        if (sort.definitionId === 'date')  cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        if (sort.definitionId === 'pages') cmp = (a.page_count ?? 0) - (b.page_count ?? 0);
+        return sort.direction === 'asc' ? cmp : -cmp;
+      });
+    }
+    return list;
+  });
+
+  readonly paginatedDatasets = computed(() =>
+    this.filteredDatasets().slice(this.dsFirst(), this.dsFirst() + this.dsRows())
+  );
+
+  hasActiveFilters(): boolean {
+    return this._filters().length > 0 || this._search().length > 0;
+  }
+
+  onDatasetsPageChange(state: PaginatorState): void {
+    this.dsFirst.set(state.first ?? 0);
+    if (state.rows != null) this.dsRows.set(state.rows);
+  }
+
+  // ── Pages (detail panel) ────────────────────────────────────────────────────
   readonly loadingDetail = signal(false);
   readonly resuming      = signal(false);
   readonly importing     = signal(false);
-  readonly datasets      = signal<ApiDataset[]>([]);
-  readonly expanded      = signal<ApiDataset | null>(null);
+  readonly pages         = signal<ApiPage[]>([]);
+  readonly pagesTotal    = signal(0);
+  readonly currentPage   = signal(1);
+  readonly pageLimit     = signal<number>(10);
+  readonly pageSortField = signal<PageSortField>('default');
+  readonly pageSortDir   = signal<'asc' | 'desc'>('asc');
 
-  // ── Pages pagination ────────────────────────────────────────────────────────
-  readonly pages       = signal<ApiPage[]>([]);
-  readonly pagesTotal  = signal(0);
-  readonly currentPage = signal(1);
-  readonly pageLimit   = signal<number>(10);
-
-  // ── Sort ────────────────────────────────────────────────────────────────────
-  readonly sortField = signal<SortField>('default');
-  readonly sortDir   = signal<'asc' | 'desc'>('asc');
-
-  readonly sortOptions: { label: string; value: SortField }[] = [
-    { label: 'Tri par défaut',  value: 'default'     },
-    { label: 'Nom de fichier',  value: 'filename'    },
-    { label: 'Numéro de page',  value: 'page_number' },
-    { label: 'Statut',          value: 'status'      },
+  readonly sortOptions = [
+    { label: 'Tri par défaut',  value: 'default'     as PageSortField },
+    { label: 'Nom de fichier',  value: 'filename'    as PageSortField },
+    { label: 'Numéro de page',  value: 'page_number' as PageSortField },
+    { label: 'Statut',          value: 'status'      as PageSortField },
   ];
-
 
   readonly sortedPages = computed(() => {
     const list  = this.pages();
-    const field = this.sortField();
-    const dir   = this.sortDir();
+    const field = this.pageSortField();
+    const dir   = this.pageSortDir();
     if (field === 'default') return list;
     return [...list].sort((a, b) => {
       let cmp = 0;
@@ -301,7 +395,7 @@ export class DatasetListComponent implements OnInit {
     });
   });
 
-
+  // ── Lifecycle ───────────────────────────────────────────────────────────────
   ngOnInit(): void { this.loadDatasets(); }
 
   async loadDatasets(): Promise<void> {
@@ -319,20 +413,17 @@ export class DatasetListComponent implements OnInit {
   }
 
   async toggle(ds: ApiDataset): Promise<void> {
-    if (this.expanded()?.id === ds.id) {
-      this.expanded.set(null);
-      return;
-    }
+    if (this.expanded()?.id === ds.id) { this.expanded.set(null); return; }
     this.expanded.set(ds);
     this.currentPage.set(1);
     await this.loadPages(ds.id, 1);
   }
 
-toggleSortDir(): void {
-    this.sortDir.update(d => d === 'asc' ? 'desc' : 'asc');
+  togglePageSortDir(): void {
+    this.pageSortDir.update(d => d === 'asc' ? 'desc' : 'asc');
   }
 
-  async onPageChange(state: PaginatorState): Promise<void> {
+  async onPagesPageChange(state: PaginatorState): Promise<void> {
     const newLimit = state.rows ?? this.pageLimit();
     const newPage  = newLimit !== this.pageLimit() ? 1 : (state.page ?? 0) + 1;
     this.pageLimit.set(newLimit);
@@ -360,14 +451,12 @@ toggleSortDir(): void {
 
   async onFileInputChange(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
-    const files = Array.from(input.files ?? []).filter((f) => f.name.endsWith('.pdf'));
+    const files = Array.from(input.files ?? []).filter(f => f.name.endsWith('.pdf'));
     input.value = '';
     if (!files.length) return;
-
     const ds    = this.expanded();
     const orgId = this.contextSwitcher.selectedId();
     if (!ds || !orgId) return;
-
     this.importing.set(true);
     try {
       for (const file of files) {
@@ -375,14 +464,10 @@ toggleSortDir(): void {
       }
       const updated = await firstValueFrom(this.datasetService.getDataset(orgId, ds.id));
       this.expanded.set(updated);
-      this.datasets.update((list) => list.map((d) => d.id === updated.id ? updated : d));
+      this.datasets.update(list => list.map(d => d.id === updated.id ? updated : d));
       this.currentPage.set(1);
       await this.loadPages(ds.id, 1);
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Import réussi',
-        detail: `${files.length} fichier${files.length > 1 ? 's importés' : ' importé'}.`,
-      });
+      this.messageService.add({ severity: 'success', summary: 'Import réussi', detail: `${files.length} fichier${files.length > 1 ? 's importés' : ' importé'}.` });
     } catch {
       this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible d\'importer le fichier.' });
     } finally {
@@ -420,7 +505,7 @@ toggleSortDir(): void {
     if (!ds || !orgId) return;
     try {
       await firstValueFrom(this.datasetService.deleteDataset(orgId, ds.id));
-      this.datasets.update((list) => list.filter((d) => d.id !== ds.id));
+      this.datasets.update(list => list.filter(d => d.id !== ds.id));
       this.expanded.set(null);
       this.pages.set([]);
       this.messageService.add({ severity: 'success', summary: 'Supprimé', detail: `Dataset « ${ds.name} » supprimé.` });

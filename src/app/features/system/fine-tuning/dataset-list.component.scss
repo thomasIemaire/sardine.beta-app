@@ -53,6 +53,44 @@
   overflow-y: auto;
 }
 
+// ── Dataset list row (mode liste) ─────────────────────────────────────────────
+.ds-row {
+  @include row-interactive;
+  cursor: pointer;
+
+  &.selected {
+    background: var(--primary-color-50);
+    .ds-card-name { color: var(--primary-color-600); }
+  }
+}
+
+.ds-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+
+.ds-row-name-group {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-width: 0;
+}
+
+.ds-row-meta {
+  font-size: .75rem;
+  color: var(--p-text-muted-color);
+}
+
+.ds-row-date {
+  font-size: .75rem;
+  color: var(--p-text-muted-color);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 // ── Card grid ─────────────────────────────────────────────────────────────────
 .dl-grid {
   @include grid-container;
