@@ -18,20 +18,28 @@ import { Server, CpuServer, GpuServer } from './server.model';
         <span class="row-hw">{{ hwLine() }}</span>
       </div>
 
-      <!-- Main metric sparkline + value -->
+      <!-- Col 3 : sparkline -->
       @if (!isOffline()) {
         <div class="row-chart">
           <span class="row-chart-label">{{ mainLabel() }}</span>
           <app-sparkline [values]="mainHistory()" [color]="mainColor()" [chartHeight]="30" />
         </div>
-        <span class="row-value" [style.color]="mainColor()">{{ mainValue() }}</span>
       } @else {
-        <div class="row-offline-info">Aucune donnée</div>
+        <span class="row-offline-info">Aucune donnée</span>
       }
 
-      <!-- Secondary metrics (text only) -->
+      <!-- Col 4 : valeur principale -->
+      @if (!isOffline()) {
+        <span class="row-value" [style.color]="mainColor()">{{ mainValue() }}</span>
+      } @else {
+        <span></span>
+      }
+
+      <!-- Col 5 : métriques secondaires -->
       @if (!isOffline()) {
         <div class="row-secondary">{{ secondaryLine() }}</div>
+      } @else {
+        <span></span>
       }
 
       <!-- Meta: location · uptime -->
@@ -60,7 +68,7 @@ import { Server, CpuServer, GpuServer } from './server.model';
   styles: `
     .server-row {
       display: grid;
-      grid-template-columns: 10px minmax(0, 1fr) 160px 72px minmax(0, 1fr) 160px auto 14px;
+      grid-template-columns: 10px minmax(0, 1fr) 160px 72px minmax(0, 1fr) 160px 130px 14px;
       align-items: center;
       gap: 1.25rem;
       padding: 1rem 1.5rem;
@@ -148,7 +156,6 @@ import { Server, CpuServer, GpuServer } from './server.model';
 
     /* Offline placeholder */
     .row-offline-info {
-      grid-column: span 2;
       font-size: 0.75rem;
       color: var(--p-text-muted-color);
       font-style: italic;
