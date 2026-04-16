@@ -261,7 +261,7 @@ type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
                 </div>
               } @else {
                 <ul class="dl-pages-list">
-                  @for (p of sortedPages(); track p.id) {
+                  @for (p of paginatedPages(); track p.id) {
                     <li class="dl-page-item" (click)="openPage(p.id)">
                       <i class="fa-regular fa-file-pdf dl-page-icon"></i>
                       <span class="dl-page-name">{{ p.original_filename }}</span>
@@ -281,8 +281,8 @@ type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
                 </ul>
 
                 <app-paginator-bar
-                  [first]="(currentPage() - 1) * pageLimit()"
-                  [rows]="pageLimit()"
+                  [first]="pagesFirst()"
+                  [rows]="pagesRows()"
                   [totalRecords]="pagesTotal()"
                   [rowsPerPageOptions]="[5, 10, 15, 20]"
                   (pageChange)="onPagesPageChange($event)"
@@ -518,11 +518,13 @@ export class DatasetListComponent implements OnInit {
   readonly resuming      = signal(false);
   readonly importing     = signal(false);
   readonly pages         = signal<ApiPage[]>([]);
-  readonly pagesTotal    = signal(0);
-  readonly currentPage   = signal(1);
-  readonly pageLimit     = signal<number>(10);
+  readonly pagesFirst    = signal(0);
+  readonly pagesRows     = signal(10);
   readonly pageSortField = signal<PageSortField>('default');
   readonly pageSortDir   = signal<'asc' | 'desc'>('asc');
+
+  /** Total count derived from the full in-memory list */
+  readonly pagesTotal = computed(() => this.pages().length);
 
   readonly sortOptions = [
     { label: 'Tri par défaut',  value: 'default'     as PageSortField },
@@ -531,6 +533,7 @@ export class DatasetListComponent implements OnInit {
     { label: 'Statut',          value: 'status'      as PageSortField },
   ];
 
+  /** Sort across the full page list */
   readonly sortedPages = computed(() => {
     const list  = this.pages();
     const field = this.pageSortField();
@@ -544,6 +547,11 @@ export class DatasetListComponent implements OnInit {
       return dir === 'asc' ? cmp : -cmp;
     });
   });
+
+  /** Slice of the sorted list for the current paginator page */
+  readonly paginatedPages = computed(() =>
+    this.sortedPages().slice(this.pagesFirst(), this.pagesFirst() + this.pagesRows())
+  );
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
   ngOnInit(): void { this.loadDatasets(); }
@@ -576,8 +584,8 @@ export class DatasetListComponent implements OnInit {
     this.expanded.set(ds);
     this.isRenaming.set(false);
     this.setDatasetParam(ds.id);
-    this.currentPage.set(1);
-    await this.loadPages(ds.id, 1);
+    this.pagesFirst.set(0);
+    await this.loadPages(ds.id);
   }
 
   closePanel(): void {
@@ -599,25 +607,30 @@ export class DatasetListComponent implements OnInit {
     this.pageSortDir.update(d => d === 'asc' ? 'desc' : 'asc');
   }
 
-  async onPagesPageChange(state: PaginatorState): Promise<void> {
-    const newLimit = state.rows ?? this.pageLimit();
-    const newPage  = newLimit !== this.pageLimit() ? 1 : (state.page ?? 0) + 1;
-    this.pageLimit.set(newLimit);
-    this.currentPage.set(newPage);
-    const ds = this.expanded();
-    if (ds) await this.loadPages(ds.id, newPage);
+  onPagesPageChange(state: PaginatorState): void {
+    this.pagesFirst.set(state.first ?? 0);
+    if (state.rows != null) this.pagesRows.set(state.rows);
   }
 
-  private async loadPages(datasetId: string, page: number): Promise<void> {
+  private async loadPages(datasetId: string): Promise<void> {
     const orgId = this.contextSwitcher.selectedId();
     if (!orgId) return;
     this.loadingDetail.set(true);
     try {
-      const resp = await firstValueFrom(
-        this.datasetService.listPages(orgId, datasetId, { page, limit: this.pageLimit() })
-      );
-      this.pages.set(resp.data);
-      this.pagesTotal.set(resp.total);
+      const all: ApiPage[] = [];
+      const BATCH = 100;
+      let apiPage = 1, fetched = 0, total = Infinity;
+      while (fetched < total) {
+        const resp = await firstValueFrom(
+          this.datasetService.listPages(orgId, datasetId, { page: apiPage, limit: BATCH })
+        );
+        total = resp.total;
+        all.push(...resp.data);
+        fetched += resp.data.length;
+        apiPage++;
+        if (resp.data.length === 0) break;
+      }
+      this.pages.set(all);
     } catch {
       this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger les pages.' });
     } finally {
@@ -641,8 +654,8 @@ export class DatasetListComponent implements OnInit {
       const updated = await firstValueFrom(this.datasetService.getDataset(orgId, ds.id));
       this.expanded.set(updated);
       this.datasets.update(list => list.map(d => d.id === updated.id ? updated : d));
-      this.currentPage.set(1);
-      await this.loadPages(ds.id, 1);
+      this.pagesFirst.set(0);
+      await this.loadPages(ds.id);
       this.messageService.add({ severity: 'success', summary: 'Import réussi', detail: `${files.length} fichier${files.length > 1 ? 's importés' : ' importé'}.` });
     } catch {
       this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible d\'importer le fichier.' });
