@@ -7,7 +7,19 @@ import { environment } from '../../../environments/environment';
 
 export type DatasetStatus = 'draft' | 'in_progress' | 'ready';
 
-export type ApiDocumentType = 'invoice' | 'invoice_continuation' | 'payslip' | null;
+export type ApiDocumentType =
+  | 'invoice'
+  | 'invoice_next'
+  | 'payslip'
+  | 'contract'
+  | 'quote'
+  | 'purchase_order'
+  | 'credit_note'
+  | 'bank_statement'
+  | 'certificate'
+  | 'terms_of_service'
+  | 'terms_of_sale'
+  | null;
 
 export type ApiZoneType = 'text' | 'image' | 'table';
 

@@ -13,7 +13,18 @@ import { ContextSwitcherService } from '../../../core/layout/context-switcher/co
 
 // ── UI ↔ API mapping ──────────────────────────────────────────────────────────
 
-type UiDocType = 'facture' | 'facture-suivante' | 'bulletin-de-paie';
+type UiDocType =
+  | 'invoice'
+  | 'invoice_next'
+  | 'payslip'
+  | 'contract'
+  | 'quote'
+  | 'purchase_order'
+  | 'credit_note'
+  | 'bank_statement'
+  | 'certificate'
+  | 'terms_of_service'
+  | 'terms_of_sale';
 
 interface DocTypeOption {
   value: UiDocType;
@@ -21,26 +32,30 @@ interface DocTypeOption {
 }
 
 const DOC_TYPE_OPTIONS: DocTypeOption[] = [
-  { value: 'facture',          label: 'Facture (1ère page)' },
-  { value: 'facture-suivante', label: 'Facture (suite)' },
-  { value: 'bulletin-de-paie', label: 'Bulletin de paie' },
+  { value: 'invoice',           label: 'Facture'           },
+  { value: 'invoice_next',      label: 'Facture (suite)'   },
+  { value: 'payslip',           label: 'Bulletin de paie'  },
+  { value: 'contract',          label: 'Contrat'           },
+  { value: 'quote',             label: 'Devis'             },
+  { value: 'purchase_order',    label: 'Bon de commande'   },
+  { value: 'credit_note',       label: 'Avoir'             },
+  { value: 'bank_statement',    label: 'Relevé bancaire'   },
+  { value: 'certificate',       label: 'Attestation'       },
+  { value: 'terms_of_service',  label: 'CGU'               },
+  { value: 'terms_of_sale',     label: 'CGV'               },
 ];
 
 function toApiDocType(ui: UiDocType): ApiDocumentType {
-  switch (ui) {
-    case 'facture':          return 'invoice';
-    case 'facture-suivante': return 'invoice_continuation';
-    case 'bulletin-de-paie': return 'payslip';
-  }
+  return ui; // UiDocType values match ApiDocumentType exactly
 }
 
 function fromApiDocType(api: ApiDocumentType): UiDocType | null {
-  switch (api) {
-    case 'invoice':               return 'facture';
-    case 'invoice_continuation':  return 'facture-suivante';
-    case 'payslip':               return 'bulletin-de-paie';
-    default:                      return null;
-  }
+  if (!api) return null;
+  const known: UiDocType[] = [
+    'invoice', 'invoice_next', 'payslip', 'contract', 'quote', 'purchase_order',
+    'credit_note', 'bank_statement', 'certificate', 'terms_of_service', 'terms_of_sale',
+  ];
+  return known.includes(api as UiDocType) ? (api as UiDocType) : null;
 }
 
 function toApiZoneType(rt: RectType): ApiZoneType {
@@ -222,7 +237,7 @@ interface TrainingPage {
               optionValue="value"
               placeholder="Sélectionner…"
               size="small"
-              [ngModel]="currentPage()?.docType"
+              [ngModel]="currentPage().docType"
               (ngModelChange)="setDocType($event)"
               [style]="{ minWidth: '220px' }"
             />
@@ -298,7 +313,7 @@ interface TrainingPage {
               iconPos="right"
               size="small"
               rounded
-              [disabled]="!currentPage()?.docType || loadingPage()"
+              [disabled]="!currentPage().docType || loadingPage()"
               [loading]="saving()"
               (onClick)="nextOrSave()"
             />
