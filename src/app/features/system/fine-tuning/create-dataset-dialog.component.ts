@@ -173,7 +173,11 @@ export class CreateDatasetDialogComponent {
   readonly visible = model(false);
   readonly created = output<ApiDataset>();
 
-  name = '';
+  static defaultName(): string {
+    return `Entraînement ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+  }
+
+  name = CreateDatasetDialogComponent.defaultName();
   readonly files    = signal<File[]>([]);
   readonly loading  = signal(false);
   readonly isDragOver = signal(false);
@@ -253,7 +257,7 @@ export class CreateDatasetDialogComponent {
   }
 
   reset(): void {
-    this.name = '';
+    this.name = CreateDatasetDialogComponent.defaultName();
     this.files.set([]);
     this.loading.set(false);
     this.isDragOver.set(false);
