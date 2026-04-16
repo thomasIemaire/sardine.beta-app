@@ -198,6 +198,13 @@
 
 .dl-panel-name { @include panel-title; font-size: 1rem; flex: 1; }
 
+.dl-panel-name-input {
+  flex: 1;
+  min-width: 0;
+  font-size: .9375rem;
+  font-weight: 600;
+}
+
 .dl-panel-actions {
   display: flex;
   gap: .5rem;

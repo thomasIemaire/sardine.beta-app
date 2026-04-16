@@ -1,11 +1,13 @@
-import { Component, inject, output, signal, computed, OnInit } from '@angular/core';
+import { Component, ElementRef, inject, output, signal, computed, OnInit, viewChild } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { InputTextModule } from 'primeng/inputtext';
+import { ContextMenu } from 'primeng/contextmenu';
+import { MessageService, ConfirmationService, MenuItem } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { PaginatorState } from 'primeng/paginator';
 import { firstValueFrom } from 'rxjs';
@@ -13,6 +15,7 @@ import { DatasetService, ApiDataset, ApiPage, DatasetStatus } from '../../../cor
 import { ContextSwitcherService } from '../../../core/layout/context-switcher/context-switcher.service';
 import { DataListComponent, ListColumn } from '../../../shared/components/data-list/data-list.component';
 import { PaginatorBarComponent } from '../../../shared/components/paginator-bar/paginator-bar.component';
+import { CreateDatasetDialogComponent } from './create-dataset-dialog.component';
 import type { ActiveFilter, FilterDefinition, ActiveSort } from '../../../shared/components/toolbar/models/filter.models';
 import type { ViewMode } from '../../../shared/components/toolbar/toolbar.component';
 
@@ -25,12 +28,15 @@ type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
 
 @Component({
   selector: 'app-dataset-list',
-  imports: [DatePipe, FormsModule, ButtonModule, SelectModule, ToastModule, TooltipModule, ConfirmDialogModule, DataListComponent, PaginatorBarComponent],
+  imports: [DatePipe, FormsModule, ButtonModule, SelectModule, ToastModule, TooltipModule, InputTextModule, ConfirmDialogModule, ContextMenu, DataListComponent, PaginatorBarComponent, CreateDatasetDialogComponent],
   providers: [MessageService, ConfirmationService],
   styleUrl: './dataset-list.component.scss',
   template: `
     <p-toast position="bottom-right" [life]="3500" />
     <p-confirmDialog />
+    <p-contextmenu #dsCm />
+
+    <app-create-dataset-dialog [(visible)]="showCreateDialog" (created)="onDatasetCreated($event)" />
 
     <input #fileInput type="file" accept=".pdf" multiple hidden (change)="onFileInputChange($event)" />
 
@@ -65,7 +71,7 @@ type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
               size="small"
               rounded
               toolbar-actions
-              (onClick)="newDataset.emit()"
+              (onClick)="showCreateDialog.set(true)"
             />
           </app-data-list>
         </div>
@@ -76,20 +82,63 @@ type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
 
             <div class="dl-panel-header">
               <div class="dl-panel-title-row">
-                <span class="dl-panel-name">{{ expanded()!.name }}</span>
-                <span class="dl-status dl-status--lg" [class]="'dl-status--' + expanded()!.status">
-                  {{ statusLabel(expanded()!.status) }}
-                </span>
-                <p-button
-                  icon="fa-regular fa-xmark"
-                  severity="secondary"
-                  [text]="true"
-                  size="small"
-                  rounded
-                  pTooltip="Fermer"
-                  tooltipPosition="bottom"
-                  (onClick)="expanded.set(null)"
-                />
+                @if (isRenaming()) {
+                  <input
+                    #renameInput
+                    pInputText
+                    pSize="small"
+                    [(ngModel)]="renameName"
+                    (keyup.enter)="submitRename()"
+                    (keyup.escape)="cancelRename()"
+                    class="dl-panel-name-input"
+                  />
+                  <p-button
+                    icon="fa-regular fa-check"
+                    severity="success"
+                    [text]="true"
+                    size="small"
+                    rounded
+                    pTooltip="Valider"
+                    tooltipPosition="bottom"
+                    [loading]="renaming()"
+                    (onClick)="submitRename()"
+                  />
+                  <p-button
+                    icon="fa-regular fa-xmark"
+                    severity="secondary"
+                    [text]="true"
+                    size="small"
+                    rounded
+                    pTooltip="Annuler"
+                    tooltipPosition="bottom"
+                    (onClick)="cancelRename()"
+                  />
+                } @else {
+                  <span class="dl-panel-name">{{ expanded()!.name }}</span>
+                  <p-button
+                    icon="fa-regular fa-pencil"
+                    severity="secondary"
+                    [text]="true"
+                    size="small"
+                    rounded
+                    pTooltip="Renommer"
+                    tooltipPosition="bottom"
+                    (onClick)="startRename(expanded()!)"
+                  />
+                  <span class="dl-status dl-status--lg" [class]="'dl-status--' + expanded()!.status">
+                    {{ statusLabel(expanded()!.status) }}
+                  </span>
+                  <p-button
+                    icon="fa-regular fa-xmark"
+                    severity="secondary"
+                    [text]="true"
+                    size="small"
+                    rounded
+                    pTooltip="Fermer"
+                    tooltipPosition="bottom"
+                    (onClick)="expanded.set(null)"
+                  />
+                }
               </div>
               <div class="dl-panel-actions">
                 <p-button
@@ -223,7 +272,7 @@ type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
     <!-- ── Card template ──────────────────────────────────────────────────── -->
     <ng-template #gridTpl>
       @for (ds of paginatedDatasets(); track ds.id) {
-        <div class="ds-card" [class.selected]="expanded()?.id === ds.id" (click)="toggle(ds)">
+        <div class="ds-card" [class.selected]="expanded()?.id === ds.id" (click)="toggle(ds)" (contextmenu)="onContextMenu($event, ds)">
           <div class="ds-card-header">
             <div class="ds-card-name-group">
               <span class="ds-card-name">{{ ds.name }}</span>
@@ -256,7 +305,7 @@ type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
     <!-- ── List row template ──────────────────────────────────────────────── -->
     <ng-template #listTpl>
       @for (ds of paginatedDatasets(); track ds.id) {
-        <div class="ds-row" [class.selected]="expanded()?.id === ds.id" (click)="toggle(ds)">
+        <div class="ds-row" [class.selected]="expanded()?.id === ds.id" (click)="toggle(ds)" (contextmenu)="onContextMenu($event, ds)">
           <div class="ds-row-main">
             <div class="ds-row-name-group">
               <span class="ds-card-name">{{ ds.name }}</span>
@@ -279,8 +328,81 @@ export class DatasetListComponent implements OnInit {
   private readonly messageService      = inject(MessageService);
   private readonly confirmationService = inject(ConfirmationService);
 
-  readonly newDataset = output<void>();
   readonly openEditor = output<DatasetOpenEvent>();
+
+  // ── Context menu ────────────────────────────────────────────────────────────
+  private readonly dsCm = viewChild<ContextMenu>('dsCm');
+
+  onContextMenu(event: MouseEvent, ds: ApiDataset): void {
+    const cm = this.dsCm();
+    if (!cm) return;
+    cm.model = [
+      { label: 'Ouvrir', icon: 'fa-regular fa-arrow-up-right-from-square', command: () => this.toggle(ds) },
+      { separator: true },
+      { label: 'Renommer', icon: 'fa-regular fa-pencil', command: () => this.startRename(ds) },
+      { label: 'Supprimer', icon: 'fa-regular fa-trash', styleClass: 'p-danger', command: () => this.confirmDelete(ds) },
+    ] as MenuItem[];
+    cm.show(event);
+  }
+
+  // ── Inline rename ────────────────────────────────────────────────────────────
+  private readonly renameInputRef = viewChild<ElementRef<HTMLInputElement>>('renameInput');
+  readonly isRenaming = signal(false);
+  readonly renaming   = signal(false);
+  renameName          = '';
+  renameTarget: ApiDataset | null = null;
+
+  async startRename(ds: ApiDataset): Promise<void> {
+    if (this.expanded()?.id !== ds.id) {
+      await this.toggle(ds);
+    }
+    // Wait for the panel to render, then enter edit mode
+    setTimeout(() => {
+      this.renameTarget = ds;
+      this.renameName   = this.expanded()?.name ?? ds.name;
+      this.isRenaming.set(true);
+      // Wait for the input to render, then focus + select
+      setTimeout(() => {
+        const el = this.renameInputRef()?.nativeElement;
+        if (el) { el.focus(); el.select(); }
+      });
+    });
+  }
+
+  cancelRename(): void {
+    this.isRenaming.set(false);
+    this.renameTarget = null;
+  }
+
+  async submitRename(): Promise<void> {
+    const ds      = this.renameTarget ?? this.expanded();
+    const newName = this.renameName.trim();
+    if (!ds || !newName) return;
+    if (newName === ds.name) { this.isRenaming.set(false); return; }
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) return;
+    this.renaming.set(true);
+    try {
+      const updated = await firstValueFrom(this.datasetService.renameDataset(orgId, ds.id, newName));
+      this.datasets.update(list => list.map(d => d.id === updated.id ? updated : d));
+      if (this.expanded()?.id === updated.id) this.expanded.set(updated);
+      this.isRenaming.set(false);
+      this.renameTarget = null;
+      this.messageService.add({ severity: 'success', summary: 'Renommé', detail: `Dataset renommé en « ${updated.name} ».` });
+    } catch {
+      this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de renommer le dataset.' });
+    } finally {
+      this.renaming.set(false);
+    }
+  }
+
+  // ── Create dialog ───────────────────────────────────────────────────────────
+  readonly showCreateDialog = signal(false);
+
+  onDatasetCreated(dataset: ApiDataset): void {
+    this.datasets.update(list => [dataset, ...list]);
+    this.toggle(dataset);
+  }
 
   // ── Dataset list ────────────────────────────────────────────────────────────
   readonly loading  = signal(true);
@@ -487,27 +609,27 @@ export class DatasetListComponent implements OnInit {
     this.openEditor.emit({ datasetId: ds.id });
   }
 
-  confirmDelete(): void {
+  confirmDelete(target?: ApiDataset): void {
+    const ds = target ?? this.expanded();
+    if (!ds) return;
     this.confirmationService.confirm({
-      message: `Supprimer le dataset « ${this.expanded()!.name} » ? Cette action est irréversible.`,
+      message: `Supprimer le dataset « ${ds.name} » ? Cette action est irréversible.`,
       header: 'Confirmer la suppression',
       icon: 'fa-regular fa-triangle-exclamation',
       acceptLabel: 'Supprimer',
       rejectLabel: 'Annuler',
       acceptButtonStyleClass: 'p-button-danger',
-      accept: () => this.deleteExpanded(),
+      accept: () => this.executeDelete(ds),
     });
   }
 
-  private async deleteExpanded(): Promise<void> {
-    const ds    = this.expanded();
+  private async executeDelete(ds: ApiDataset): Promise<void> {
     const orgId = this.contextSwitcher.selectedId();
-    if (!ds || !orgId) return;
+    if (!orgId) return;
     try {
       await firstValueFrom(this.datasetService.deleteDataset(orgId, ds.id));
       this.datasets.update(list => list.filter(d => d.id !== ds.id));
-      this.expanded.set(null);
-      this.pages.set([]);
+      if (this.expanded()?.id === ds.id) { this.expanded.set(null); this.pages.set([]); }
       this.messageService.add({ severity: 'success', summary: 'Supprimé', detail: `Dataset « ${ds.name} » supprimé.` });
     } catch {
       this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer le dataset.' });
