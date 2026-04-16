@@ -562,6 +562,8 @@ export class TrainingComponent {
 
   /** Emitted when the user clicks "Retour" — signals the parent to go back to the list */
   readonly backToList = output<void>();
+  /** Emitted when all pages have been annotated and saved — signals the parent to return to list with a success message */
+  readonly completed = output<number>();
 
   // ── UI config ───────────────────────────────────────────────────────────────
 
@@ -739,7 +741,8 @@ export class TrainingComponent {
   async nextOrSave(): Promise<void> {
     await this.saveCurrent();
     if (this.isLastPage()) {
-      this.state.set('done');
+      this.completed.emit(this.pages().length);
+      this.backToList.emit();
     } else {
       const next = this.currentPageIndex() + 1;
       this.currentPageIndex.set(next);

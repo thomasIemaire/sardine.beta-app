@@ -1,5 +1,7 @@
 import { Component, inject, signal, ViewChild } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
+import { ToastModule } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
 import { PageComponent } from '../../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../../shared/components/header-page/header-page.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -8,8 +10,10 @@ import { DatasetListComponent, DatasetOpenEvent } from './dataset-list.component
 
 @Component({
   selector: 'app-fine-tuning',
-  imports: [PageComponent, HeaderPageComponent, EmptyStateComponent, TrainingComponent, DatasetListComponent],
+  imports: [PageComponent, HeaderPageComponent, EmptyStateComponent, TrainingComponent, DatasetListComponent, ToastModule],
+  providers: [MessageService],
   template: `
+    <p-toast position="bottom-right" [life]="4000" />
     <app-page>
       <app-header-page
         title="Fine-tuning"
@@ -42,6 +46,7 @@ import { DatasetListComponent, DatasetOpenEvent } from './dataset-list.component
           <app-training
             #trainingRef
             (backToList)="goBackToList()"
+            (completed)="onTrainingCompleted($event)"
           />
         }
       }
@@ -49,8 +54,9 @@ import { DatasetListComponent, DatasetOpenEvent } from './dataset-list.component
   `,
 })
 export class FineTuningPage {
-  private readonly router = inject(Router);
-  private readonly route  = inject(ActivatedRoute);
+  private readonly router         = inject(Router);
+  private readonly route          = inject(ActivatedRoute);
+  private readonly messageService = inject(MessageService);
 
   @ViewChild('trainingRef') private trainingRef?: TrainingComponent;
 
@@ -93,6 +99,14 @@ export class FineTuningPage {
     });
     this.trainingView.set('editor');
     setTimeout(() => this.trainingRef?.resumeFromDataset(event.datasetId, event.startPageId));
+  }
+
+  onTrainingCompleted(pageCount: number): void {
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Entraînement terminé',
+      detail: `${pageCount} page${pageCount > 1 ? 's ont été annotées' : ' a été annotée'} et enregistrée${pageCount > 1 ? 's' : ''}.`,
+    });
   }
 
   goBackToList(): void {

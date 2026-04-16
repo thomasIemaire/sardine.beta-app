@@ -6,10 +6,10 @@ import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
 import { ToastModule } from 'primeng/toast';
 import { TooltipModule } from 'primeng/tooltip';
+import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { ContextMenu } from 'primeng/contextmenu';
-import { MessageService, ConfirmationService, MenuItem } from 'primeng/api';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MessageService, MenuItem } from 'primeng/api';
 import { PaginatorState } from 'primeng/paginator';
 import { firstValueFrom } from 'rxjs';
 import { DatasetService, ApiDataset, ApiPage, DatasetStatus } from '../../../core/services/dataset.service';
@@ -29,13 +29,39 @@ type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
 
 @Component({
   selector: 'app-dataset-list',
-  imports: [DatePipe, FormsModule, ButtonModule, SelectModule, ToastModule, TooltipModule, InputTextModule, ConfirmDialogModule, ContextMenu, DataListComponent, PaginatorBarComponent, CreateDatasetDialogComponent],
-  providers: [MessageService, ConfirmationService],
+  imports: [DatePipe, FormsModule, ButtonModule, SelectModule, ToastModule, TooltipModule, DialogModule, InputTextModule, ContextMenu, DataListComponent, PaginatorBarComponent, CreateDatasetDialogComponent],
+  providers: [MessageService],
   styleUrl: './dataset-list.component.scss',
   template: `
     <p-toast position="bottom-right" [life]="3500" />
-    <p-confirmDialog />
     <p-contextmenu #dsCm />
+
+    <!-- ── Delete confirmation ───────────────────────────────────────────── -->
+    <p-dialog
+      [(visible)]="deleteDialogVisible"
+      [modal]="true"
+      [draggable]="false"
+      [resizable]="false"
+      [closable]="false"
+      [style]="{ width: '420px' }"
+    >
+      <ng-template pTemplate="header">
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <i class="fa-regular fa-trash" style="color:var(--p-red-400);font-size:.875rem"></i>
+          <span style="font-size:.9375rem;font-weight:600">Supprimer le dataset</span>
+        </div>
+      </ng-template>
+      <div style="display:flex;flex-direction:column;gap:.375rem;padding:.125rem 0 .5rem">
+        <span style="font-weight:600;font-size:.9375rem">{{ deleteTarget?.name }}</span>
+        <span style="font-size:.8125rem;color:var(--p-text-muted-color);line-height:1.5">
+          Cette action est irréversible. Le dataset et toutes ses pages seront définitivement supprimés.
+        </span>
+      </div>
+      <ng-template pTemplate="footer">
+        <p-button label="Annuler" severity="secondary" [text]="true" size="small" rounded (onClick)="deleteDialogVisible.set(false)" />
+        <p-button label="Supprimer" severity="danger" size="small" rounded [loading]="deleting()" (onClick)="executeDelete()" />
+      </ng-template>
+    </p-dialog>
 
     <app-create-dataset-dialog [(visible)]="showCreateDialog" (created)="onDatasetCreated($event)" />
 
@@ -326,9 +352,8 @@ type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
 export class DatasetListComponent implements OnInit {
   private readonly datasetService      = inject(DatasetService);
   private readonly contextSwitcher     = inject(ContextSwitcherService);
-  private readonly messageService      = inject(MessageService);
-  private readonly confirmationService = inject(ConfirmationService);
-  private readonly router              = inject(Router);
+  private readonly messageService = inject(MessageService);
+  private readonly router         = inject(Router);
   private readonly route               = inject(ActivatedRoute);
 
   readonly openEditor = output<DatasetOpenEvent>();
@@ -638,30 +663,34 @@ export class DatasetListComponent implements OnInit {
     this.openEditor.emit({ datasetId: ds.id });
   }
 
+  // ── Delete dialog ────────────────────────────────────────────────────────────
+  readonly deleteDialogVisible = signal(false);
+  readonly deleting            = signal(false);
+  deleteTarget: ApiDataset | null = null;
+
   confirmDelete(target?: ApiDataset): void {
     const ds = target ?? this.expanded();
     if (!ds) return;
-    this.confirmationService.confirm({
-      message: `Supprimer le dataset « ${ds.name} » ? Cette action est irréversible.`,
-      header: 'Confirmer la suppression',
-      icon: 'fa-regular fa-triangle-exclamation',
-      acceptLabel: 'Supprimer',
-      rejectLabel: 'Annuler',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => this.executeDelete(ds),
-    });
+    this.deleteTarget = ds;
+    this.deleteDialogVisible.set(true);
   }
 
-  private async executeDelete(ds: ApiDataset): Promise<void> {
+  async executeDelete(): Promise<void> {
+    const ds    = this.deleteTarget;
     const orgId = this.contextSwitcher.selectedId();
-    if (!orgId) return;
+    if (!ds || !orgId) return;
+    this.deleting.set(true);
     try {
       await firstValueFrom(this.datasetService.deleteDataset(orgId, ds.id));
       this.datasets.update(list => list.filter(d => d.id !== ds.id));
       if (this.expanded()?.id === ds.id) { this.closePanel(); this.pages.set([]); }
+      this.deleteDialogVisible.set(false);
+      this.deleteTarget = null;
       this.messageService.add({ severity: 'success', summary: 'Supprimé', detail: `Dataset « ${ds.name} » supprimé.` });
     } catch {
       this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer le dataset.' });
+    } finally {
+      this.deleting.set(false);
     }
   }
 
