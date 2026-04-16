@@ -118,7 +118,7 @@ function hStats(h: number[]): { min: number; avg: number; max: number } {
                 </div>
 
                 <!-- Chart -->
-                <app-sparkline [values]="p.getHistory()" [color]="p.color" [chartHeight]="72" [showGrid]="true" [gridLabels]="p.gridLabels()" />
+                <app-sparkline [values]="p.getHistory()" [color]="p.color" [chartHeight]="120" [showGrid]="true" [gridLabels]="p.gridLabels()" />
 
                 <!-- Expand hint -->
                 <span class="panel-hint"><i class="fa-regular fa-expand"></i></span>
@@ -229,10 +229,10 @@ function hStats(h: number[]): { min: number; avg: number; max: number } {
       background: var(--p-surface-card);
       border: 1px solid var(--surface-border);
       border-radius: 10px;
-      padding: 1.25rem 1.25rem 0.875rem;
+      padding: 1.25rem 1.25rem 0;
       display: flex;
       flex-direction: column;
-      gap: 0.625rem;
+      gap: 0.5rem;
       cursor: pointer;
       transition: border-color 0.15s, box-shadow 0.15s;
       overflow: hidden;
@@ -326,6 +326,14 @@ function hStats(h: number[]): { min: number; avg: number; max: number } {
       height: 100%;
       border-radius: 1px;
       transition: width 0.6s ease;
+    }
+
+    /* Chart flush at bottom */
+    app-sparkline {
+      display: block;
+      flex-shrink: 0;
+      margin: 0 -1.25rem 0 -0.75rem;
+      width: calc(100% + 2rem);
     }
 
     /* Expand hint */
