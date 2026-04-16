@@ -1,4 +1,5 @@
-import { Component, signal, ViewChild } from '@angular/core';
+import { Component, inject, signal, ViewChild } from '@angular/core';
+import { Router, ActivatedRoute } from '@angular/router';
 import { PageComponent } from '../../../shared/components/page/page.component';
 import { HeaderPageComponent, Facet } from '../../../shared/components/header-page/header-page.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -36,10 +37,7 @@ import { DatasetListComponent, DatasetOpenEvent } from './dataset-list.component
 
       @if (currentFacet === 'training') {
         @if (trainingView() === 'list') {
-          <app-dataset-list
-            (newDataset)="startNewDataset()"
-            (openEditor)="openEditor($event)"
-          />
+          <app-dataset-list (openEditor)="openEditor($event)" />
         } @else {
           <app-training
             #trainingRef
@@ -51,6 +49,9 @@ import { DatasetListComponent, DatasetOpenEvent } from './dataset-list.component
   `,
 })
 export class FineTuningPage {
+  private readonly router = inject(Router);
+  private readonly route  = inject(ActivatedRoute);
+
   @ViewChild('trainingRef') private trainingRef?: TrainingComponent;
 
   facets: Facet[] = [
@@ -66,24 +67,42 @@ export class FineTuningPage {
 
   onFacetChange(facet: Facet): void {
     this.currentFacet = facet.id;
-    // Always land on the list when switching to training
-    if (facet.id === 'training') this.trainingView.set('list');
-  }
+    if (facet.id !== 'training') return;
 
-  startNewDataset(): void {
-    this.trainingView.set('editor');
-    // trainingRef not yet available — Angular renders it next tick
-    // The component starts in 'import' state by default, nothing to call
+    const params    = this.route.snapshot.queryParamMap;
+    const datasetId = params.get('dataset');
+    const pageId    = params.get('page');
+
+    // Both dataset + page in URL → restore the PDF editor directly
+    if (datasetId && pageId) {
+      this.trainingView.set('editor');
+      setTimeout(() => this.trainingRef?.resumeFromDataset(datasetId, pageId));
+    } else {
+      // List mode — dataset-list will restore the panel from ?dataset=
+      this.trainingView.set('list');
+    }
   }
 
   openEditor(event: DatasetOpenEvent): void {
-    this.trainingView.set('editor');
-    setTimeout(() => {
-      this.trainingRef?.resumeFromDataset(event.datasetId, event.startPageId);
+    // Persist in URL so a reload reopens the same page
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { dataset: event.datasetId, page: event.startPageId ?? null },
+      queryParamsHandling: 'merge',
+      replaceUrl: false,
     });
+    this.trainingView.set('editor');
+    setTimeout(() => this.trainingRef?.resumeFromDataset(event.datasetId, event.startPageId));
   }
 
   goBackToList(): void {
+    // Clear editor params, keep facet=training and dataset for panel restore
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { page: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
     this.trainingView.set('list');
   }
 }

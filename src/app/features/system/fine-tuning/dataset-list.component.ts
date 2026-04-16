@@ -1,4 +1,5 @@
 import { Component, ElementRef, inject, output, signal, computed, OnInit, viewChild } from '@angular/core';
+import { Router, ActivatedRoute } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -136,7 +137,7 @@ type PageSortField = 'default' | 'filename' | 'page_number' | 'status';
                     rounded
                     pTooltip="Fermer"
                     tooltipPosition="bottom"
-                    (onClick)="expanded.set(null)"
+                    (onClick)="closePanel()"
                   />
                 }
               </div>
@@ -327,6 +328,8 @@ export class DatasetListComponent implements OnInit {
   private readonly contextSwitcher     = inject(ContextSwitcherService);
   private readonly messageService      = inject(MessageService);
   private readonly confirmationService = inject(ConfirmationService);
+  private readonly router              = inject(Router);
+  private readonly route               = inject(ActivatedRoute);
 
   readonly openEditor = output<DatasetOpenEvent>();
 
@@ -527,6 +530,12 @@ export class DatasetListComponent implements OnInit {
     try {
       const list = await firstValueFrom(this.datasetService.listDatasets(orgId));
       this.datasets.set(list);
+      // Restore panel from URL
+      const datasetId = this.route.snapshot.queryParamMap.get('dataset');
+      if (datasetId) {
+        const ds = list.find(d => d.id === datasetId);
+        if (ds) await this.toggle(ds);
+      }
     } catch {
       this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de charger les datasets.' });
     } finally {
@@ -535,10 +544,30 @@ export class DatasetListComponent implements OnInit {
   }
 
   async toggle(ds: ApiDataset): Promise<void> {
-    if (this.expanded()?.id === ds.id) { this.expanded.set(null); return; }
+    if (this.expanded()?.id === ds.id) {
+      this.closePanel();
+      return;
+    }
     this.expanded.set(ds);
+    this.isRenaming.set(false);
+    this.setDatasetParam(ds.id);
     this.currentPage.set(1);
     await this.loadPages(ds.id, 1);
+  }
+
+  closePanel(): void {
+    this.expanded.set(null);
+    this.isRenaming.set(false);
+    this.setDatasetParam(null);
+  }
+
+  private setDatasetParam(id: string | null): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { dataset: id },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   togglePageSortDir(): void {
@@ -629,7 +658,7 @@ export class DatasetListComponent implements OnInit {
     try {
       await firstValueFrom(this.datasetService.deleteDataset(orgId, ds.id));
       this.datasets.update(list => list.filter(d => d.id !== ds.id));
-      if (this.expanded()?.id === ds.id) { this.expanded.set(null); this.pages.set([]); }
+      if (this.expanded()?.id === ds.id) { this.closePanel(); this.pages.set([]); }
       this.messageService.add({ severity: 'success', summary: 'Supprimé', detail: `Dataset « ${ds.name} » supprimé.` });
     } catch {
       this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer le dataset.' });
