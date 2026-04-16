@@ -8,7 +8,7 @@ import { MessageService } from 'primeng/api';
 import { firstValueFrom } from 'rxjs';
 import { DropZoneComponent } from '../../../shared/components/drop-zone/drop-zone.component';
 import { PdfViewerComponent, AnnotationRect, RectType } from './pdf-viewer.component';
-import { DatasetService, ApiDocumentType, ApiZoneType } from '../../../core/services/dataset.service';
+import { DatasetService, ApiDocumentType, ApiZone, ApiZoneType } from '../../../core/services/dataset.service';
 import { ContextSwitcherService } from '../../../core/layout/context-switcher/context-switcher.service';
 
 // ── UI ↔ API mapping ──────────────────────────────────────────────────────────
@@ -59,6 +59,26 @@ function toApiZone(r: AnnotationRect): { type: ApiZoneType; x: number; y: number
     y:      r.y      * 100,
     width:  r.width  * 100,
     height: r.height * 100,
+  };
+}
+
+function fromApiZoneType(api: ApiZoneType): RectType {
+  switch (api) {
+    case 'text':  return 'texte';
+    case 'image': return 'image';
+    case 'table': return 'tableau';
+  }
+}
+
+/** Convert API 0–100 percentages back to internal 0–1 coords */
+function fromApiZone(z: ApiZone): AnnotationRect {
+  return {
+    id:     z.id,
+    x:      z.x      / 100,
+    y:      z.y      / 100,
+    width:  z.width  / 100,
+    height: z.height / 100,
+    type:   fromApiZoneType(z.type),
   };
 }
 
@@ -685,7 +705,7 @@ export class TrainingComponent {
     }
   }
 
-  /** Fetch the PDF binary for a page if not already loaded */
+  /** Fetch the PDF binary and zones for a page if not already loaded */
   private async loadPageBinary(index: number): Promise<void> {
     const page = this.pages()[index];
     if (!page || page.pdfData) return;
@@ -695,12 +715,17 @@ export class TrainingComponent {
 
     this.loadingPage.set(true);
     try {
-      const buffer = await firstValueFrom(
-        this.datasetService.getPageBinary(orgId, this.datasetId, page.pageId)
-      );
+      const [buffer, pageDetail] = await Promise.all([
+        firstValueFrom(this.datasetService.getPageBinary(orgId, this.datasetId, page.pageId)),
+        firstValueFrom(this.datasetService.getPage(orgId, this.datasetId, page.pageId)),
+      ]);
       this.pages.update((pages) => {
         const updated = [...pages];
-        updated[index] = { ...updated[index], pdfData: buffer };
+        updated[index] = {
+          ...updated[index],
+          pdfData: buffer,
+          rects: (pageDetail.zones ?? []).map(fromApiZone),
+        };
         return updated;
       });
     } catch {
