@@ -427,9 +427,19 @@ export class DatasetListComponent implements OnInit {
   // ── Create dialog ───────────────────────────────────────────────────────────
   readonly showCreateDialog = signal(false);
 
-  onDatasetCreated(dataset: ApiDataset): void {
-    this.datasets.update(list => [dataset, ...list]);
-    this.toggle(dataset);
+  async onDatasetCreated(dataset: ApiDataset): Promise<void> {
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId) return;
+    try {
+      // Reload the full list so counts (page_count, file_count, processed_count) are up to date
+      const list  = await firstValueFrom(this.datasetService.listDatasets(orgId));
+      this.datasets.set(list);
+      const fresh = list.find(d => d.id === dataset.id) ?? dataset;
+      await this.toggle(fresh);
+    } catch {
+      this.datasets.update(list => [dataset, ...list]);
+      await this.toggle(dataset);
+    }
   }
 
   // ── Dataset list ────────────────────────────────────────────────────────────
