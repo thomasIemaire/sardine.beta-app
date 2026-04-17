@@ -1,4 +1,5 @@
 import { Component, HostListener, inject, output, signal, computed } from '@angular/core';
+import { Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
@@ -594,6 +595,8 @@ export class TrainingComponent {
   private readonly datasetService   = inject(DatasetService);
   private readonly contextSwitcher  = inject(ContextSwitcherService);
   private readonly messageService   = inject(MessageService);
+  private readonly router           = inject(Router);
+  private readonly route            = inject(ActivatedRoute);
 
   /** Emitted when the user clicks "Retour" — signals the parent to go back to the list */
   readonly backToList = output<void>();
@@ -770,11 +773,23 @@ export class TrainingComponent {
 
   // ── Navigation ──────────────────────────────────────────────────────────────
 
+  private updatePageParam(index: number): void {
+    const pageId = this.pages()[index]?.pageId;
+    if (!pageId) return;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { page: pageId },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
   async prevPage(): Promise<void> {
     const prev = this.currentPageIndex() - 1;
     if (prev < 0) return;
     this.currentPageIndex.set(prev);
     this.viewMode.set('move');
+    this.updatePageParam(prev);
     await this.loadPageBinary(prev);
   }
 
@@ -787,6 +802,7 @@ export class TrainingComponent {
       const next = this.currentPageIndex() + 1;
       this.currentPageIndex.set(next);
       this.viewMode.set('move');
+      this.updatePageParam(next);
       await this.loadPageBinary(next);
     }
   }
