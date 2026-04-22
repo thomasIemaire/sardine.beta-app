@@ -6,6 +6,7 @@ export interface ClassifierVersion {
     model: string;
     version: string;
     classes: string[];
+    published_at?: string;
 }
 
 @Injectable({ providedIn: 'root' })

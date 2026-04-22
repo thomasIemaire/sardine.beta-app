@@ -7,10 +7,11 @@ import { HeaderPageComponent, Facet } from '../../../shared/components/header-pa
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { TrainingComponent } from './training.component';
 import { DatasetListComponent, DatasetOpenEvent } from './dataset-list.component';
+import { ClassificationVersionsComponent } from './classification-versions.component';
 
 @Component({
   selector: 'app-fine-tuning',
-  imports: [PageComponent, HeaderPageComponent, EmptyStateComponent, TrainingComponent, DatasetListComponent, ToastModule],
+  imports: [PageComponent, HeaderPageComponent, EmptyStateComponent, TrainingComponent, DatasetListComponent, ClassificationVersionsComponent, ToastModule],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="4000" />
@@ -24,11 +25,7 @@ import { DatasetListComponent, DatasetOpenEvent } from './dataset-list.component
       />
 
       @if (currentFacet === 'classification') {
-        <app-empty-state
-          icon="fa-regular fa-tags"
-          title="Aucun modèle de classification"
-          subtitle="Lancez votre premier job de fine-tuning pour la classification."
-        />
+        <app-classification-versions />
       }
 
       @if (currentFacet === 'determination') {
