@@ -59,6 +59,7 @@ export class FineTuningPage {
   private readonly messageService = inject(MessageService);
 
   @ViewChild('trainingRef') private trainingRef?: TrainingComponent;
+  @ViewChild(DatasetListComponent) private datasetListRef?: DatasetListComponent;
 
   facets: Facet[] = [
     { id: 'classification', label: 'Classification' },
@@ -72,16 +73,24 @@ export class FineTuningPage {
   readonly trainingView = signal<'list' | 'editor'>('list');
 
   onFacetChange(facet: Facet): void {
-    // Reclicking the active training facet while in editor → close everything
-    if (facet.id === 'training' && this.currentFacet === 'training' && this.trainingView() === 'editor') {
-      this.router.navigate([], {
-        relativeTo: this.route,
-        queryParams: { dataset: null, page: null },
-        queryParamsHandling: 'merge',
-        replaceUrl: true,
-      });
-      this.trainingView.set('list');
-      return;
+    // Reclicking the active training facet → close whatever is open
+    if (facet.id === 'training' && this.currentFacet === 'training') {
+      const params = this.route.snapshot.queryParamMap;
+      const hasOpen = params.has('dataset') || params.has('page');
+      if (hasOpen) {
+        if (this.trainingView() === 'editor') {
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { dataset: null, page: null },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+          });
+          this.trainingView.set('list');
+        } else {
+          this.datasetListRef?.closePanel();
+        }
+        return;
+      }
     }
 
     this.currentFacet = facet.id;
