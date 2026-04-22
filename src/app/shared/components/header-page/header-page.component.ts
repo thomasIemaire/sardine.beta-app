@@ -112,12 +112,15 @@ export class HeaderPageComponent implements OnInit {
 
   selectFacet(facet: Facet): void {
     if (facet.disabled) return;
+    const wasAlreadyActive = this.currentFacetId() === facet.id;
     this.currentFacetId.set(facet.id);
     this.facetChange.emit(facet);
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { facet: facet.id },
-      queryParamsHandling: 'merge',
-    });
+    if (!wasAlreadyActive) {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { facet: facet.id },
+        queryParamsHandling: 'merge',
+      });
+    }
   }
 }

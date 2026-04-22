@@ -72,9 +72,15 @@ export class FineTuningPage {
   readonly trainingView = signal<'list' | 'editor'>('list');
 
   onFacetChange(facet: Facet): void {
-    // Reclicking the active training facet while in editor → back to list
+    // Reclicking the active training facet while in editor → close everything
     if (facet.id === 'training' && this.currentFacet === 'training' && this.trainingView() === 'editor') {
-      this.goBackToList();
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { dataset: null, page: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+      this.trainingView.set('list');
       return;
     }
 
@@ -116,7 +122,6 @@ export class FineTuningPage {
   }
 
   goBackToList(): void {
-    // Clear editor params, keep facet=training and dataset for panel restore
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { page: null },
