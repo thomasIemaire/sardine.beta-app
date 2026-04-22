@@ -72,6 +72,12 @@ export class FineTuningPage {
   readonly trainingView = signal<'list' | 'editor'>('list');
 
   onFacetChange(facet: Facet): void {
+    // Reclicking the active training facet while in editor → back to list
+    if (facet.id === 'training' && this.currentFacet === 'training' && this.trainingView() === 'editor') {
+      this.goBackToList();
+      return;
+    }
+
     this.currentFacet = facet.id;
     if (facet.id !== 'training') return;
 

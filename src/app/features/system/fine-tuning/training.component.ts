@@ -9,55 +9,35 @@ import { MessageService } from 'primeng/api';
 import { firstValueFrom } from 'rxjs';
 import { DropZoneComponent } from '../../../shared/components/drop-zone/drop-zone.component';
 import { PdfViewerComponent, AnnotationRect, RectType } from './pdf-viewer.component';
-import { DatasetService, ApiDocumentType, ApiZone, ApiZoneType } from '../../../core/services/dataset.service';
+import { DatasetService, ApiZone, ApiZoneType } from '../../../core/services/dataset.service';
 import { ContextSwitcherService } from '../../../core/layout/context-switcher/context-switcher.service';
 
-// ── UI ↔ API mapping ──────────────────────────────────────────────────────────
+// ── Class label translation ───────────────────────────────────────────────────
 
-type UiDocType =
-  | 'invoice'
-  | 'invoice_next'
-  | 'payslip'
-  | 'contract'
-  | 'quote'
-  | 'purchase_order'
-  | 'credit_note'
-  | 'bank_statement'
-  | 'certificate'
-  | 'terms_of_service'
-  | 'terms_of_sale';
+const CLASS_LABELS: Record<string, string> = {
+  invoice:          'Facture',
+  invoice_next:     'Facture (suite)',
+  payslip:          'Bulletin de paie',
+  contract:         'Contrat',
+  quote:            'Devis',
+  purchase_order:   'Bon de commande',
+  credit_note:      'Avoir',
+  bank_statement:   'Relevé bancaire',
+  certificate:      'Attestation',
+  terms_of_service: 'CGU',
+  terms_of_sale:    'CGV',
+  identity_document: 'Pièce d\'identité',
+  tax_notice:       'Avis d\'imposition',
+  insurance:        'Assurance',
+  lease:            'Bail',
+  receipt:          'Reçu',
+};
 
-interface DocTypeOption {
-  value: UiDocType;
-  label: string;
+function classLabel(cls: string): string {
+  return CLASS_LABELS[cls] ?? cls;
 }
 
-const DOC_TYPE_OPTIONS: DocTypeOption[] = [
-  { value: 'invoice',           label: 'Facture'           },
-  { value: 'invoice_next',      label: 'Facture (suite)'   },
-  { value: 'payslip',           label: 'Bulletin de paie'  },
-  { value: 'contract',          label: 'Contrat'           },
-  { value: 'quote',             label: 'Devis'             },
-  { value: 'purchase_order',    label: 'Bon de commande'   },
-  { value: 'credit_note',       label: 'Avoir'             },
-  { value: 'bank_statement',    label: 'Relevé bancaire'   },
-  { value: 'certificate',       label: 'Attestation'       },
-  { value: 'terms_of_service',  label: 'CGU'               },
-  { value: 'terms_of_sale',     label: 'CGV'               },
-];
-
-function toApiDocType(ui: UiDocType): ApiDocumentType {
-  return ui; // UiDocType values match ApiDocumentType exactly
-}
-
-function fromApiDocType(api: ApiDocumentType): UiDocType | null {
-  if (!api) return null;
-  const known: UiDocType[] = [
-    'invoice', 'invoice_next', 'payslip', 'contract', 'quote', 'purchase_order',
-    'credit_note', 'bank_statement', 'certificate', 'terms_of_service', 'terms_of_sale',
-  ];
-  return known.includes(api as UiDocType) ? (api as UiDocType) : null;
-}
+// ── Zone conversion ───────────────────────────────────────────────────────────
 
 function toApiZoneType(rt: RectType): ApiZoneType {
   switch (rt) {
@@ -67,7 +47,6 @@ function toApiZoneType(rt: RectType): ApiZoneType {
   }
 }
 
-/** Convert internal 0–1 coords to API 0–100 percentages */
 function toApiZone(r: AnnotationRect): { type: ApiZoneType; x: number; y: number; width: number; height: number } {
   return {
     type:   toApiZoneType(r.type),
@@ -86,7 +65,6 @@ function fromApiZoneType(api: ApiZoneType): RectType {
   }
 }
 
-/** Convert API 0–100 percentages back to internal 0–1 coords */
 function fromApiZone(z: ApiZone): AnnotationRect {
   return {
     id:     z.id,
@@ -101,20 +79,24 @@ function fromApiZone(z: ApiZone): AnnotationRect {
 // ── Internal page model ───────────────────────────────────────────────────────
 
 interface TrainingPage {
-  /** Backend page id */
   pageId: string;
-  /** Original filename */
   filename: string;
-  /** 1-indexed within the original PDF */
   pageNumber: number;
-  /** Lazily loaded PDF binary for this single page */
   pdfData: ArrayBuffer | null;
-  /** UI doc type */
-  docType: UiDocType | null;
-  /** Annotation rectangles (internal 0–1 coords) */
+  docType: string | null;
   rects: AnnotationRect[];
-  /** True once saved to backend */
   saved: boolean;
+}
+
+interface DocTypeOption {
+  label: string;
+  value: string;
+  isCustom: boolean;
+}
+
+interface DocTypeGroup {
+  label: string;
+  items: DocTypeOption[];
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -233,7 +215,10 @@ interface TrainingPage {
           <div class="toolbar-group toolbar-group--right">
             <label class="doc-type-label">Type de document</label>
             <p-select
-              [options]="docTypeOptions"
+              [options]="docTypeGroups()"
+              [group]="true"
+              optionGroupLabel="label"
+              optionGroupChildren="items"
               optionLabel="label"
               optionValue="value"
               placeholder="Sélectionner…"
@@ -241,7 +226,39 @@ interface TrainingPage {
               [ngModel]="currentPage().docType"
               (ngModelChange)="setDocType($event)"
               [style]="{ minWidth: '220px' }"
-            />
+            >
+              <ng-template let-group pTemplate="group">
+                <span class="cls-group">{{ group.label }}</span>
+              </ng-template>
+              <ng-template let-item pTemplate="item">
+                <div class="cls-item">
+                  <span>{{ item.label }}</span>
+                  @if (item.isCustom) {
+                    <button
+                      class="cls-delete"
+                      (click)="onDeleteCustomClass($event, item.value)"
+                      (mousedown)="$event.stopPropagation()"
+                    ><i class="fa-regular fa-trash"></i></button>
+                  }
+                </div>
+              </ng-template>
+              <ng-template pTemplate="footer">
+                <div class="cls-footer">
+                  <div class="cls-add-form">
+                    <input
+                      class="cls-add-input"
+                      type="text"
+                      placeholder="Nouvelle classe…"
+                      [(ngModel)]="newClassName"
+                      (keydown.enter)="confirmAddClass()"
+                    />
+                    <button class="cls-add-confirm" (click)="confirmAddClass()">
+                      <i class="fa-regular fa-plus"></i>
+                    </button>
+                  </div>
+                </div>
+              </ng-template>
+            </p-select>
           </div>
         </div>
 
@@ -516,6 +533,80 @@ interface TrainingPage {
       i { font-size: .75rem; }
     }
 
+    /* Class select items */
+    .cls-group {
+      font-size: .6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--p-text-muted-color);
+    }
+
+    .cls-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      gap: .5rem;
+    }
+
+    .cls-delete {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border: none;
+      background: transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--p-text-muted-color);
+      flex-shrink: 0;
+      font-size: .6875rem;
+      &:hover { background: color-mix(in srgb, #ef4444 15%, transparent); color: #ef4444; }
+    }
+
+    /* Dropdown footer — add custom class */
+    .cls-footer {
+      padding: .375rem .5rem;
+      border-top: 1px solid var(--surface-border);
+    }
+
+    .cls-add-form {
+      display: flex;
+      align-items: center;
+      gap: .25rem;
+    }
+
+    .cls-add-input {
+      flex: 1;
+      height: 28px;
+      padding: 0 .5rem;
+      border: 1px solid var(--surface-border);
+      border-radius: 5px;
+      background: var(--p-surface-card);
+      color: var(--p-text-color);
+      font-size: .8125rem;
+      outline: none;
+      &:focus { border-color: var(--p-primary-500); }
+    }
+
+    .cls-add-confirm {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--surface-border);
+      border-radius: 5px;
+      background: transparent;
+      cursor: pointer;
+      font-size: .75rem;
+      flex-shrink: 0;
+      color: var(--p-text-muted-color);
+      &:hover { background: var(--p-surface-hover); color: var(--p-text-color); }
+    }
+
     .editor-main {
       flex: 1;
       overflow: hidden;
@@ -598,14 +689,10 @@ export class TrainingComponent {
   private readonly router           = inject(Router);
   private readonly route            = inject(ActivatedRoute);
 
-  /** Emitted when the user clicks "Retour" — signals the parent to go back to the list */
   readonly backToList = output<void>();
-  /** Emitted when all pages have been annotated and saved — signals the parent to return to list with a success message */
-  readonly completed = output<number>();
+  readonly completed  = output<number>();
 
   // ── UI config ───────────────────────────────────────────────────────────────
-
-  readonly docTypeOptions = DOC_TYPE_OPTIONS;
 
   readonly rectTypes: { value: RectType; label: string; icon: string; color: string }[] = [
     { value: 'texte',   label: 'Texte',   icon: 'fa-regular fa-font',   color: '#3b82f6' },
@@ -625,7 +712,6 @@ export class TrainingComponent {
 
   readonly pages            = signal<TrainingPage[]>([]);
   readonly currentPageIndex = signal(0);
-  /** Dataset id created on the backend for this session */
   private datasetId: string | null = null;
 
   readonly currentPage  = computed(() => this.pages()[this.currentPageIndex()]);
@@ -637,6 +723,37 @@ export class TrainingComponent {
       isCurrent: i === this.currentPageIndex(),
     }))
   );
+
+  // ── Class state ─────────────────────────────────────────────────────────────
+
+  readonly modelClasses  = signal<string[]>([]);
+  readonly customClasses = signal<string[]>([]);
+
+  readonly docTypeGroups = computed<DocTypeGroup[]>(() => {
+    const groups: DocTypeGroup[] = [];
+
+    const modelItems = this.modelClasses().map((cls) => ({
+      label: classLabel(cls),
+      value: cls,
+      isCustom: false,
+    }));
+    if (modelItems.length > 0) {
+      groups.push({ label: 'Classes du modèle', items: modelItems });
+    }
+
+    const customItems = this.customClasses().map((cls) => ({
+      label: cls,
+      value: cls,
+      isCustom: true,
+    }));
+    if (customItems.length > 0) {
+      groups.push({ label: 'Classes personnalisées', items: customItems });
+    }
+
+    return groups;
+  });
+
+  newClassName = '';
 
   // ── Import ──────────────────────────────────────────────────────────────────
 
@@ -653,14 +770,12 @@ export class TrainingComponent {
     this.importing.set(true);
 
     try {
-      // 1. Create the dataset
       this.importStatus.set('Création du dataset…');
       const dataset = await firstValueFrom(
         this.datasetService.createDataset(orgId, `Entraînement ${new Date().toLocaleDateString('fr-FR')}`)
       );
       this.datasetId = dataset.id;
 
-      // 2. Import each PDF file
       const allPages: TrainingPage[] = [];
 
       for (let i = 0; i < pdfFiles.length; i++) {
@@ -671,7 +786,6 @@ export class TrainingComponent {
           this.datasetService.importFile(orgId, dataset.id, file)
         );
 
-        // 3. Fetch all pages for this file (paginated, max 100 per call)
         const PAGE_LIMIT = 100;
         let pageNum = 1;
         let fetched = 0;
@@ -699,21 +813,23 @@ export class TrainingComponent {
           }
           fetched += resp.data.length;
           pageNum++;
-          if (resp.data.length === 0) break; // safety
+          if (resp.data.length === 0) break;
         }
       }
 
-      // Sort by filename then page_number to keep the original order
-      allPages.sort((a, b) =>
-        a.filename.localeCompare(b.filename) || a.pageNumber - b.pageNumber
-      );
+      // Fetch dataset classes (model_classes from HuggingFace + any custom_classes)
+      this.importStatus.set('Chargement des classes…');
+      const fullDataset = await firstValueFrom(this.datasetService.getDataset(orgId, dataset.id));
+      this.modelClasses.set(fullDataset.model_classes ?? []);
+      this.customClasses.set(fullDataset.custom_classes ?? []);
+
+      allPages.sort((a, b) => a.filename.localeCompare(b.filename) || a.pageNumber - b.pageNumber);
 
       this.pages.set(allPages);
       this.currentPageIndex.set(0);
       this.importing.set(false);
       this.state.set('annotating');
 
-      // Load first page binary
       await this.loadPageBinary(0);
 
     } catch (err: unknown) {
@@ -723,7 +839,6 @@ export class TrainingComponent {
     }
   }
 
-  /** Fetch the PDF binary and zones for a page if not already loaded */
   private async loadPageBinary(index: number): Promise<void> {
     const page = this.pages()[index];
     if (!page || page.pdfData) return;
@@ -755,7 +870,7 @@ export class TrainingComponent {
 
   // ── Annotation ──────────────────────────────────────────────────────────────
 
-  setDocType(value: UiDocType): void {
+  setDocType(value: string): void {
     this.pages.update((pages) => {
       const updated = [...pages];
       updated[this.currentPageIndex()] = { ...updated[this.currentPageIndex()], docType: value };
@@ -769,6 +884,47 @@ export class TrainingComponent {
       updated[this.currentPageIndex()] = { ...updated[this.currentPageIndex()], rects };
       return updated;
     });
+  }
+
+  // ── Custom class management ──────────────────────────────────────────────────
+
+  async confirmAddClass(): Promise<void> {
+    const name = this.newClassName.trim();
+    if (!name) return;
+
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId || !this.datasetId) return;
+
+    try {
+      const res = await firstValueFrom(
+        this.datasetService.addCustomClass(orgId, this.datasetId, name)
+      );
+      this.customClasses.set(res.custom_classes);
+      this.newClassName = '';
+    } catch {
+      this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible d\'ajouter la classe.' });
+    }
+  }
+
+  async onDeleteCustomClass(event: Event, className: string): Promise<void> {
+    event.stopPropagation();
+
+    const orgId = this.contextSwitcher.selectedId();
+    if (!orgId || !this.datasetId) return;
+
+    try {
+      const res = await firstValueFrom(
+        this.datasetService.deleteCustomClass(orgId, this.datasetId, className)
+      );
+      this.customClasses.set(res.custom_classes);
+
+      // Reset doc type on pages that used this class
+      this.pages.update((pages) =>
+        pages.map((p) => p.docType === className ? { ...p, docType: null, saved: false } : p)
+      );
+    } catch {
+      this.messageService.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer la classe.' });
+    }
   }
 
   // ── Navigation ──────────────────────────────────────────────────────────────
@@ -819,21 +975,14 @@ export class TrainingComponent {
 
     this.saving.set(true);
     try {
-      // Save zones (full replacement)
       await firstValueFrom(
-        this.datasetService.saveZones(
-          orgId,
-          this.datasetId,
-          page.pageId,
-          page.rects.map(toApiZone),
-        )
+        this.datasetService.saveZones(orgId, this.datasetId, page.pageId, page.rects.map(toApiZone))
       );
 
-      // Mark the page as processed with its document type
       await firstValueFrom(
         this.datasetService.updatePage(orgId, this.datasetId, page.pageId, {
           processed:     true,
-          document_type: toApiDocType(page.docType),
+          document_type: page.docType,
         })
       );
 
@@ -845,7 +994,7 @@ export class TrainingComponent {
     } catch (err: unknown) {
       const detail = (err as { error?: { detail?: string } })?.error?.detail ?? 'Impossible de sauvegarder la page.';
       this.messageService.add({ severity: 'error', summary: 'Erreur', detail });
-      throw err; // re-throw so nextOrSave() stops
+      throw err;
     } finally {
       this.saving.set(false);
     }
@@ -879,8 +1028,8 @@ export class TrainingComponent {
             filename:   p.original_filename,
             pageNumber: p.page_number,
             pdfData:    null,
-            docType:    fromApiDocType(p.document_type),
-            rects:      [], // zones loaded lazily when the page opens
+            docType:    p.document_type ?? null,
+            rects:      [],
             saved:      p.processed,
           });
         }
@@ -889,9 +1038,12 @@ export class TrainingComponent {
         if (resp.data.length === 0) break;
       }
 
+      const fullDataset = await firstValueFrom(this.datasetService.getDataset(orgId, datasetId));
+      this.modelClasses.set(fullDataset.model_classes ?? []);
+      this.customClasses.set(fullDataset.custom_classes ?? []);
+
       allPages.sort((a, b) => a.filename.localeCompare(b.filename) || a.pageNumber - b.pageNumber);
 
-      // Jump to the requested page, or the first unprocessed one
       const startIndex = startPageId
         ? Math.max(0, allPages.findIndex((p) => p.pageId === startPageId))
         : Math.max(0, allPages.findIndex((p) => !p.saved));
@@ -917,6 +1069,9 @@ export class TrainingComponent {
     this.currentPageIndex.set(0);
     this.viewMode.set('move');
     this.datasetId = null;
+    this.modelClasses.set([]);
+    this.customClasses.set([]);
+    this.newClassName = '';
     this.backToList.emit();
   }
 
