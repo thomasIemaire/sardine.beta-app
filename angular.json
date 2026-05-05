@@ -57,10 +57,13 @@
               }
             ],
             "stylePreprocessorOptions": {
-              "includePaths": ["src"]
+              "includePaths": [
+                "src"
+              ]
             },
             "styles": [
-              "src/styles.scss"
+              "src/styles.scss",
+              "node_modules/apexcharts/dist/apexcharts.css"
             ]
           },
           "configurations": {
