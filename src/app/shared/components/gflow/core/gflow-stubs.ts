@@ -116,7 +116,7 @@ export class FlowsService {
 
     /** Liste minimale des flows accessibles (utilisée pour résoudre un parent_execution). */
     list(orgId: string, _params?: Record<string, unknown>): Observable<{ id: string; name: string; version: string; reference: string | null }[]> {
-        return this.flowService.getFlows(orgId, { page: 1, pageSize: 200 }).pipe(
+        return this.flowService.getFlows(orgId, { page: 1, pageSize: 100 }).pipe(
             map((page) => page.items.map((f) => ({
                 id: f.id,
                 name: f.name,

@@ -280,8 +280,8 @@ export class ExecPanelComponent {
         const childExecId = log.metadata?.['child_execution_id'] as string;
         const childFlowId = log.metadata?.['child_flow_id'] as string;
         if (childExecId && childFlowId) {
-            this.router.navigate(['/automation/flows'], {
-                queryParams: { flowId: childFlowId, executionId: childExecId }
+            this.router.navigate(['/flows', childFlowId], {
+                queryParams: { orgId: this.orgId(), executionId: childExecId }
             });
         }
     }
@@ -293,8 +293,8 @@ export class ExecPanelComponent {
 
         // Si le backend fournit parent_flow_id, navigation directe
         if (exec.parent_flow_id) {
-            this.router.navigate(['/automation/flows'], {
-                queryParams: { flowId: exec.parent_flow_id, executionId: parentExecId }
+            this.router.navigate(['/flows', exec.parent_flow_id], {
+                queryParams: { orgId: this.orgId(), executionId: parentExecId }
             });
             return;
         }
@@ -309,8 +309,8 @@ export class ExecPanelComponent {
             )).pipe(take(1))),
             takeUntilDestroyed(this.destroyRef)
         ).subscribe(flowId => {
-            this.router.navigate(['/automation/flows'], {
-                queryParams: { flowId, executionId: parentExecId }
+            this.router.navigate(['/flows', flowId], {
+                queryParams: { orgId: this.orgId(), executionId: parentExecId }
             });
         });
     }
