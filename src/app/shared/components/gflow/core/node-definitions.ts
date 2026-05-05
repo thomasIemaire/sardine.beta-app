@@ -471,7 +471,7 @@ const NODE_DEFINITIONS_LIST: NodeDefinition[] = [
             entries: [],
             exits: [],
             configured: false,
-            config: { documentClasses: [] } as ClassificationConfig,
+            config: { modelVersion: '',documentClasses: [] } as ClassificationConfig,
             configComponent: ConfigClassificationComponent,
         }),
     },

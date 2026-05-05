@@ -1,4 +1,5 @@
-import { Component, inject, OnInit, AfterViewInit, viewChild, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, AfterViewInit, viewChild, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
@@ -156,6 +157,7 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
     private readonly flowService = inject(FlowService);
     private readonly contextSwitcher = inject(ContextSwitcherService);
     private readonly messageService = inject(MessageService);
+    private readonly destroyRef = inject(DestroyRef);
 
     private readonly gflowRef = viewChild<GflowComponent>('gflow');
 
@@ -173,12 +175,25 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
     }
 
     ngAfterViewInit(): void {
+        // S'abonner à paramMap pour réagir aussi aux navigations vers un autre flow
+        // alors qu'on est déjà sur cette page (ex: bouton sous-flow dans le panneau d'exécution).
+        this.route.paramMap.pipe(
+            takeUntilDestroyed(this.destroyRef)
+        ).subscribe(params => {
+            this.flowId = params.get('id');
+            this.orgId = this.route.snapshot.queryParamMap.get('orgId') ?? this.contextSwitcher.selectedId();
+            this.loadFlow();
+        });
+    }
+
+    private loadFlow(): void {
         const { flowId, orgId } = this;
         if (!flowId || !orgId) {
             this.loading.set(false);
             return;
         }
 
+        this.loading.set(true);
         this.flowService.getFlow(orgId, flowId).subscribe({
             next: (flow) => {
                 this.isReadonly.set(!flow.isOwned);
@@ -191,6 +206,12 @@ export class FlowEditorPage implements OnInit, AfterViewInit {
                     links: flow.flowData?.links,
                     viewport: flow.flowData?.viewport,
                 });
+
+                const executionId = this.route.snapshot.queryParamMap.get('executionId');
+                if (executionId) {
+                    this.gflowRef()?.openExecPanelWithExecution(executionId);
+                }
+
                 this.loading.set(false);
             },
             error: () => {

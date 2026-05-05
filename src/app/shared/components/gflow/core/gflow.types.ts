@@ -116,6 +116,7 @@ export interface AgentConfig {
 }
 
 export interface ClassificationConfig {
+    modelVersion: string;
     documentClasses: string[];
 }
 
