@@ -21,6 +21,7 @@ import { ServersService } from './servers.service';
     SparklineChartComponent,
     DialogModule,
   ],
+  providers: [ServersService],
   template: `
     <app-page>
 
