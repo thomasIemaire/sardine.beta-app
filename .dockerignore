@@ -1,0 +1,16 @@
+node_modules
+.git
+.github/
+.angular
+.vscode
+.idea
+src
+e2e
+*.config.js
+*.config.ts
+package*.json
+tsconfig*.json
+angular.json
+README.md
+*.md
+coverage
