@@ -7,19 +7,7 @@ import { environment } from '../../../environments/environment';
 
 export type DatasetStatus = 'draft' | 'in_progress' | 'ready';
 
-export type ApiDocumentType =
-  | 'invoice'
-  | 'invoice_next'
-  | 'payslip'
-  | 'contract'
-  | 'quote'
-  | 'purchase_order'
-  | 'credit_note'
-  | 'bank_statement'
-  | 'certificate'
-  | 'terms_of_service'
-  | 'terms_of_sale'
-  | null;
+export type ApiDocumentType = string | null;
 
 export type ApiZoneType = 'text' | 'image' | 'table';
 
@@ -58,6 +46,8 @@ export interface ApiDataset {
   file_count?: number;
   files?: ApiFile[];
   pages?: ApiPage[];
+  model_classes?: string[];
+  custom_classes?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -107,6 +97,21 @@ export class DatasetService {
 
   deleteDataset(orgId: string, datasetId: string): Observable<void> {
     return this.http.delete<void>(this.url(orgId, datasetId));
+  }
+
+  // ── Custom classes ──────────────────────────────────────────────────────────
+
+  addCustomClass(orgId: string, datasetId: string, name: string): Observable<{ custom_classes: string[] }> {
+    return this.http.post<{ custom_classes: string[] }>(
+      this.url(orgId, datasetId, 'custom-classes'),
+      { name },
+    );
+  }
+
+  deleteCustomClass(orgId: string, datasetId: string, className: string): Observable<{ custom_classes: string[] }> {
+    return this.http.delete<{ custom_classes: string[] }>(
+      this.url(orgId, datasetId, 'custom-classes', encodeURIComponent(className)),
+    );
   }
 
   // ── Import ──────────────────────────────────────────────────────────────────

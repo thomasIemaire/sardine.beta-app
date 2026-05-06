@@ -56,7 +56,7 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class ServersService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiUrl}/servers`;

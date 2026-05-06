@@ -88,6 +88,27 @@
               ],
               "outputHashing": "all"
             },
+            "recette": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.recette.ts"
+                }
+              ],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all"
+            },
             "development": {
               "optimization": false,
               "extractLicenses": false,
@@ -101,6 +122,9 @@
           "configurations": {
             "production": {
               "buildTarget": "sardine-beta:build:production"
+            },
+            "recette": {
+              "buildTarget": "sardine-beta:build:recette"
             },
             "development": {
               "buildTarget": "sardine-beta:build:development"

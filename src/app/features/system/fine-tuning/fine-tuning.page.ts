@@ -7,10 +7,11 @@ import { HeaderPageComponent, Facet } from '../../../shared/components/header-pa
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { TrainingComponent } from './training.component';
 import { DatasetListComponent, DatasetOpenEvent } from './dataset-list.component';
+import { ClassificationVersionsComponent } from './classification-versions.component';
 
 @Component({
   selector: 'app-fine-tuning',
-  imports: [PageComponent, HeaderPageComponent, EmptyStateComponent, TrainingComponent, DatasetListComponent, ToastModule],
+  imports: [PageComponent, HeaderPageComponent, EmptyStateComponent, TrainingComponent, DatasetListComponent, ClassificationVersionsComponent, ToastModule],
   providers: [MessageService],
   template: `
     <p-toast position="bottom-right" [life]="4000" />
@@ -24,11 +25,7 @@ import { DatasetListComponent, DatasetOpenEvent } from './dataset-list.component
       />
 
       @if (currentFacet === 'classification') {
-        <app-empty-state
-          icon="fa-regular fa-tags"
-          title="Aucun modèle de classification"
-          subtitle="Lancez votre premier job de fine-tuning pour la classification."
-        />
+        <app-classification-versions />
       }
 
       @if (currentFacet === 'determination') {
@@ -59,6 +56,7 @@ export class FineTuningPage {
   private readonly messageService = inject(MessageService);
 
   @ViewChild('trainingRef') private trainingRef?: TrainingComponent;
+  @ViewChild(DatasetListComponent) private datasetListRef?: DatasetListComponent;
 
   facets: Facet[] = [
     { id: 'classification', label: 'Classification' },
@@ -72,6 +70,26 @@ export class FineTuningPage {
   readonly trainingView = signal<'list' | 'editor'>('list');
 
   onFacetChange(facet: Facet): void {
+    // Reclicking the active training facet → close whatever is open
+    if (facet.id === 'training' && this.currentFacet === 'training') {
+      const params = this.route.snapshot.queryParamMap;
+      const hasOpen = params.has('dataset') || params.has('page');
+      if (hasOpen) {
+        if (this.trainingView() === 'editor') {
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { dataset: null, page: null },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+          });
+          this.trainingView.set('list');
+        } else {
+          this.datasetListRef?.closePanel();
+        }
+        return;
+      }
+    }
+
     this.currentFacet = facet.id;
     if (facet.id !== 'training') return;
 
@@ -110,7 +128,6 @@ export class FineTuningPage {
   }
 
   goBackToList(): void {
-    // Clear editor params, keep facet=training and dataset for panel restore
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { page: null },

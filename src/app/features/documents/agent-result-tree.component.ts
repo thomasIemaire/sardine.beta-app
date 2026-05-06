@@ -5,36 +5,50 @@ import { TooltipModule } from 'primeng/tooltip';
 import { AgentService } from '../../core/services/agent.service';
 import { ContextSwitcherService } from '../../core/layout/context-switcher/context-switcher.service';
 
-export type AgentResultValue = string | number | boolean | null | AgentResultObject;
+export type AgentResultValue = string | number | boolean | null | AgentResultObject | AgentResultArray;
 export interface AgentResultObject { [key: string]: AgentResultValue; }
+export type AgentResultArray = AgentResultValue[];
 
 export interface AgentResultEntry {
   key: string;
-  /** Chemin complet pointé (ex. "seller.name") pour le feedback. */
+  /** Chemin complet pointé (ex. "seller.name", "fields.line[0].reference") pour le feedback. */
   fieldKey: string;
   value: AgentResultValue;
   isObject: boolean;
+  isArray: boolean;
   children: AgentResultEntry[];
 }
 
+function buildEntry(key: string, value: AgentResultValue, fieldKey: string): AgentResultEntry {
+  const isArray = Array.isArray(value);
+  const isObject = !isArray && value !== null && typeof value === 'object';
+  let children: AgentResultEntry[] = [];
+  if (isObject) {
+    children = toEntries(value as AgentResultObject, fieldKey);
+  } else if (isArray) {
+    children = (value as AgentResultArray).map((item, idx) =>
+      buildEntry(`#${idx + 1}`, item, `${fieldKey}[${idx}]`)
+    );
+  }
+  return { key, fieldKey, value, isObject, isArray, children };
+}
+
 export function toEntries(obj: AgentResultObject, prefix = ''): AgentResultEntry[] {
-  return Object.entries(obj).map(([key, value]) => {
-    const fieldKey = prefix ? `${prefix}.${key}` : key;
-    const isObject = value !== null && typeof value === 'object' && !Array.isArray(value);
-    return {
-      key,
-      fieldKey,
-      value,
-      isObject,
-      children: isObject ? toEntries(value as AgentResultObject, fieldKey) : [],
-    };
-  });
+  return Object.entries(obj).map(([key, value]) =>
+    buildEntry(key, value, prefix ? `${prefix}.${key}` : key)
+  );
+}
+
+function entryToValue(entry: AgentResultEntry): AgentResultValue {
+  if (entry.isObject) return entriesToObject(entry.children);
+  if (entry.isArray) return entry.children.map(entryToValue);
+  return entry.value;
 }
 
 export function entriesToObject(entries: AgentResultEntry[]): AgentResultObject {
   const obj: AgentResultObject = {};
   for (const entry of entries) {
-    obj[entry.key] = entry.isObject ? entriesToObject(entry.children) : entry.value;
+    obj[entry.key] = entryToValue(entry);
   }
   return obj;
 }
@@ -45,13 +59,16 @@ export function entriesToObject(entries: AgentResultEntry[]): AgentResultObject 
   imports: [FormsModule, InputTextModule, TooltipModule],
   template: `
     @for (entry of entries(); track entry.fieldKey) {
-      @if (entry.isObject) {
+      @if (entry.isObject || entry.isArray) {
         <div class="art-group">
-          <div class="art-group-label" (click)="toggle(entry.key)">
-            <i class="fa-regular fa-chevron-right art-chevron" [class.art-chevron--open]="isOpen(entry.key)"></i>
+          <div class="art-group-label" (click)="toggle(entry.fieldKey)">
+            <i class="fa-regular fa-chevron-right art-chevron" [class.art-chevron--open]="isOpen(entry.fieldKey)"></i>
             <span class="art-group-key">{{ entry.key }}</span>
+            @if (entry.isArray) {
+              <span class="art-group-count">{{ entry.children.length }}</span>
+            }
           </div>
-          @if (isOpen(entry.key)) {
+          @if (isOpen(entry.fieldKey)) {
             <div class="art-children">
               <app-agent-result-tree
                 [entries]="entry.children"
@@ -179,6 +196,16 @@ export function entriesToObject(entries: AgentResultEntry[]): AgentResultObject 
       color: var(--p-text-muted-color);
       text-transform: uppercase;
       letter-spacing: 0.03em;
+    }
+
+    .art-group-count {
+      font-size: 0.625rem;
+      font-weight: 600;
+      color: var(--p-text-muted-color);
+      background: var(--p-content-hover-background);
+      padding: 0.0625rem 0.375rem;
+      border-radius: 999px;
+      line-height: 1;
     }
 
     .art-chevron {
